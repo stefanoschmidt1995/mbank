@@ -1,0 +1,253 @@
+#!/usr/bin/env python
+"""
+A script to run mbank for generating a bank
+Usage
+-----
+To run the bank:
+	run_mbank --options-you-like
+Make sure that the mbank is installed with
+	python setup.py sdist
+	pip install dist/mbank-0.0.1.tar.gz
+To know which options are available:
+	run_mbank --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+try:
+	sys.path.insert(0, '../mbank')
+	from mbank import *
+except:
+	from mbank import *
+
+import argparse
+import os
+
+def int_tuple_type(strings):
+	strings = strings.replace("(", "").replace(")", "")
+	mapped_int = map(int, strings.split(","))
+	return tuple(mapped_int)
+
+##### Creating parser
+s = spin_handler()
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--spin-format", choices= s.valid_formats, required = True,
+	help="Choose which spin variables to include in the bank")
+parser.add_argument(
+	"--MM", required = True, type = float,
+	help="Minimum match for the bank (a.k.a. average distance between templates)")
+parser.add_argument(
+	"--psd",  required = True,
+	help="The input file for the PSD")
+parser.add_argument(
+	"--asd",  default = False, action='store_true',
+	help="Whether the input file has an ASD (sqrt of the PSD)")
+parser.add_argument(
+	"--plot", action='store_true',
+	help="Whether to make some plots. They will be store in out-dir")
+parser.add_argument(
+	"--out-dir", default = './out',
+	help="Output directory in which the bank will be saved. If default is used, the bank name will be appended.")
+parser.add_argument(
+	"--name", default = 'mbank',
+	help="Name for the bank output file")
+parser.add_argument(
+	"--grid-size", default = None, type=int_tuple_type,
+	help="Number of grid points for each extra dimension (i.e. spins and iota). The number of grid must match the number extra dimensions. Argument ignored if no extra dimensions are required.")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the scalar product")
+parser.add_argument(
+	"--f-high",  default = 1024., type=float,
+	help="Maximum frequency for the scalar product")
+parser.add_argument(
+	"--seed-bank",  default = None, type = str,
+	help="Input file for the seed bank. This will create a binning in the masses space. If None, a uniform seed will be used")
+parser.add_argument(
+	"--seed-bank-rows",  default = None, type = int,
+	help="How many rows to read in the seed bank file. If None, all the available rows will be read")
+parser.add_argument(
+	"--approximant", default = 'IMRPhenomPv2',
+	help="LAL approximant for the bank generation")
+parser.add_argument(
+	"--p-disc", action='store_true', default = False,
+	help="Whether to use Poisson disc sampling for sampling a cube ##DEPRECATED##")
+parser.add_argument(
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric'],
+	help="Which placing method to use for each tile")
+parser.add_argument(
+	"--template-in-tile", default = 200, type = int,
+	help="How many templates should lie in each tile?")
+parser.add_argument(
+	"--use-ray", action='store_true', default = False,
+	help="Whether to use ray package to parallelize the metric computation")
+
+	#ranges for physical parameters
+parser.add_argument(
+	"--m-range", default = [10., 100], type=float, nargs = 2,
+	help="Range values for the masses (in solar masses)")
+parser.add_argument(
+	"--mtot-range", default = [10., 100], type=float, nargs = 2,
+	help="Range values for the total masses (in solar masses).")
+parser.add_argument(
+	"--q-range", default = [1., 10.], type=float, nargs = 2,
+	help="Range values for the mass ratio.")
+parser.add_argument(
+	"--mc-range", default = [10., 100], type=float, nargs = 2,
+	help="Range values for the total masses (in solar masses).")
+parser.add_argument(
+	"--eta-range", default = [.18, .25], type=float, nargs = 2,
+	help="Range values for the mass ratio.")
+parser.add_argument(
+	"--s1-range", default = [-0.8,0.8], type=float, nargs = 2,
+	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--s2-range", default = [-0.8,0.8], type=float, nargs = 2,
+	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--theta1-range", default = [0., 3.14], type=float, nargs = 2,
+	help="Range values for theta angles of spin 1 (if applicable)")
+parser.add_argument(
+	"--phi1-range", default = [0., 2*3.14], type=float, nargs = 2,
+	help="Range values for phi angles of spin 1 (if applicable)")
+parser.add_argument(
+	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
+	help="Range values for iota (if applicable)")
+parser.add_argument(
+	"--phi-range", default = [0., 2*np.pi], type=float, nargs = 2,
+	help="Range values for phi (if applicable)")
+
+	# FF options
+parser.add_argument(
+	"--compute-FF", default = False, action='store_true',
+	help="Whether to compute the fitting factor")
+parser.add_argument(
+	"--n-injs", default = 400, type=int,
+	help="Number of injections for the FF computation")	
+parser.add_argument(
+	"--n-neigh", default = 50, type=int,
+	help="Number of neighbours to consider for the match computation")	
+
+args, _ = parser.parse_known_args()
+
+##################################################
+	######
+	#	Interpreting the parser and initializing variables
+	######
+
+if args.out_dir == './out':	args.out_dir = './out_'+args.name
+if not args.out_dir.endswith('/'): args.out_dir = args.out_dir+'/'
+if not os.path.exists(args.out_dir):
+    os.makedirs(args.out_dir)
+
+f_min = 10.
+f_high = 1024.
+m_min, m_max = args.m_range
+mtot_min, mtot_max = args.mtot_range
+q_min, q_max = args.q_range
+mc_min, mc_max = args.mc_range
+eta_min, eta_max = args.eta_range
+s1_min, s1_max = args.s1_range
+s2_min, s2_max = args.s2_range
+theta_min, theta_max = args.theta1_range
+phi_min, phi_max = args.phi1_range
+iota_min, iota_max = args.iota_range
+phi_min, phi_max = args.phi_range
+
+plot_folder = None
+if args.plot: plot_folder = args.out_dir
+#plot_folder = 'show'
+
+format_info = s.format_info[args.spin_format]
+
+	######
+	#	Setting boundaries
+	######
+	#setting mass boundaries
+if format_info['m_format'] == 'm1m2':
+	var1_min, var1_max = m_min, m_max
+	var2_min, var2_max = m_min, m_max
+elif format_info['m_format'] == 'Mq':
+	var1_min, var1_max = mtot_min, mtot_max
+	var2_min, var2_max = q_min, q_max
+elif format_info['m_format'] == 'mceta':
+	var1_min, var1_max = mc_min, mc_max
+	var2_min, var2_max = eta_min, eta_max
+
+	#setting spin boundaries
+if format_info['s_format'] == 'nonspinning':
+	boundaries = np.array([[var1_min, var2_min],[var1_max, var2_max]])
+elif format_info['s_format'] == 's1z_s2z':
+	boundaries = np.array([[var1_min, var2_min, s1_min, s2_min],[var1_max, var2_max, s1_max, s2_max]])
+elif format_info['s_format'] == 'chiP_chieff':
+	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min],[var1_max, var2_max, s1_max, theta_max]])
+elif format_info['s_format'] == 'chiP_s1z_s2z':
+	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, s2_min],[var1_max, var2_max, s1_max, theta_max, s2_max]])
+elif format_info['s_format'] == 'chiP2d_s1z_s2z':
+	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max]])
+else:
+	raise RuntimeError("Boundaries current not implemented for this format")
+
+if format_info['iota']:
+	boundaries = np.concatenate([boundaries, [[iota_min], [iota_max]]], axis =1)
+if format_info['phi']:
+	boundaries = np.concatenate([boundaries, [[phi_min], [phi_max]]], axis =1)
+
+	######
+	#	Loading PSD and initializing metric
+	######
+f, PSD = np.loadtxt(args.psd)[:,:2].T
+if args.asd: PSD = np.square(PSD)
+
+m = WF_metric((f, PSD), approx = args.approximant, f_min = args.f_min, f_high = args.f_high, spin_format = args.spin_format)
+
+print("## Running: ",args.name)
+
+	#dealing with seed bank (only if masses are m1m2)
+if format_info['m_format'] == 'm1m2':
+	if args.seed_bank is None:
+		seed_bank = np.random.uniform(boundaries[0,:2],boundaries[1,:2], (args.seed_bank_rows,2))
+		ids_ = np.where(seed_bank[:,0]<seed_bank[:,1])[0]
+		seed_bank[ids_,0], seed_bank[ids_,1] = seed_bank[ids_,1], seed_bank[ids_,0]
+	else:
+		seed_bank = np.loadtxt(args.seed_bank, max_rows = args.seed_bank_rows)[:,:2]
+
+	######
+	#	Running and saving the output
+	######
+bank = GW_bank(spin_format = args.spin_format)
+
+if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
+
+		#old version with fixed hypercubes
+		#TODO: understand if you want to keep it!
+	#metric_values = bank.generate_bank_hypercubes(m, avg_match = args.MM, boundaries = boundaries,
+	#	grid_list = args.grid_size, p_disc = args.p_disc, plot_debug = plot_folder, use_ray = args.use_ray)
+	
+	t_obj = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
+		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray)
+	
+	t_obj.save(args.out_dir+'tiling_{}.npy'.format(args.name)) #storing the tiling in the out_folder
+	
+if format_info['m_format'] == 'Mq' == 'm1m2':
+	bank.generate_bank(m, avg_match = args.MM, seed_bank = seed_bank,  boundaries = boundaries,
+		grid_list = args.grid_size, p_disc = args.p_disc, plot_debug = plot_folder)
+
+print("Generated bank with {} templates".format(len(bank.templates)))
+bank.save_bank(args.out_dir+'bank_{}.dat'.format(args.name))
+bank.save_bank(args.out_dir+'bank_{}.xml.gz'.format(args.name)); title = ''
+
+
+
+
+
+
+
+
+
+
+
+
+
+

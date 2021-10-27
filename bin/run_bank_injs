@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+"""
+A script to create an injection list from a bank
+Usage
+-----
+To run the bank:
+	python get_bank_injs.py --options-you-like
+Make sure that the mbank is installed. In future versions, a cleaner way of doing this will be implemented
+To know which options are available:
+	python get_bank_injs.py --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+try:
+	sys.path.insert(0, '../mbank')
+	from mbank import *
+except:
+	from mbank import *
+
+import argparse
+import os
+
+##### Creating parser
+s = spin_handler()
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--bank", required = True, type=str,
+	help="The path to the bank file")
+parser.add_argument(
+	"--inj-file", required = True, type=str,
+	help="Injection file (in xml format) in wich the bank is stored ")
+parser.add_argument(
+	"--spin-format", choices= s.valid_formats, required = True,
+	help="Choose which spin variables the bank is generated with")
+parser.add_argument(
+	"--GPS-start",  required = True, type=int,
+	help="Start GPS time for the injections")
+parser.add_argument(
+	"--GPS-end",  required = True, type=int,
+	help="End GPS time for the injections")
+parser.add_argument(
+	"--time-step",  required = True, type=float,
+	help="Distance in time between consecutive injections")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the injection")
+parser.add_argument(
+	"--distance",  default = 100., type=float,
+	help="Luminosity distance for all the injections (in Mpc)")
+parser.add_argument(
+	"--approximant", default = 'IMRPhenomPv2',
+	help="LAL approximant for the injection generation")
+
+
+args, _ = parser.parse_known_args()
+
+####################
+#Interpreting the parser and calling the function
+
+bank = GW_bank(args.bank, spin_format = args.spin_format)
+
+	#shuffling the bank
+np.random.shuffle(bank.templates)
+
+	#injections
+bank.save_injs(args.inj_file, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
+		luminosity_distance = args.distance, f_min = args.f_min)
+quit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

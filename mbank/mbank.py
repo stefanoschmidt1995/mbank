@@ -1,0 +1,3255 @@
+"""
+mbank
+=====
+	An attempt to build a template bank using a metric on the parameter space to define a PDF. This will be used to extract the templates
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches
+import pandas as pd
+import seaborn
+import itertools
+import warnings
+
+	#ligo.lw imports for xml files: pip install python-ligo-lw
+from ligo.lw import utils
+from ligo.lw import ligolw
+from ligo.lw import table
+from ligo.lw import lsctables
+from ligo.lw.utils import process as ligolw_process
+
+import poisson_disc #https://pypi.org/project/poisson-disc/
+
+import lal 
+import lalsimulation as lalsim
+
+from tqdm import tqdm
+
+import ray
+
+	#for older versions of the code...
+#from sklearn.cluster import KMeans
+#import emcee
+
+import scipy.stats
+import scipy.sparse
+import scipy.spatial
+import scipy.interpolate 
+
+import sys
+sys.path.insert(0,'/home/stefano/Dropbox/Stefano/PhD/mlgw_repository/mlgw_v2') #ugly temp thing
+try:
+	import GW_generator as gen
+except:
+	import mlgw.GW_generator as gen
+
+from scipy.linalg import toeplitz
+from scipy.signal import decimate
+
+#TODO: create a package for placing N_points in a box with lloyd algorithm (extra)
+
+#############DEBUG LINE PROFILING
+try:
+	from line_profiler import LineProfiler
+
+	def do_profile(follow=[]):
+		def inner(func):
+			def profiled_func(*args, **kwargs):
+				try:
+					profiler = LineProfiler()
+					profiler.add_function(func)
+					for f in follow:
+						profiler.add_function(f)
+					profiler.enable_by_count()
+					return func(*args, **kwargs)
+				finally:
+					profiler.print_stats()
+			return profiled_func
+		return inner
+except:
+	pass
+
+#pip install line_profiler
+#add decorator @do_profile(follow=[]) before any function you need to track
+
+####################################################################################################################
+#TODO: TEST GRADS & WF GENERATION
+
+#FIXME: the trained model for IMR does not agree with the one of TEOB
+#FIXME: there are some problems with the metric when the PSD is included...
+#TODO: insert the correct formula for the time-frequency relation
+
+#FIXME: you are not able to perform the FFT of the WFs... Learn how to do it and do it well!
+
+#TODO: Understand how to tune the hyperparameters: len(seed_bank) and N_samples from hull
+####################################################################################################################
+#ray stuff
+
+@ray.remote
+def get_templates_ray(bank_obj, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = False):
+	return bank_obj.get_templates(metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose)
+	#return test_get_templates()
+
+####################################################################################################################
+
+def plot_tiles_templates(t_obj, templates, spin_format, save_folder, show = False):
+	s_handler = spin_handler()
+	if not save_folder.endswith('/'): save_folder.out_dir = save_folder.out_dir+'/'
+	if templates.shape[0] >50000:
+		ids_ = np.random.choice(templates.shape[0], 50000, replace = False)
+	else:
+		ids_ = range(templates.shape[0])
+	seaborn.pairplot(pd.DataFrame(data=templates[ids_,:], columns = s_handler.labels(spin_format, True)),  markers = 'o', plot_kws={"s": 3}, corner=True)
+	plt.savefig(save_folder+'bank.png')
+	
+	centers = np.array([ (t[0].maxes + t[0].mins)/2. for t in t_obj])
+	
+	if centers.shape[0] > 5000: s = 10
+	else: s = 50
+	
+	seaborn.pairplot(pd.DataFrame(data=centers, columns = s_handler.labels(spin_format, True)), diag_kind = None,  markers = 'o', plot_kws={"s": s, 'c': ['red' for i in range(len(centers))]}, corner=True)
+	plt.savefig(save_folder+'tiling.png')
+	
+	if templates.shape[1] ==2:
+			#plotting rectangles
+		plt.figure()
+		currentAxis = plt.gca()
+		for t in t_obj:
+			d = t[0].maxes- t[0].mins
+			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins, d[0], d[1], fill = None, alpha =1))
+		plt.scatter(*centers.T, c = 'r')
+		plt.scatter(*templates.T, s = 3, c ='b')
+		plt.xlabel(s_handler.labels(spin_format, True)[0])
+		plt.ylabel(s_handler.labels(spin_format, True)[1])
+		plt.savefig(save_folder+'rectangles.png')
+	if show: plt.show()
+	
+	return
+	
+
+def plot_tiles(tiles_list, boundaries):
+	import matplotlib.patches as patches
+	fig1 = plt.figure()
+	ax1 = fig1.add_subplot(111)
+	plt.ylim((boundaries[0][1], boundaries[1][1]))
+	plt.xlim((boundaries[0][0], boundaries[1][0]))
+	
+	for t in tiles_list:
+		min_, max_ = t[0].mins, t[0].maxes
+		center = (min_+max_)/2.
+		ax1.scatter(*center[:2], c = 'r')
+	return
+
+def get_cube_corners(boundaries):
+	"Given the extrema of a cube, it computes the corner of the cube"
+	mesh = np.meshgrid(*boundaries.T)
+	mesh = [g.flatten() for g in mesh]
+	mesh = np.column_stack(mesh)
+	return mesh
+
+def plawspace(start, stop, exp, N_points):
+	"Generates a grid which is 'power law distributed'. Helpful for a nice grid spacing in the mass sector."
+	f_start = np.power(start, exp)
+	f_stop = np.power(stop, exp)
+	points = np.linspace(f_start, f_stop, N_points)
+	points = np.power(points, 1/exp)
+	
+	return points
+
+def create_mesh(dist, tile):
+	"Creates a mesh of points on an hypercube, given a metric."
+	#dist: float
+	#metric: (D,D)
+	#boundaries (2,D)
+	
+	metric = -tile[1]
+	boundaries = np.stack([tile[0].mins, tile[0].maxes], axis = 0)
+	
+	L = np.linalg.cholesky(metric).T
+	L_inv = np.linalg.inv(L)
+	
+	corners = get_cube_corners(boundaries)#[0,:], boundaries[1,:])
+	corners_prime = np.matmul(corners, L.T)
+	c = np.mean(corners, axis =0)
+	
+		#computing the extrema of the boundaries
+	boundaries_prime = np.array([np.amin(corners_prime,axis =0), np.amax(corners_prime,axis =0)])
+	
+		#creating a prime mesh
+	mesh_prime = []
+	for d in range(boundaries_prime.shape[1]):
+		length = np.abs(boundaries_prime[1,d]- boundaries_prime[0,d])
+		N_points = int(length/dist)+1
+		mesh_prime.append(np.linspace(boundaries_prime[0,d], boundaries_prime[1,d], N_points+1, endpoint = False)[1:]) #removing start and stop
+
+		#creating the mesh in the primed space and inverting
+	mesh_prime = np.meshgrid(*mesh_prime)
+	mesh_prime = [g.flatten() for g in mesh_prime]
+	mesh_prime = np.column_stack(mesh_prime) #(N,D)
+	
+	mesh = np.matmul(mesh_prime, L_inv.T)
+	
+		#fitting the new mesh in the boundaries
+	ids_ok = np.logical_and(np.all(mesh > boundaries[0,:], axis =1), np.all(mesh < boundaries[1,:], axis = 1)) #(N,)
+	mesh = mesh[ids_ok,:]
+	
+	return mesh
+
+def create_mesh_N_points(N_points, boundaries, lloyd = True):
+	"Creates a mesh of ~N_points points on an hypercube. (eventually there should be a lloyd's algorithm to do so)"
+
+	raise NotImplementedError("Find out a way to place exactly N_points on a grid!!")
+
+	D = 5#boundaries.shape[1]
+	N_d = int(np.power(N_points, 1/D)) #number of points in each dimension
+	
+	N_list = [N_d+1, N_d+1]
+	for i in range(0,D-2): N_list.append(N_d)
+	
+	print(N_list, np.prod(N_list), N_points)
+
+	
+	return np.ones((N_points, boundaries.shape[1]))
+
+def points_in_hull(points, hull, tolerance=1e-12):
+	"Check if points (N,D) are in the hull"
+	if points.ndim == 1:
+		points = point[None,:]
+	
+	value_list = [np.einsum('ij,j->i', points, eq[:-1])+eq[-1] for eq in hull.equations]
+	value_list = np.array(value_list).T #(N, N_eqs)
+	
+	return np.prod(value_list<= tolerance, axis = 1).astype(bool) #(N,)
+
+def all_line_hull_intersection(v, c, hull):
+	"Compute all the intersection between N_lines and a single hull"
+	if c.ndim == 1:
+		c = np.repeat(c[None,:], v.shape[0], axis =0)
+
+	eq=hull.equations.T
+	n,b=eq[:-1],eq[-1] #(N_faces, D), (N_faces,)
+	
+	den = np.matmul(v,n)+1e-18 #(N_lines, N_faces)
+	num = np.matmul(c,n) #(N_lines, N_faces)
+	
+	alpha= -(b +num )/den #(N_lines, N_faces)
+
+		#v (N_lines, D)
+	res = c[:,None,:] + np.einsum('ij,ik->ijk', alpha,v) #(N_lines, N_faces, D)
+
+	return res.reshape((res.shape[0]*res.shape[1], res.shape[2]))
+
+def sample_from_hull(hull, N_points):
+	"Sample N_points from a convex hull"
+	dims = hull.points.shape[-1]
+	del_obj = scipy.spatial.Delaunay(hull.points) #Delaunay triangulation obj
+	deln = hull.points[del_obj.simplices] #(N_triangles, 3, dims)
+	vols = np.abs(np.linalg.det(deln[:, :dims, :] - deln[:, dims:, :])) / np.math.factorial(dims)	
+	sample = np.random.choice(len(vols), size = N_points, p = vols / vols.sum()) #Decide where to sample (Gibbs sampling)
+	samples = np.einsum('ijk, ij -> ik', deln[sample], scipy.stats.dirichlet.rvs([1]*(dims + 1), size = N_points))
+
+	if False:
+		plt.figure()
+		plt.triplot(hull.points[:,0], hull.points[:,1], del_obj.simplices) #plot delaneuy triangulation
+		plt.scatter(*samples.T, s = 2)
+		plt.show()
+	
+	return samples
+
+#@do_profile(follow=[])
+def sample_from_hull_boundaries(hull, N_points, boundaries = None, max_iter = 1000):
+	"SamplesN_points from a convex hull. If boundaries are given, it will enforce them"
+	dims = hull.points.shape[1]
+	del_obj = scipy.spatial.Delaunay(hull.points)
+	deln = hull.points[del_obj.simplices]
+	vols = np.abs(np.linalg.det(deln[:, :dims, :] - deln[:, dims:, :])) / np.math.factorial(dims)
+	
+	samples_list = []
+	N_samples = 0
+	
+		#100 is the max number of iterations, after them we break
+	for i in range(max_iter):
+		sample = np.random.choice(len(vols), size = N_points, p = vols / vols.sum())
+		print(sample, sample.shape,  deln[sample].shape)
+		samples = np.einsum('ijk, ij -> ik', deln[sample], scipy.stats.dirichlet.rvs([1]*(dims + 1), size = N_points))
+	
+		if boundaries is not None:
+			ids_ok = np.logical_and(np.all(samples > boundaries[0,:], axis =1), np.all(samples < boundaries[1,:], axis = 1)) #(N,)
+			samples = samples[ids_ok,:]	#enforcing boundaries on masses and spins
+			samples = samples[np.where(samples[:,0]>=samples[:,1])[0],:] #enforcing mass cut
+
+		if samples.shape[0]> 0:
+			samples_list.append(samples)
+			N_samples += samples.shape[0]
+
+		if N_samples >= N_points: break
+	
+	if len(samples_list)>0:
+		samples = np.concatenate(samples_list, axis =0)
+	else:
+		samples = None
+
+	return samples
+
+def plot_hull(hull, points = None):
+	"Plot the hull and a bunch of additional points"
+	plt.figure()
+	for simplex in hull.simplices:
+		plt.plot(hull.points[simplex, 0], hull.points[simplex, 1], 'g-')
+	plt.scatter(*hull.points[:,:2].T, alpha = 0.1, c = 'y', marker = 'o')
+	if points is not None:
+		plt.scatter(*points[:,:2].T, alpha = 0.3, c = 'r', marker = 's')
+	plt.plot([10,100],[10,100])
+	plt.show()
+	return
+
+def get_pad_points_2d(N_grid, boundaries):
+	"Get N points padding the boundary box"
+	m1, M1 = boundaries[:,0]
+	m2, M2 = boundaries[:,1]
+	m, M = min(m1,m2), max(M1, M2)
+
+		#creating points in 2D
+	new_points = [*np.column_stack([M1*1.5*np.ones((N_grid,)), np.linspace(m2, M2,N_grid)])]
+	new_points = new_points + [*np.column_stack([ np.linspace(m1, M1, N_grid), m2*0.2*np.ones((N_grid,))])]
+	new_points = new_points + [*np.column_stack([ np.linspace(m, M, N_grid), np.linspace(m,M, N_grid)*1.5])]
+	new_points = new_points + [np.array([.1,.1])]
+		#new_points keeps a 2D grid over the mass boundaries
+	new_points_2D = np.array(new_points)
+
+	return new_points_2D
+
+def get_pad_points(N_grid, boundaries):
+	"Get N points padding the boundary box"
+	#FIXME: this function is shit
+	m1, M1 = boundaries[:,0]
+	m2, M2 = boundaries[:,1]
+	m, M = min(m1,m2), max(M1, M2)
+
+		#creating points in 2D
+	new_points = [*np.column_stack([M1*1.52*np.ones((N_grid,)), np.linspace(m2, M2,N_grid)])]
+	new_points = new_points + [*np.column_stack([ np.linspace(m1, M1, N_grid), m2*0.18*np.ones((N_grid,))])]
+	new_points = new_points + [*np.column_stack([ np.linspace(m, M, N_grid), np.linspace(m,M, N_grid)*1.52])]
+	new_points = new_points + [np.array([1,1])]
+		#new_points keeps a 2D grid over the mass boundaries
+	new_points_2D = np.array(new_points)
+	
+		#This is to add the rest: it's super super super super super ugly
+	if boundaries.shape[1] > 2:
+		new_points_list = []
+
+			#creating grids
+		s1_grid = 							 np.linspace(boundaries[0,2]*0.8, boundaries[1,2]*1.2, N_grid)
+		if boundaries.shape[1] >3: s2_grid = np.linspace(boundaries[0,3]*0.8, boundaries[1,3]*1.2, N_grid)
+		else: s2_grid = [0]
+		if boundaries.shape[1] >4: s3_grid = np.linspace(boundaries[0,4]*0.8, boundaries[1,4]*1.2, N_grid)
+		else: s3_grid = [0]
+		if boundaries.shape[1] >5: s4_grid = np.linspace(boundaries[0,5]*0.8, boundaries[1,5]*1.2, N_grid)
+		else: s4_grid = [0]
+		if boundaries.shape[1] >6: s5_grid = np.linspace(boundaries[0,6]*0.8, boundaries[1,6]*1.2, N_grid)
+		else: s5_grid = [0]
+	
+			#the super ugly way: there is a better way
+		for s1 in s1_grid:
+			for s2 in s2_grid:
+				for s3 in s3_grid:
+					for s4 in s4_grid:
+						for s5 in s5_grid:
+							temp = np.concatenate([new_points_2D, np.repeat([[s1,s2,s3,s4,s5]], new_points_2D.shape[0], axis =0) ], axis = 1)
+							new_points_list.append(temp)
+		new_points = np.concatenate(new_points_list, axis = 0) #(N,D)
+		new_points = new_points[:,:boundaries.shape[1]]
+	else:
+		new_points = new_points_2D
+				
+
+	return new_points
+
+def get_boundary_box(grid_list):
+	lower_grids = [g[:-1] for g in grid_list]
+	upper_grids = [g[1:] for g in grid_list]
+	
+	lower_grids = np.meshgrid(*lower_grids)
+	lower_grids = [g.flatten() for g in lower_grids]
+	lower_grids = np.column_stack(lower_grids)
+	
+	upper_grids = np.meshgrid(*upper_grids)
+	upper_grids = [g.flatten() for g in upper_grids]
+	upper_grids = np.column_stack(upper_grids)
+	
+	return lower_grids, upper_grids
+
+####################################################################################################################
+
+class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
+	"""
+	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
+	This is a copy of SnglInspiralTable with implmented defaults.
+	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
+	"""
+	def __init__(self, *args, **kwargs):
+		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
+		for entry in self.validcolumns.keys():
+			if not(hasattr(self, entry)):
+				if self.validcolumns[entry] in ['real_4', 'real_8']:
+					setattr(self, entry, 0.)
+				elif self.validcolumns[entry] == 'int_4s':
+					setattr(self, entry, 0)
+				elif self.validcolumns[entry] == 'lstring':
+					setattr(self, entry, '')
+				elif self.validcolumns[entry] == 'ilwd:char':
+					setattr(self, entry, '')
+			else:
+				print("Column %s not recognized" % entry, file=sys.stderr)
+				raise ValueError
+
+class DefaultSimInspiralTable(lsctables.SimInspiralTable):
+	"""
+	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
+	This is a copy of SnglInspiralTable with implmented defaults.
+	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
+	"""
+	def __init__(self, *args, **kwargs):
+		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
+		for entry in self.validcolumns.keys():
+			if not(hasattr(self, entry)):
+				if self.validcolumns[entry] in ['real_4', 'real_8']:
+					setattr(self, entry, 0.)
+				elif self.validcolumns[entry] == 'int_4s':
+					setattr(self, entry, 0)
+				elif self.validcolumns[entry] == 'lstring':
+					setattr(self, entry, '')
+				elif self.validcolumns[entry] == 'ilwd:char':
+					setattr(self, entry, '')
+			else:
+				print("Column %s not recognized" % entry, file=sys.stderr)
+				raise ValueError
+
+####################################################################################################################
+
+#TODO: change name to spin handler
+class spin_handler(object):
+	"""
+	Class to handle a large number of variable layouts. Everything is specified by a string spin_format, available at each call.
+	Valid formats for spins are:
+		- 'nonspinning': no spins are considered (only two masses), D = 2
+		- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+		- 'chiP_chieff': spin components assigned to one BH, s1x = chiP, s1z = chieff, everythihng in polar coordinates, D = 4
+		- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, spin1 in polar coordinates, D = 5
+		- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, spin1 in polar coordinates,  D = 6
+	On top of those, one can specify the mass formats:
+		- 'Mq': Total mass and q
+		- 'mceta': chirp mass and eta
+		- 'm1m2': mass1 and mass2
+	If 'iota' or 'iotaphi' is postponed to the format string, also the iota and phase are sampled.
+	
+	The format shall be provided as 'massformat_spinformat_angles' or as 'massformat_spinformat'.
+	For example, valid formats are: 'Mq_chiP_s1z_s2z_iotaphi' or 'm1m2_s1z_s2z'
+	"""
+
+	def __init__(self):
+		"Initialization. Creates a dict of dict with all the info for each format" 
+		self.s_formats = ['nonspinning', 's1z_s2z', 'chiP_chieff', 'chiP_s1z_s2z', 'chiP2d_s1z_s2z'] #spin layouts
+		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
+		temp_format_D = {'nonspinning':2, 's1z_s2z':4, 'chiP_chieff':4, 'chiP_s1z_s2z':5, 'chiP2d_s1z_s2z':6} #dimension of each spin format
+		self.format_info = {}
+		
+		self.valid_formats = []
+		self.format_D = {}
+			
+			#adding m1m2 and Mq to the formats
+			#adding iota to precessing modes
+		N = len(self.s_formats)
+		for i in range(N):
+			s_format = self.s_formats[i]
+			
+			for m_f in self.m_formats:
+				s_format_m = m_f +'_'+ s_format
+				s_format_iota = s_format_m +'_'+ 'iota'
+				s_format_iotaphi = s_format_m + '_'+'iotaphi'
+				
+				self.valid_formats.append(s_format_m)
+				self.format_D[s_format_m] = temp_format_D[s_format]
+				self.format_info[s_format_m] = {'D': temp_format_D[s_format], 'm_format': m_f, 's_format': s_format, 'iota':False, 'phi':False}
+
+				self.valid_formats.append(s_format_iota)
+				self.format_D[s_format_iota] = temp_format_D[s_format]+1
+				self.format_info[s_format_iota] = {'D': temp_format_D[s_format]+1, 'm_format': m_f, 's_format': s_format, 'iota':True, 'phi':False}				
+				
+				self.valid_formats.append(s_format_iotaphi)
+				self.format_D[s_format_iotaphi] = temp_format_D[s_format]+2
+				self.format_info[s_format_iotaphi] = {'D': temp_format_D[s_format]+2, 'm_format': m_f, 's_format': s_format, 'iota':True, 'phi':True}
+
+		return
+
+	def switch_BBH(self, theta, spin_format):
+		"""
+		Given theta, it returns the theta components of the system with switched BBH masses (so that m1>m2)
+		Any collective spin (chiP/chi_eff) is attributed to the heavier BH
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on spin_format
+		
+		spin_format: 'string'
+			How to handle the spin variables.
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		if self.format_info[spin_format]['m_format'] == 'm1m2':
+			ids = np.where(theta[:,0]<theta[:,1])[0]
+			theta[ids,0], theta[ids,1] = theta[ids,1], theta[ids,0] #switching masses
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			ids = np.where(theta[:,1]<1)[0]
+			theta[ids,1] = 1./theta[ids,1] #switching masses
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+			return theta #this mass configuration is symmetric, no further action is required
+		
+		if len(ids)<1: return theta
+		
+		if self.format_info[spin_format]['s_format'] =='nonspinning':
+			pass
+		elif self.format_info[spin_format]['s_format'] == 's1z_s2z':
+			theta[ids,2], theta[ids,3] = theta[ids,3], theta[ids,2] #switching spins
+		elif self.format_info[spin_format]['s_format'] == 'chiP_chieff':
+			pass #chiP is always intended to be on the largest BH (pay attention to this)
+		elif self.format_info[spin_format]['s_format'] == 'chiP_s1z_s2z':
+			theta[ids,3], theta[ids,4] = theta[ids,4], theta[ids,3] #switching spins
+		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
+			theta[ids,4], theta[ids,5] = theta[ids,5], theta[ids,4] #switching spins
+
+		return theta
+	
+	def labels(self, spin_format, latex = False):
+		"""
+		List the names of the variables for each entry of the BBH parameter vector
+		
+		Parameters
+		----------
+		
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+		
+		labels: 'list'
+			List of labels for the parmams in the BBH (each a str)
+		
+		latex: bool
+			Whether the labels should be in latex
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		if self.format_info[spin_format]['m_format'] == 'm1m2':
+			if latex: labels = [r'$m_1$', r'$m_2$']
+			else: labels = ['mass1', 'mass2']
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			if latex: labels = [r'$M$', r'$q$']
+			else: labels = ['M', 'q']
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+			if latex: labels = [r'$\mathcal{M}_c$', r'$\eta$']
+			else: labels = ['Mc', 'eta']
+		
+		if self.format_info[spin_format]['s_format'] =='nonspinning':
+			pass
+		elif self.format_info[spin_format]['s_format'] == 's1z_s2z':
+			if latex: labels.extend([r'$s_{1z}$', r'$s_{2z}$'])
+			else: labels.extend(['s1z', 's2z'])
+		elif self.format_info[spin_format]['s_format'] == 'chiP_chieff':
+			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$'])
+			else: labels.extend(['s1', 'theta1'])
+		elif self.format_info[spin_format]['s_format'] == 'chiP_s1z_s2z':
+			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$s_{2z}$'])
+			else: labels.extend(['s1', 'theta1', 's2z'])
+		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
+			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$\phi_1$', r'$s_{2z}$'])
+			else: labels.extend(['s1','theta1', 'phi1', 's2z'])
+		
+		if self.format_info[spin_format]['iota'] and latex: labels.append(r'$\iota$')
+		if self.format_info[spin_format]['iota'] and not latex: labels.append('iota')
+
+		if self.format_info[spin_format]['phi'] and latex: labels.append(r'$\phi$')
+		if self.format_info[spin_format]['phi'] and not latex: labels.append('phi')
+		
+		return labels
+	
+	def D(self, spin_format):
+		"""
+		Returns the dimensionality of the parameter space required
+		
+		Parameters
+		----------
+		
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+		
+		D: 'int'
+			Dimensionality of the BBH parameter vector			
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		return self.format_info[spin_format]['D']
+
+	def format_info(self, spin_format):
+		"""
+		Returns the a dict with some information about the format.
+		The dict has the following entries:
+			- m_format : format for the masses
+			- s_format : format for the spins
+			- D : dimensionality of the BBH space
+			- iota : whether the variables include iota
+			- phi : whether the variables include phi
+		
+		Parameters
+		----------
+		
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+		
+		format_info: 'int'
+			Dictionary with the info for the format
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		return self.format_info[spin_format]
+
+	def get_theta(self, BBH_components, spin_format):
+		"""
+		Given the BBH components, it returns the components suitable for the bank.
+		This function inverts get_BBH_components
+		
+		Parameters
+		----------
+		
+		BBH_components: 'np.ndarray' (N,9)
+			Parameters of the BBHs.
+			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi
+
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+			theta: 'np.ndarray' (N,D)
+				Components of the BBH in the format suitable for the bank.
+				The dimensionality depends on spin_format
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		BBH_components = np.array(BBH_components)
+		if BBH_components.ndim == 1:
+			BBH_components = BBH_components[None,:]
+		
+		#TODO: fix the metric to accept phi
+		assert BBH_components.shape[1] == 10, "The number of BBH parameter is not enough. Expected 9 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota], given {}".format(BBH_components.shape[1])
+		
+		if self.format_info[spin_format]['m_format'] == 'm1m2':
+			theta = [BBH_components[:,0], BBH_components[:,1]]
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			q = np.maximum(BBH_components[:,1] / BBH_components[:,0], BBH_components[:,0] / BBH_components[:,1])
+			theta = [BBH_components[:,0] + BBH_components[:,1], q]
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+			eta = np.divide(BBH_components[:,1] * BBH_components[:,0], np.square(BBH_components[:,0] + BBH_components[:,1]) )
+			theta = [(BBH_components[:,0] + BBH_components[:,1])*np.power(eta, 3./5.), eta]
+
+			#starting a case swich
+		if self.format_info[spin_format]['s_format'] =='nonspinning':
+			pass
+		elif self.format_info[spin_format]['s_format'] == 's1z_s2z':
+			theta.append(BBH_components[:,4])
+			theta.append(BBH_components[:,7])
+		elif self.format_info[spin_format]['s_format'] == 'chiP_chieff':
+			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1) #(N,)
+			theta1 = np.arccos(BBH_components[:,4]/s1)
+			theta.append(s1)
+			theta.append(theta1)
+		elif self.format_info[spin_format]['s_format'] == 'chiP_s1z_s2z':
+			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1)+1e-10 #(N,)
+			theta1 = np.arccos(BBH_components[:,4]/s1)
+			theta.append(s1)
+			theta.append(theta1)
+			theta.append(BBH_components[:,7])
+		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
+			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1)+1e-10 #(N,)
+			theta1 = np.arccos(BBH_components[:,4]/s1)
+			phi1 = atan2(BBH_components[:,3], BBH_components[:,2])
+			theta.append(s1)
+			theta.append(theta1)
+			theta.append(phi1)
+			theta.append(BBH_components[:,7])
+		else:
+			raise RuntimeError("Wrong setting for self.spin_format")
+		
+			#dealing with iota
+		if self.format_info[spin_format]['iota']:
+			theta.append(BBH_components[:,8])
+		if self.format_info[spin_format]['phi']:
+			theta.append(BBH_components[:,9])
+		
+		theta = np.column_stack(theta)
+		
+		return theta
+
+
+	def get_BBH_components(self, theta, spin_format):
+		"""
+		Given theta, it returns the components suitable for lal
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on spin_format
+
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi: 'np.ndarray'
+				Components of the BBH in the std parametrization.
+				Each has shape (N,)
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		theta = np.array(theta)
+		if theta.ndim == 1:
+			theta = theta[None, :]
+		
+		assert theta.shape[1]>=self.D(spin_format), "The number of BBH parameter is not enough for the given spin format. Expected {}, given {}".format(self.D(spin_format), theta.shape[1])
+		
+			#setting the masses
+		if self.format_info[spin_format]['m_format'] == 'm1m2':
+			m1, m2 = theta[:,0], theta[:,1]
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			m1, m2 = theta[:,0]*theta[:,1]/(1+theta[:,1]), theta[:,0]/(1+theta[:,1])
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+				#see https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py#L215
+			M = theta[:,0] / np.power(theta[:,1], 3./5.)
+			if not np.all(theta[:,1]<0.25): print("WTF?? eta> 0.25!! ",theta[:,1])
+			temp_ = np.power(1.0 - 4.0 * theta[:,1], 0.5)
+			m1 = 0.5 * M * (1.0 + temp_)
+			m2 = 0.5 * M * (1.0 - temp_)
+		
+			#allocating variables for spins
+		s1x, s1y, s1z = np.zeros(m1.shape), np.zeros(m1.shape), np.zeros(m1.shape)
+		s2x, s2y, s2z = np.zeros(m1.shape), np.zeros(m1.shape), np.zeros(m1.shape)
+
+			#dealing with spins
+		if self.format_info[spin_format]['s_format'] =='nonspinning':
+			pass
+		elif self.format_info[spin_format]['s_format'] == 's1z_s2z':
+			s1z, s2z = theta[:,2], theta[:,3]
+		elif self.format_info[spin_format]['s_format'] == 'chiP_chieff':
+			s1x, s1z = theta[:,2]*np.sin(theta[:,3]), theta[:,2]*np.cos(theta[:,3])
+		elif self.format_info[spin_format]['s_format'] == 'chiP_s1z_s2z':
+			s1x, s1z, s2z = theta[:,2]*np.sin(theta[:,3]), theta[:,2]*np.cos(theta[:,3]), theta[:,4]
+		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
+			s1x, s1y, s1z, s2z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3]), theta[:,5]
+
+			#dealing with iota and phi (tricky!!)
+		if self.format_info[spin_format]['iota'] and self.format_info[spin_format]['phi']:
+			iota, phi = theta[:,-2], theta[:,-1]
+		elif self.format_info[spin_format]['iota'] and not self.format_info[spin_format]['phi']:
+			iota = theta[:,-1]
+			phi = np.zeros(m1.shape)
+		elif not self.format_info[spin_format]['iota'] and self.format_info[spin_format]['phi']:
+			phi = theta[:,-1]
+			iota = np.zeros(m1.shape)
+		else:
+			iota, phi = np.zeros(m1.shape), np.zeros(m1.shape)
+		
+		return m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi
+	
+	def get_mchirp(self, theta, spin_format):
+		"""
+		Given theta, it returns the chirp mass
+
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on spin_format
+
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+			mchirp: 'np.ndarray'
+				Chirp mass of each BBH
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		if self.format_info[spin_format]['m_format'] == 'm1m2':
+			mchirp = np.power(theta[:,0]*theta[:,1], 3./5.) / np.power(theta[:,0]+theta[:,1], 1./5.)
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			mchirp = theta[:,0] * np.power(theta[:,1]/np.square(theta[:,1]+1), 3./5.)
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+			mchirp = theta[:,0]
+
+		return mchirp
+
+	def get_massratio(self, theta, spin_format):
+		"""
+		Given theta, it returns the mass ratio.
+
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on spin_format
+
+		spin_format: 'string'
+			How to handle the spin variables.
+		
+		Returns
+		-------
+			q: 'np.ndarray'
+				Chirp mass of each BBH
+		"""
+		assert spin_format in self.valid_formats, "Wrong spin format given"
+		
+		if self.format_info[spin_format]['m_format'] =='m1m2':
+			mchirp = np.maximum(theta[:,1]/theta[:,0], theta[:,0]/theta[:,1])
+		elif self.format_info[spin_format]['m_format'] == 'Mq':
+			mchirp = theta[:,1]
+		elif self.format_info[spin_format]['m_format'] == 'mceta':
+			mchirp = theta[:,1] #FIXME: compute this properly! 
+
+		return mchirp
+
+	
+####################################################################################################################
+
+class WF_metric(object):
+	"This class implements the metric on the space, defined for each point of the space. The metric is defined as M(theta)_ij = <d_i h | d_j h>"
+	
+	def __init__(self, PSD = None, f_min = 10., f_high = None, approx = 'mlgw', spin_format = 'nonspinning', downsampling_factor = 1.):
+		"""
+		Initialize the class.
+		
+		Parameters
+		----------
+		
+		PSD: ('np.ndarray', 'np.ndarray')
+			PSD for computing the scalar product.
+			It is a tuple with a frequency grid array and a PSD array
+			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies.
+			If None, the PSD is assumed to be flat
+		
+		f_min: 'float'
+			Minimum frequency at which the scalar product is computed (and the WF is generated from)
+		
+		f_high: `float`
+			Cutoff for the high frequencies in the PSD. If not None, frequencies up to f_high will be removed from the computation
+			If None, no cutoff is applied
+		
+		approx: 'string'
+			Which approximant to use. It can be 'mlgw' or any lal approx.
+			The approximant can be changed with set_approximant() and can be accessed under name WF_metric.approx
+		
+		spin_format: 'string'
+			How to handle the spin variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
+			Spin format can be changed with set_spin_format() and can be accessed under name WF_metric.spin_format
+			Valid formats are:
+				- 'nonspinning': no spins are considered (only two masses), D = 2
+				- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+				- 'chieff_chiP': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
+				- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, D = 5
+				- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+
+		downsampling_factor: 'float'
+			The downsampling factor for the frequency grid on which the PSD is evaluated (for speed up). If 1 no downsampling is performed
+		"""
+		self.s_handler = spin_handler() #this obj is to keep in a single place all the possible spin manipulations that may be required
+
+		self.set_approximant(approx)
+		self.set_spin_format(spin_format)
+		
+		self.f_min = f_min
+		
+		if PSD is None:
+		#####Tackling the flat PSD case
+			self.PSD = None
+			self.delta_f = None
+			self.f_high = f_high
+			self.kernel = None
+			self.t_default = np.linspace(-40.,.1, 10000)
+			self.dt = self.t_default[1]-self.t_default[0]
+		elif isinstance(PSD, tuple):
+		#####Tackling the PSD case
+			self.PSD = PSD[1]
+			self.f_grid = PSD[0]
+			self.delta_f = self.f_grid[1]-self.f_grid[0]
+				#checking that grid is equally spaced
+			assert np.all(np.diff(self.f_grid)-self.delta_f<1e-10), "Frequency grid is not evenly spaced!"
+
+		#####applying a low and a high frequency cutoff to the PSD
+			if isinstance(f_high, (int, float)): #high frequency cutoff
+				id_cut = np.argmin(np.abs(self.f_grid-f_high))
+				self.f_grid = self.f_grid[:id_cut]
+				self.PSD = self.PSD[:id_cut]
+			
+			N_grid = 4*(len(np.arange(0, self.f_grid[0], self.delta_f))+len(self.PSD)) #N_grid for mlgw
+			
+				#low frequency cutoff
+			id_cut = np.argmin(np.abs(self.f_grid-f_min))
+			self.f_grid = self.f_grid[id_cut:]
+			self.PSD = self.PSD[id_cut:]
+			
+			if (len(self.PSD)//2)*2 != len(self.PSD): #I want an even number of points in a grid
+				self.f_grid = self.f_grid[:-1]
+				self.PSD = self.PSD[:-1]
+			self.f_high = self.f_grid[-1]
+		
+		#####initializing t_grid for mlgw
+				#building the standard time grid for mlgw: all the WFs will be generated on this time grid and will match the size of the kernel.
+			self.dt = 1./((self.delta_f)*N_grid) #dt to have the same f_min/f_max
+			self.t_default = np.linspace(-N_grid*self.dt, 0., N_grid)
+			self.t_default = self.t_default + 0.4 #shifting time grid to accomodate ring-down
+
+			if downsampling_factor < 1. and downsampling_factor>0.:
+				f_grid_new = np.linspace(self.f_grid[0], self.f_grid[1], int(len(self.f_grid)*downsampling_factor) )
+				self.PSD = np.interp(f_grid_new, self.f_grid, self.PSD)
+				self.f_grid = f_grid_new
+			
+		else:
+			raise ValueError("Wrong format for the PSD. Expected a tuple of np.ndarray, got {}".format(type(PSD)))
+
+		self.generator = gen.GW_generator(0)
+		return
+	
+	def set_approximant(self, approx):
+		"""
+		Change the WF approximant used
+		
+		Parameters
+		----------
+		
+		approx: 'string'
+			Which approximant to use. It can be 'mlgw' or any lal approx.
+		"""
+		self.approx = approx
+		
+			#checking if the approximant is right
+		if approx == 'mlgw': return
+		
+		try:
+			lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
+		except RuntimeError:
+			raise RuntimeError("Wrong approximant name: it must be either \'mlgw\' either an approximant supported by lal")
+
+		return
+	
+	def set_spin_format(self, spin_format):
+		"""
+		Set the spin_format to be used.
+		
+		Valid formats are:
+			- 'nonspinning': no spins are considered (only two masses), D = 2
+			- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+			- 'chieff_chiP': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
+			- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, D = 5
+			- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+
+		where D is the dimensionality of the BBH space considered
+		
+		Parameters
+		----------
+		
+		spin_format: 'string'
+			An identifier for the spin format
+		"""
+		assert spin_format in self.s_handler.valid_formats, "Wrong spin format. Available formats are: "+str(self.s_handler.valid_formats)
+		
+		self.spin_format = spin_format
+
+		return
+		
+	
+	def scalar_product(self, h1, h2):
+		"""
+		#USELESS FUNCTION
+		Computes the scalar product between complex WFs (or gradients of WFs).
+		This function assumes that the arrays are evaluated on a suitable time grid and that axis =1 is the one that keeps the time dependence.
+		
+		Parameters
+		----------
+
+		h1: 'np.ndarray' (N,D)/(N,D,K)
+			First array
+
+		h2: 'np.ndarray' (N,D)/(N,D,K')
+			Second array (if None, only the first is multiplied by the kernel
+				
+		Returns
+		-------
+		
+		scalar: 'np.ndarray' (N,)/(N,K)
+			The scalar product between WFs
+		"""
+		if h2 is None:
+			assert h1.shape[1] == self.kernel.shape[0], "Wrong time grid for the WFs. Expected length of the time grid is {}".format(self.kernel.shape[0])
+			return self.kernel.dot(np.conj(h1).T).T
+		if h1 is None:
+			assert h2.shape[1] == self.kernel.shape[0], "Wrong time grid for the WFs. Expected length of the time grid is {}".format(self.kernel.shape[0])
+			return self.kernel.dot(h2.T).T
+		
+		assert h1.shape[1] == h2.shape[1] == self.kernel.shape[0], "Wrong time grid for the WFs. Expected length of the time grid is {}".format(self.kernel.shape[0])
+		#TODO: implement the 3rd dimension
+		
+		#at this point we have h1, h2 (N,D)
+		#metric = np.einsum('ijl,jk,ikm->ilm', np.conj(h1), self.kernel, h2) #(N,K,K') #slow but clear
+		#kernel_ = np.matmul(self.kernel.T, self.kernel) #in case of choelsky
+		#metric = np.linalg.multi_dot([np.conj(h1),self.kernel,h2]) #good idea if the kernel is not sparse
+		
+		metric = np.sum(np.multiply(self.kernel.dot(np.conj(h1).T).T,h2), axis =1) #(N,) #the ok version!!
+
+		return metric
+
+	
+	def t_of_f(self, f, M_c):
+		"""
+		Computes the time to coalescence in seconds (in the Newtonian approximation), given the frequency.
+
+		Parameters
+		----------
+		
+		f: 'np.ndarray' (N,)
+			Starting frequency in Hz
+		
+		M_c: 'np.ndarray' (N,)
+			Chirp mass in solar mass
+
+		Returns
+		-------
+		
+		tau: 'np.ndarray' (N,)
+			time to coalescence
+
+		"""
+		return 2.18*np.power(1.21/M_c, 5./3.)*np.power(100./f, 8./3.)
+	
+	def get_metric_determinant(self, theta, optimize_phi = True):
+		"""
+		Returns the metric determinant
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			parameters of the BBHs. The dimensionality depends on the spin format set for the metric
+
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+
+		Returns
+		-------
+		
+		det : 'np.ndarray' (N,)
+			Determinant of the metric for the given input
+			
+		"""
+		#TODO: understand whether optimize_phi should be kept in place or not...
+		return np.linalg.det(self.get_metric(theta, optimize_phi = optimize_phi)) #(N,)
+
+	def log_pdf_gauss(self, theta, boundaries = None):
+		"Gaussian PDF, for the purpose of debugging and testing the MCMC..."
+		return -0.5*np.sum(np.square(theta+10.), axis =1) #DEBUG!!!!!
+
+	def log_pdf(self, theta, boundaries = None):
+		"""
+		Returns the logarithm log(pdf) of the probability distribution function we want to sample from:
+			pdf = p(theta) ~ sqrt(|M(theta)|)
+		imposing the boundaries
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			parameters of the BBHs. The dimensionality depends on the spin format set for the metric
+		
+		boundaries: 'np.ndarray' (2,D)
+			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
+			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+			If None, no boundaries are implemented
+		
+		Returns
+		-------
+		
+		log_pdf : 'np.ndarray' (N,)
+			Logarithm of the pdf, ready to use for sampling
+		"""
+		theta = np.array(theta)
+		
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			reshape = True
+		else:
+			reshape = False
+		ids_ok = np.full((theta.shape[0],), True)
+		if isinstance(boundaries,np.ndarray):
+			if boundaries.shape != (2,self.format_D[self.spin_format]):
+				raise ValueError("Wrong shape of boundaries given: expected (2,{}), given {}".format(self.format_D[self.spin_format], boundaries.shape))
+			
+			ids_ok = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+			
+			#TODO: you might want to implement in the boundaries, the fact that m1>=m2!
+		
+		res = np.zeros((theta.shape[0],)) -10000000
+		
+		det = self.get_metric_determinant(theta[ids_ok,:])
+		
+		det = np.log(np.abs(det))*0.5 #log(sqrt(|det|))
+		
+		res[ids_ok] = det
+		
+		return res
+	
+	def get_WF_grads(self,theta, approx):
+		"""
+		Computes the gradient of the WF with a given approximant, both in TD or FD, depending on the option set at initialization.
+		An approximant can be either 'mlgw' either any lal approximant. In the case of mlgw an analytical expression for the gradient is used. In the case of lal, the gradients are computed with finite difference methods.
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			parameters of the BBHs. The dimensionality depends on the spin format set for the metric
+	
+		approx: 'string'
+			Which approximant to use. It can be 'mlgw' or any lal approx
+
+		Returns
+		-------
+		
+		h : 'np.ndarray' (N,D, 2)/(N,D, 4)
+			Complex array holding the gradient of the WFs evaluated on the default frequency/time grid
+		"""
+		if approx == 'mlgw':
+			if self.spin_format not in ['Mq_nonspinning', 'Mq_s1z_s2z','mceta_nonspinning', 'mceta_s1z_s2z', 'm1m2_nonspinning', 'm1m2_s1z_s2z']:
+				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
+				#removing spins just in case
+			if theta.shape[1] == 2:
+				theta = np.concatenate([theta, np.zeros(theta.shape)], axis =1)
+		
+			grad_hreal, grad_himag = self.generator.get_mode_grads(theta, self.t_default, modes = (2,2), out_type = "realimag", grad_var = 'm1_m2')
+			grad_h = grad_hreal +1j* grad_himag
+			if self.spin_format == 'nonspinning':
+				grad_h = grad_h[:,:,:2]
+
+			grad_h = np.fft.fft(grad_h, axis =1) #(N,D, 2/4)
+			grad_h = grad_h[:,:grad_h.shape[1]//2+1] #this is evaluated on f_grid_h (only real frequencies)
+
+				#getting indices for slicing
+			f_grid_h = np.fft.fftfreq(grad_h.shape[1], self.dt)[:grad_h.shape[1]//2+1]
+			id_start = np.argmin(np.abs(f_grid_h - self.f_grid[0]))
+			id_end = id_start + len(self.f_grid)
+			grad_h = grad_h[:,id_start:id_end] #removing unwanted frequencies
+		
+		else: 	#doing finite difference methods
+			delta_ij = lambda i,j: 1 if i ==j else 0
+			grad_h_list = []
+			epsilon_list = [1e-5, 1e-5, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6]  #FIXME: find a way to tune it
+			WF = self.get_WF(theta, approx) #only for forward euler
+			
+			for i in range(theta.shape[1]):
+				if i>=self.s_handler.D(self.spin_format): break
+				epsilon = epsilon_list[i]
+				theta_plus = np.column_stack([theta[:,j] + epsilon * delta_ij(i,j)  for j in range(theta.shape[1])]) #(N,2)/(N,4)
+				theta_minus = np.column_stack([theta[:,j] - epsilon * delta_ij(i,j)  for j in range(theta.shape[1])])
+				
+					#computing gradients
+					#second difference method: slower but more accurate
+				#grad_i = (self.get_WF(theta_plus, approx) - self.get_WF(theta_minus, approx) )/(2*epsilon) #(N,D)
+					#forward euler: faster but less accurate
+				grad_i = (self.get_WF(theta_plus, approx) - WF )/(epsilon) #(N,D) 
+				
+				#print("The two methods agree? ",np.allclose(grad_i, grad_i_smart,1e-3,0.))
+				
+				grad_h_list.append(grad_i)
+
+			grad_h = np.stack(grad_h_list, axis = -1) #(N,D,4)/(N,D,2)
+
+		return grad_h
+	
+	def get_WF(self, theta, approx):
+		"""
+		Computes the WF with a given approximant with parameters theta. The WFs in FD are evaluated on the grid on which the PSD is evauated (self.f_grid)
+		An approximant can be either 'mlgw' either any lal approximant.
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on self.spin_format
+	
+		approx: 'string'
+			Which approximant to use. It can be 'mlgw' or any lal approx
+
+		Returns
+		-------
+		
+		h : 'np.ndarray' (N,D)
+			Complex array holding the WFs evaluated on the default frequency/time grid
+		"""
+		if approx == 'mlgw':
+			raise NotImplementedError("Currently mlgw is not a supported approximant: work in progress")
+			if self.spin_format not in ['Mq_nonspinning', 'Mq_s1z_s2z','mceta_nonspinning', 'mceta_s1z_s2z', 'm1m2_nonspinning', 'm1m2_s1z_s2z']:
+				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
+
+				#adding zero spins if theta has only the masses
+			if theta.shape[1] == 2:
+				theta = np.concatenate([theta, np.zeros(theta.shape)], axis =1)
+		
+			#FIXME: the fft with mlgw is disgusting, with lal looks nice. WTF!??!?!
+			h_real, h_imag = self.generator.get_modes(theta, self.t_default, modes = (2,2), out_type = "realimag") #(N,D)
+			
+			window = scipy.signal.windows.tukey(len(self.t_default), alpha = 0.25, sym = False) #TODO: apply window
+			id_ = np.where(window == 1)[0][0]
+			window[id_:] = 1
+			
+			h = h_real +1j* h_imag
+			#h = h*window
+			h = np.fft.fft(h, axis =1) #(N,D)
+			h = h[:,:h.shape[1]//2+1] #(N,D) #this is evaluated on np.fft.fftfreq(h_real.shape[1], self.dt)[:h.shape[1]//2+1] (only real frequencies)
+
+				#getting indices for slicing
+			f_grid_h = np.fft.fftfreq(h_real.shape[1], self.dt)[:h_real.shape[1]//2]
+			id_start = np.argmin(np.abs(f_grid_h - self.f_grid[0]))
+			id_end = id_start + len(self.f_grid)
+			h = h[:,id_start:id_end] #removing unwanted frequencies
+
+		else: #tackling the lal case
+				#getting the components to be given to lal
+			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(theta, self.spin_format)
+			
+			prefactor = 4.7864188273360336e-20
+			h = np.zeros((theta.shape[0], self.f_grid.shape[0]), dtype = np.complex128)
+			try:
+				lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
+			except RuntimeError:
+				raise RuntimeError("Wrong approximant name: it must be either \'mlgw\' either an approximant supported by lal")
+				#generating the WF
+			if lalsim.SimInspiralImplementedFDApproximants(lal_approx): #FD approximant
+				for i in range(theta.shape[0]):
+					hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1[i]*lalsim.lal.MSUN_SI,
+                                       m2[i]*lalsim.lal.MSUN_SI,
+                                       s1x[i], s1y[i], s1z[i],
+                                       s2x[i], s2y[i], s2z[i],
+                                       1e6*lalsim.lal.PC_SI,
+                                       iota[i] , phi[i], 0., 0.,0., #inclination, phi0, longAscNodes, eccentricity, meanPerAno
+                                       self.delta_f,
+                                       self.f_min, #flow
+                                       self.f_high, #fhigh
+                                       self.f_min, #fref
+                                       lal.CreateDict(),
+                                       lal_approx)
+					hptilde, hctilde = hptilde.data.data /( prefactor*(m1[i]+m2[i])),  hctilde.data.data /( prefactor*(m1[i]+m2[i]))
+					temp_f = np.linspace(self.f_min, self.f_high, len(hptilde))
+					
+						#the WF in FD is evaluated on the PSD given by the user, not the enlarged one (this hopefully saves computational time and memory)
+					hptilde = np.interp(self.f_grid, temp_f, hptilde, left = 0, right = 0)
+					#hctilde = np.interp(self.f_grid, temp_f, hctilde, left = 0, right = 0)
+					h[i,:] = hptilde #+1j*hctilde  #(D,) 
+					
+					#FIXME: here you are just keeping the plus polarization for the WF! (totally removing the cross)
+					#FIXME: are you sure this is the right form for the WF?? The "inclination pattern" is totally wrong with this
+
+			elif lalsim.SimInspiralImplementedTDApproximants(lal_approx): #TD approximant
+				for i in range(theta.shape[0]):
+						#Use this, and avoid the need to perform the fft yourself: you will gain a lot!!
+						#WTF??? This gives a huge metric
+					hp, hc = lalsim.SimInspiralFD(
+						    m1[i]*lalsim.lal.MSUN_SI, m2[i]*lalsim.lal.MSUN_SI,
+						    s1x[i], s1y[i], s1z[i],
+						    s2x[i], s2y[i], s2z[i],
+						    1.e6*lalsim.lal.PC_SI, iota[i], phi[i],
+						    0., 0., 0.,
+						    self.delta_f, self.f_min, self.f_high, self.f_min,
+						    lal.CreateDict(), lal_approx)
+
+					#hp, hc = lalsim.SimInspiralChooseTDWaveform(m1[i]*lalsim.lal.MSUN_SI,
+                    #                   m2[i]*lalsim.lal.MSUN_SI,
+                    #                   s1x[i], s1y[i], s1z[i],
+                    #                   s2x[i], s2y[i], s2z[i],
+                    #                   1e6*lalsim.lal.PC_SI,
+                    #                   iota[i], phi[i], 0., 0.,0., #inclination, phi0, longAscNodes, eccentricity, meanPerAno
+                    #                   self.dt,
+                    #                   self.f_min,
+                    #                   self.f_min,
+                    #                   lal.CreateDict(),
+                    #                   lal_approx)
+
+					hp, hc = hp.data.data/( prefactor*(m1[i]+m2[i])),  hc.data.data/( prefactor*(m1[i]+m2[i]))
+					temp_h_tilde = hp +1j*hc
+					temp_f_grid = np.linspace(self.f_min, self.f_high, len(hp))
+					#windows = scipy.signal.windows.tukey(len(temp_h.real), alpha = 0.15, sym = True) #TODO: apply window
+					
+						#do not include the +1 here, it might include some negative freqs with catastrophic effects
+					#temp_h_tilde = np.fft.fft(temp_h)[:len(temp_h)//2] #(N,D)
+					#temp_f_grid = np.fft.fftfreq(len(temp_h), d = self.dt)[:len(temp_h)//2]
+					
+					h[i,:] = np.interp(self.f_grid, temp_f_grid, temp_h_tilde.real)
+			else:
+				raise RuntimeError('Wrong approximant name: it must be either \'mlgw\' either any approximant supported by lal')
+		
+		if False:
+			plt.title(approx)
+			plt.plot(self.f_grid, h[0,:])
+			plt.show()
+		
+		return h
+	
+	
+	def get_metric(self, theta, optimize_phi = True):
+		"""
+		Returns the metric
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (N,D)
+			Parameters of the BBHs. The dimensionality depends on self.spin_format
+
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+			If True, it computes max_phi (h_1|h_2 exp[i*phi])
+			If False, it computes (h_1|h_2)
+
+		Returns
+		-------
+		
+		metric : 'np.ndarray' (N,4,4)/(N,2,2)
+			Array containing the metric in the given parameters
+			
+		"""
+			#TODO:check the accuracy of this function
+			#TODO: implement the WF generation with get_WF (in the PSD not None case)
+		theta = np.array(theta)
+		squeeze = False
+		if theta.ndim ==1:
+			theta = theta[None,:]
+			squeeze = True
+		
+		####
+		#computing the metric
+		####
+			#M(theta) = 0.5 * { (h|d_i h)(h|d_j h) / <h|h>^2 + [h|d_i h][h|d_j h] / <h|h>^2 - (d_i h|d_j h) / <h|h> }
+
+		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h_real/h_grad_h_imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
+
+		if self.PSD is None:
+		### No PSD case (with only mlgw)
+				#routines checks on theta (only for mlgw with no PSD, the rest are performed by get_WF)
+			if self.spin_format.endswith('nonspinning'):
+				theta = np.concatenate([theta[:,:2], np.zeros(theta[:,:2].shape)], axis =1) #added zero "fake" spins
+			elif self.spin_format.endswith('s1z_s2z'):
+				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
+			theta = theta[:,:4] #this will remove any other spin variable that may be given by the user
+		
+				#generating the WFs
+			grad_amp, grad_ph = self.generator.get_mode_grads(theta, self.t_default, modes = (2,2), out_type = "ampph", grad_var = 'm1_m2') #(N,D, 4)
+			h_amp, h_ph = self.generator.get_modes(theta, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
+
+				#low frequency cut-off		
+			t_min = self.t_of_f(self.f_min, (theta[:,0]*theta[:,1])**(3./5.)/(theta[:,0]+theta[:,1])**(1./5.) )
+				#adjusting for the rigth f_min
+			for i in range(grad_amp.shape[0]):
+				ids_ = np.where(self.t_default<-t_min[i])[0]
+				grad_amp[i, ids_,:], grad_ph[i, ids_,:] = 0., 0.
+				h_amp[i, ids_], h_ph[i, ids_] = 0., 0.
+		
+				#computing scalars
+			grad_h_grad_h_real = np.einsum('ijk,ijl -> ikl', grad_amp, grad_amp) + np.einsum('ijkl, ij -> ikl', np.einsum('ijk,ijl -> ijkl', grad_ph, grad_ph), np.square(h_amp)) #(N,4,4)
+			
+			h_grad_h_real = np.einsum('ijk,ij -> ik', grad_amp, h_amp) #(N,4)
+			h_grad_h_imag = np.einsum('ijk,ij -> ik', grad_ph, np.square(h_amp))
+			
+			h_h = np.sum(np.square(h_amp), axis = 1) #(N,)
+			
+		else:
+		### scalar product in FD
+			h = self.get_WF(theta, approx = self.approx) #(N,D)
+			grad_h = self.get_WF_grads(theta, approx = self.approx) #(N,D, K)
+			
+			h_W = h / self.PSD #whithened WF
+			grad_h_W = grad_h/self.PSD[:,None] #whithened grads
+			
+			h_h = np.sum(np.multiply(np.conj(h_W), h_W), axis =1).real #(N,)
+			h_grad_h = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W) #(N,4)
+			grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,4,4)
+			h_grad_h_real, h_grad_h_imag = h_grad_h.real, h_grad_h.imag
+			
+		###
+		#computing the metric, given h_grad_h_real (N,D,4), h_grad_h_imag (N,D,4) and h_h (N,D)
+		metric = np.einsum('ij,ik->ijk', h_grad_h_real, h_grad_h_real) 
+		if optimize_phi:
+			metric = metric + np.einsum('ij,ik->ijk', h_grad_h_imag, h_grad_h_imag)
+		metric = np.einsum('ijk,i->ijk', metric , 1./np.square(h_h))
+		metric = (metric - np.divide(grad_h_grad_h_real, h_h[:,None,None]))*0.5
+
+			#trimming the metric, just in case
+		metric = metric[:,:self.s_handler.D(self.spin_format),:self.s_handler.D(self.spin_format)] #(N,D,D)
+
+		if squeeze:
+			metric = np.squeeze(metric)
+
+		return metric
+	
+	#@do_profile(follow=[])
+	def match(self, theta1, theta2, optimize_phi = True):
+		"""
+		Computes the match line by line between elements in theta1 and elements in theta2
+		
+		Parameters
+		----------
+		
+		theta1: 'np.ndarray' (N,D)
+			Parameters of the first BBHs. The dimensionality depends on self.spin_format
+
+		theta2: 'np.ndarray' (N,D)
+			Parameters of the second BBHs. The dimensionality depends on self.spin_format
+		
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+			If True, it computes max_phi (h_1|h_2 exp[i*phi])
+			If False, it computes (h_1|h_2)
+
+		Returns
+		-------
+		
+		match : 'np.ndarray' (N,)
+			Array containing the match of the given WFs
+			
+		"""
+		theta1 = np.array(theta1)
+		theta2 = np.array(theta2)
+		assert theta1.shape == theta2.shape, "Shapes of the two inputs should be the same!"
+		squeeze = False
+		if theta1.ndim ==1:
+			theta1 = theta1[None,:]
+			theta2 = theta2[None,:]
+			squeeze = True
+		
+		if self.PSD is None:
+				#usual checks on theta
+			if self.spin_format.endswith('nonspinning'):
+				theta1 = np.concatenate([theta1[:,:2], np.zeros(theta1[:,:2].shape)], axis =1) #added zero "fake" spins
+				theta2 = np.concatenate([theta2[:,:2], np.zeros(theta2[:,:2].shape)], axis =1) #added zero "fake" spins
+			elif self.spin_format.endswith('s1z_s2z'):
+				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
+			theta1 = theta1[:,:4] #this will remove any other spin variable that may be given by the user
+			theta2 = theta2[:,:4] 
+			
+				#generating the WF
+			h_amp_1, h_ph_1 = self.generator.get_modes(theta1, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
+			h_amp_2, h_ph_2 = self.generator.get_modes(theta2, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
+		
+				#adjusting for the rigth f_min
+			t_min_1 = self.t_of_f(self.f_min, (theta1[:,0]*theta1[:,1])**(3./5.)/(theta1[:,0]+theta1[:,1])**(1./5.) )
+			t_min_2 = self.t_of_f(self.f_min, (theta2[:,0]*theta2[:,1])**(3./5.)/(theta2[:,0]+theta2[:,1])**(1./5.) )
+				
+			for i in range(h_amp_1.shape[0]):
+				ids_1 = np.where(self.t_default<-t_min_1[i])[0]
+				ids_2 = np.where(self.t_default<-t_min_2[i])[0]
+				h_amp_1[i, ids_1], h_ph_1[i, ids_1] = 0., 0.
+				h_amp_2[i, ids_2], h_ph_2[i, ids_2] = 0., 0.
+		
+			#<h2|h1> = A_1 A_2 exp(1j* (phi_2-phi_1) )
+			overlap_real = np.einsum('ij,ij,ij->i', h_amp_1, h_amp_2, np.cos(h_ph_2 - h_ph_1)) #(N,)
+			overlap_imag = np.einsum('ij,ij,ij->i', h_amp_1, h_amp_2, np.sin(h_ph_2 - h_ph_1)) #(N,)
+			overlap = overlap_real+1j*overlap_imag
+			#overlap_real_opt = overlap_real*np.cos(phi)+ overlap_imag*np.sin(phi)
+			
+			norm_1 = np.sum(np.square(h_amp_1), axis = 1) #(N,)
+			norm_2 = np.sum(np.square(h_amp_2), axis = 1) #(N,)
+			
+		else:
+			h1 = self.get_WF(theta1, self.approx)
+			h2 = self.get_WF(theta2, self.approx)
+			
+			h1_W = (h1/np.sqrt(self.PSD)) #whithened WF
+			h2_W = (h2/np.sqrt(self.PSD)) #whithened WF
+			
+			overlap = np.sum(np.multiply(np.conj(h1_W), h2_W), axis =1) #(N,)
+			norm_1  = np.sum(np.multiply(np.conj(h1_W), h1_W),axis =1).real
+			norm_2  = np.sum(np.multiply(np.conj(h2_W), h2_W),axis =1).real
+		
+		if optimize_phi:
+			overlap_real = np.abs(overlap)
+		else:
+			overlap_real = overlap.real
+		
+		
+		return overlap_real/np.sqrt(norm_1*norm_2)
+	
+	def metric_match(self, theta1, theta2, optimize_phi = True):
+		"""
+		Computes the metric match line by line between elements in theta1 and elements in theta2.
+		The match is approximated by the metric:
+			match(theta1, theta2) = 1 + M_ij(theta1) (theta1 - theta2)_i (theta1 - theta2)_j
+		
+		Parameters
+		----------
+		
+		theta1: 'np.ndarray' (N,D)
+			Parameters of the first BBHs. The dimensionality depends on self.spin_format
+
+		theta2: 'np.ndarray' (N,D)
+			Parameters of the second BBHs. The dimensionality depends on self.spin_format
+
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+			If True, it computes max_phi (h_1|h_2 exp[i*phi])
+			If False, it computes (h_1|h_2)
+
+		Returns
+		-------
+		
+		match : 'np.ndarray' (N,)
+			Array containing the metric approximated match of the given WFs
+			
+		"""
+		theta1 = np.array(theta1)
+		theta2 = np.array(theta2)
+		assert theta1.shape == theta2.shape, "Shapes of the two inputs should be the same!"
+		squeeze = False
+		if theta1.ndim ==1:
+			theta1 = theta1[None,:]
+			theta2 = theta2[None,:]
+			squeeze = True
+		
+		theta1 = theta1[:,:self.s_handler.D(self.spin_format)]
+		theta2 = theta2[:,:self.s_handler.D(self.spin_format)]
+
+		delta_theta = theta2 - theta1  #(N,2)/(N,4)
+		
+		metric = self.get_metric(theta1, optimize_phi)
+		
+		match = 1 + np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
+		
+		return match
+		
+	def metric_accuracy(self, theta1, theta2, optimize_phi = True):
+		"""
+		Computes the metric accuracy at the given points of the parameter space.
+		The accuracy is the absolute value of the difference between true and metric mismatch (as computed by match and metric_match)
+		
+		Parameters
+		----------
+		
+		theta1: 'np.ndarray' (N,D)
+			Parameters of the first BBHs. The dimensionality depends on self.spin_format
+
+		theta2: 'np.ndarray' (N,D)
+			Parameters of the second BBHs. The dimensionality depends on self.spin_format
+		
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+			If True, it computes max_phi (h_1|h_2 exp[i*phi])
+			If False, it computes (h_1|h_2)
+
+		Returns
+		-------
+		
+		accuracy : 'np.ndarray' (N,)
+			Array the accuracy of the metric approximation
+		
+		"""
+		accuracy = self.metric_match(theta1, theta2, optimize_phi) - self.match(theta1, theta2, optimize_phi) #(N,)
+		return np.abs(accuracy)
+		
+	
+	def get_points_atdist(self, N_points, theta, dist, optimize_phi = True):
+		"""
+		Given a central theta point, it computes N_points random point with a metric match equals to distance.
+		
+		Parameters
+		----------
+		
+		N_points: int
+			Number of random points to be drawn
+		
+		theta: 'np.ndarray' (D,)
+			Parameters of the center. The dimensionality depends on self.spin_format
+
+		dist: float
+			Distance from the center theta
+		
+		optimize_phi: 'bool'
+			Whether to maximise over an arbitrary phase
+			If True, it computes max_phi (h_1|h_2 exp[i*phi])
+			If False, it computes (h_1|h_2)
+
+		Returns
+		-------
+		
+		points : 'np.ndarray' (N,D)
+			Points with distance dist from the center
+		"""
+		metric = -self.get_metric(theta, optimize_phi = optimize_phi)
+		
+		L = np.linalg.cholesky(metric).T
+		L_inv = np.linalg.inv(L)
+		
+		theta_prime = np.matmul(L, theta)
+		
+			#generating points on the unit sphere
+		v = np.random.normal(0, 1, (N_points, theta.shape[0]))
+		norm = 1.0 / np.linalg.norm(v, axis = 1) #(N_points,)
+		
+		points_prime = theta_prime + dist*(v.T*norm).T
+		
+		points = np.matmul(points_prime, L_inv.T)
+		
+		if False:
+			plt.scatter(*theta_prime.T)
+			plt.scatter(*points_prime.T)
+			plt.figure()
+			plt.scatter(*theta.T)
+			plt.scatter(*points.T)
+			plt.show()
+		
+		return points
+
+####################################################################################################################
+
+
+class tiling_handler(list):
+	#TODO: it should inherit from list
+	"Class for a tiling with I/O helpers"
+	
+	def __init__(self, filename = None):
+		"Creates a tile class"
+		super().__init__()
+		if isinstance(filename, str): self.load(filename)
+		return
+	
+	def N_templates(self, rect, metric, avg_dist, D):
+		"Computes the number of templates given metric, rect and avg_dist"
+		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, D)
+	
+	@ray.remote
+	def create_tiling_ray(self, boundaries, N_temp, metric_obj, avg_dist, verbose = True, worker_id = None):
+		return self.create_tiling(boundaries, N_temp, metric_obj, avg_dist, verbose, worker_id)
+	
+	def create_tiling(self, boundaries, N_temp, metric_obj, avg_dist, verbose = True, worker_id = None):
+		"Creates a tile list"
+		#boundaries is a tuple (max, min)
+		boundaries = tuple([np.array(b) for b in boundaries])
+		D = boundaries[0].shape[0]
+		start_rect = scipy.spatial.Rectangle(boundaries[0], boundaries[1])
+		start_metric = metric_obj.get_metric((boundaries[1]+boundaries[0])/2.)
+		
+		####
+		#Defining some convenience function
+		
+			#splitting procedure
+		def split(rect, d):
+			len_d = rect.maxes[d] - rect.mins[d]
+			rect_1, rect_23 = rect.split(d, rect.mins[d] + len_d/3.)
+			rect_2, rect_3 = rect_23.split(d, rect.mins[d] + len_d*2./3.)
+			#print(rect, rect_1, rect_23, rect_2, rect_3);quit()
+			return [rect_1, rect_2, rect_3]
+
+			#which axis should be split?
+		def which_split_axis(rect, metric):
+			d_vector = rect.maxes - rect.mins #(D,)
+			d_vector = np.diag(d_vector)
+			#print(metric, d_vector)
+			dist = - np.einsum('ij,jk,ik -> i', d_vector, metric, d_vector) #distance is -match !!
+			return np.argmax(dist)
+		
+		def get_center(rect):
+			return (rect.maxes + rect.mins)/2.
+		
+			#tiles list is initialized with a start cell. The first split is done no matter what
+		tiles_list = [(start_rect, start_metric, N_temp+1)] 
+		tiles_list_old = []
+		
+			 #progress bar = % of volume covered
+		if verbose:
+			if worker_id is None: desc = 'Volume covered by the tiling'
+			else:  desc = 'Worker {}: volume covered by tiling'.format(worker_id)
+			pbar = tqdm(total=100, desc = desc,
+				bar_format = "{desc}: {percentage:.2f}%|{bar}| [{elapsed}<{remaining}]")
+			V_tot = tiles_list[0][0].volume()
+		
+		while not (tiles_list == tiles_list_old):
+				#updating old one
+			tiles_list_old = list(tiles_list)
+			V_covered = 0.
+				#loops on tiles an updating tiles_list
+			for t in tiles_list:
+
+				if t[2] <= N_temp:
+					if verbose: V_covered += t[0].volume()
+					continue
+				
+				nt = split(t[0], which_split_axis(t[0], t[1])) #new tiles list (len = 3)
+				
+				metric_0 = metric_obj.get_metric(get_center(nt[0]))
+				metric_2 = metric_obj.get_metric(get_center(nt[2]))
+				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, avg_dist, D)),
+								(nt[1], t[1],       self.N_templates(nt[1], t[1], avg_dist, D)),
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist, D)), ]
+				
+				
+					#replacing the old tile with a new one
+				tiles_list.remove(t)
+				tiles_list.extend(extended_list)
+
+			if verbose: pbar.update(np.round((V_covered/V_tot)*100. - pbar.last_print_n,2))
+
+		if verbose: pbar.close()
+		#plot_tiles(tiles_list, boundaries)
+		#plt.show()
+		
+		self.clear()
+		self.extend( [(t[0],t[1]) for t in tiles_list] )
+		
+		return self
+	
+	def save(self, filename):
+		"Save a tiling to file"
+		#The tiling is saved as a np.array: (N, 2+D, D)
+		out_array = []
+		for t in self.__iter__():
+			out_array.append(np.concatenate([[t[0].mins], [t[0].maxes], t[1]], axis = 0)) #(D+2,D)
+		out_array = np.stack(out_array, axis =0) #(N, D+2, D)
+
+		np.save(filename, out_array)
+		
+		return
+	
+	def load(self, filename):
+		in_array = np.load(filename)
+		for in_ in in_array:
+			self.append( (scipy.spatial.Rectangle(in_[0,:], in_[1,:]), in_[2:,:]) )
+		
+		return
+
+
+####################################################################################################################
+
+class GW_bank():
+	"""
+	This implements a bank. A bank is a collection of templates (saved as the numpy array bank.templates) that holds masses and spins of the templates.
+	It can be generated with a MCMC and can be saved in txt or in the std ligo xml file.
+	The class implements some methods for computing the fitting factor with a number of injections.
+	"""
+	def __init__(self, filename = None, spin_format = 'nonspinning'):
+		"""
+		Initialize the bank
+		
+		Parameters
+		----------
+		
+		filename: ìstr'
+			Optional filename to load the bank from (if None, the bank will be initialized empty)
+		
+		spin_format: 'str'
+			How to handle the spin variables.
+			See class spin_handler for more details
+		
+		"""
+		#TODO: start dealing with spins properly from here...
+		self.s_handler = spin_handler()
+		self.spin_format = spin_format
+		self.templates = None #empty bank
+		
+		self.D = self.s_handler.D(self.spin_format) #handy shortening
+		
+		if isinstance(filename, str):
+			self.load(filename)
+
+		return
+	
+	def avg_dist(self, avg_match):
+		"""
+		Average distance between templates in the proper volume, s.t. they have a given average match between each other
+		
+		Parameters
+		----------
+			MM: 'float'
+				Minimum match
+		Returns
+		-------
+			avg_dist: 'float'
+				Average distance between templates
+		"""
+		return 2*np.sqrt((1-avg_match)/self.D)
+
+	def load(self, filename):
+		"""
+		Load a bunch of templates from file. They are added to existing templates (if any)
+		
+		Parameters
+		----------
+			
+		filename: str
+			Filename to load the bank from
+		"""
+		if filename.endswith('.npy'):
+			templates_to_add = np.load(filename)
+		if filename.endswith('.txt') or filename.endswith('.dat'):
+			templates_to_add = np.loadtxt(filename)
+		if filename.endswith('.xml') or filename.endswith('.xml.gz'):
+		
+				#for some reason this content handles is needed... Why??
+			class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+				pass
+			lsctables.use_in(LIGOLWContentHandler)
+
+			xmldoc = utils.load_filename(filename, verbose = True, contenthandler = LIGOLWContentHandler)
+			sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+		
+			BBH_components = []
+			
+			for row in sngl_inspiral_table:
+				BBH_components.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.alpha3, row.alpha5])
+			
+			BBH_components = np.array(BBH_components) #(N,10)
+			
+				#making the templates suitable for the bank
+			templates_to_add = self.s_handler.get_theta(BBH_components, self.spin_format) #(N,D)
+			
+		self.add_templates(templates_to_add)
+
+		return
+
+	def _save_xml(self, filename):
+		"""
+		Save the bank to an xml file suitable for LVK applications
+		
+		Parameters
+		----------
+			
+		filename: str
+			Filename to save the bank at
+		"""
+			#getting the masses and spins of the rows
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(self.templates, self.spin_format)
+		
+			#preparing the doc
+			#See: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168
+		xmldoc = ligolw.Document()
+		xmldoc.appendChild(ligolw.LIGO_LW())
+		signl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
+
+			#register a process_table about what code made the file
+		process = ligolw_process.register_to_xmldoc(
+			xmldoc,
+			program="mbank",
+			paramdict={},#process_params, #what should I enter here?
+			comment="A bank of (possibly precessing) BBH, generated using a metric approach")
+		
+			#here we add the rows one by one
+		for i in range(m1.shape[0]):
+				#defining the row
+			row =  DefaultSnglInspiralTable() #This is a dirty trick for a std initialization (works)
+			#row = lsctables.New(lsctables.SnglInspiralTable).RowType()
+			
+				#setting bank parameters
+			row.mass1, row.mass2 = m1[i], m2[i]
+			row.spin1x, row.spin1y, row.spin1z = s1x[i], s1y[i], s1z[i]
+			row.spin2x, row.spin2y, row.spin2z = s2x[i], s2y[i], s2z[i]
+			row.alpha3 = iota[i]
+			row.alpha5 = phi[i] #are you sure it's alpha5? See here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L845
+			
+				#shall I need to set other things by hand? E.g. taus...
+			row.mtotal = row.mass1 + row.mass2
+			row.eta = row.mass1 * row.mass2 / row.mtotal**2
+			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
+			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
+			row.f_final = 2500 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
+			row.ifo = 'L1' #default ifo #FIXME:make it better
+			
+				#Setting additional parameters
+			row.process_id = process.process_id #This must be an int
+			row.event_id = i
+			row.Gamma0 = float(i) #apparently Gamma0 is the template id in gstlal (for some very obscure reason)
+			
+			#for k, v in std_extra_params.items():
+			#	setattr(row, k, v)
+			signl_inspiral_table.append(row)
+			
+		#xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(signl_inspiral_table)
+		ligolw_process.set_process_end_time(process)
+		xmldoc.childNodes[-1].appendChild(signl_inspiral_table)
+		utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
+		xmldoc.unlink()
+		
+		return
+		
+	def save_bank(self, filename, full_space = False):
+		"""
+		Save the bank to file
+		
+		Parameters
+		----------
+			
+		filename: str
+			Filename to save the bank at
+		
+		full_space: False
+			Whether to save the masses and the full spins of each template (does not apply if the input file is an xml).
+		"""
+		if self.templates is None:
+			raise ValueError('Bank is empty: cannot save an empty bank!')
+
+		if not full_space: to_save = self.templates
+		else: to_save = np.column_stack([ self.s_handler.get_BBH_components(self.templates, self.spin_format) ])
+
+		if filename.endswith('.npy'):
+			templates_to_add = np.save(filename, to_save)
+		elif filename.endswith('.txt') or filename.endswith('.dat'):
+			templates_to_add = np.savetxt(filename, to_save)
+		elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
+			self._save_xml(filename)
+		else:
+			raise RuntimeError("Type of file not understood. The file can only end with 'npy', 'txt', 'data, 'xml', 'xml.gx'.")
+		
+		return
+
+	def save_injs(self, filename, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20. ):
+		"""
+		Save the bank to a standard injection file
+		
+		Parameters
+		----------
+			
+		filename: str
+			Filename to save the injections at
+		
+		GPS_start: int
+			Start GPS time for the injections
+
+		GPS_end: int
+			End GPS time for the injections
+
+		time_step: float
+			Time step between consecutive injections
+			Warning: no checks are made for overlapping injections
+		
+		approx: str
+			Lal approximant to use to perform injections
+		
+		luminosity_distance: int
+			Luminosity distance in Mpc for the all the injections
+
+		f_min: float
+			Starting frequency (in Hz) for the injection
+			
+		"""
+		#For inspiration see: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/injection_utils.py#L675
+		#https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168
+			#defining detectors
+		detectors = {
+				'h' : lal.CachedDetectors[lal.LHO_4K_DETECTOR],
+				'l' : lal.CachedDetectors[lal.LLO_4K_DETECTOR],
+				'v' : lal.CachedDetectors[lal.VIRGO_DETECTOR]
+			}
+		
+			#getting the masses and spins of the rows
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(self.templates, self.spin_format)
+		
+			#opening a document
+		xmldoc = ligolw.Document()
+		xmldoc.appendChild(ligolw.LIGO_LW())
+		sim_inspiral_table = lsctables.New(lsctables.SimInspiralTable)
+
+		process = ligolw_process.register_to_xmldoc(
+			xmldoc,
+			program="mbank",
+			paramdict={},
+			comment="Injections matching a bank")
+
+			#loops on rows (i.e. injections)
+		for i, t_inj in enumerate(np.arange(GPS_start, GPS_end, time_step)):
+
+			if i>= len(m1): break
+
+				#boring initialization stuff
+			row =  DefaultSimInspiralTable()
+			row.process_id = process.process_id
+			row.simulation_id = i #int?
+			row.waveform = approx
+			row.f_lower = f_min
+			row.taper = "TAPER_START"
+			row.bandpass = 0
+
+				#setting interesting row paramters
+			row.inclination = iota[i]
+			row.coa_phase = phi[i]
+			row.polarization = np.random.uniform(0.0, 2.0 * np.pi)
+			row.longitude = np.random.uniform(0.0, 2.0 * np.pi)
+			row.latitude = np.arcsin(np.random.uniform(-1.0, 1.0))
+			row.distance = luminosity_distance * np.random.normal(1.,0.01) #luminosity  distance must vary a bit, otherwise the dag doesn't run properly
+
+				#setting masses/spins and other related quantities
+			row.mass1, row.mass2 = m1[i], m2[i]
+			row.spin1x, row.spin1y, row.spin1z = s1x[i], s1y[i], s1z[i]
+			row.spin2x, row.spin2y, row.spin2z = s2x[i], s2y[i], s2z[i]
+			
+			row.mtotal = row.mass1 + row.mass2
+			row.eta = row.mass1 * row.mass2 / row.mtotal**2
+			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
+			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
+			row.f_final = 2500 /(row.mtotal)
+			
+				#dealing with geocentric time for the injections
+			tj = lal.LIGOTimeGPS(float(t_inj)) #do you want to jitter it?
+			row.geocent_end_time = tj.gpsSeconds
+			row.geocent_end_time_ns = tj.gpsNanoSeconds
+			row.end_time_gmst = lal.GreenwichMeanSiderealTime(tj)
+
+				# calculate and set detector-specific columns
+			for site, det in detectors.items():
+				tend = tj + lal.TimeDelayFromEarthCenter(det.location, row.longitude, row.latitude, tj)
+				setattr(row, site + "_end_time", tend.gpsSeconds)
+				setattr(row, site + "_end_time_ns", tend.gpsNanoSeconds)
+				setattr(row, "eff_dist_" + site, row.distance) #this is not d_eff, but there is not such a thing as d_eff for precessing searches...
+			row.alpha4 = 20 #This is H1 SNR?? Required?
+			row.alpha5 = 20 #This is L1 SNR?? Required?
+
+				#appending row
+			sim_inspiral_table.append(row)
+
+		ligolw_process.set_process_end_time(process)
+		xmldoc.childNodes[-1].appendChild(sim_inspiral_table)
+		utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
+		xmldoc.unlink()
+
+		return 
+
+	def add_templates(self, new_templates):
+		"""
+		Adds a bunch of templates to the bank.
+		They will be saved in the format: [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota]
+		
+		Parameters
+		----------
+		
+		new_templates: np.ndarray
+			New templates to add.
+			They need to be stored in an array of shape (N,D) or (D,), where D is the dimensionality of the bank
+		"""
+		new_templates = np.array(new_templates)
+		
+		if new_templates.ndim == 1:
+			new_templates = new_templates[None,:]
+		
+		assert new_templates.ndim == 2, "The new templates are provided with a wrong shape!"
+		
+		assert self.D == new_templates.shape[1], "The templates to add have the wrong dimensionality. Must be {}, but given {}".format(self.D, new_templates.shape[1])
+		
+		new_templates = self.s_handler.switch_BBH(new_templates, self.spin_format)
+		
+		if self.templates is None:
+			self.templates = new_templates
+		else:
+			self.templates = np.concatenate([self.templates, new_templates], axis = 0) #(N,4)
+		
+		return
+
+	def generate_bank_MCMC(self, metric_obj, N_templates, boundaries, fitting_factor = None, n_walkers = 100, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
+		#FIXME: shall I also compute the minimum match as a stopping condition? Right now, I am not using it because the FF is needed to correct the bank at later stages... In future, things can change!
+		#FIXME: the sampling does not work well in the equal mass region (perhaps the probability is low?)
+		#FIXME: qualitatively, there are some differences between sbank and mbank. Understand why: sampler or PDF?
+		"""
+		Fills the bank with a MCMC (uses emcee package).
+		
+		### This function is not up to date!!
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric objec to compute the PDF to distribute the templates
+		
+		N_templates: int
+			Number of new templates to add.
+			If fitting_factor is specified, this option has no effect and an indefinite number of new templates will be added
+		
+		boundaries: 'np.ndarray' (2,4)/(2,2)
+			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
+			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+			If None, no boundaries are implemented
+			
+		fitting_factor: (float, int)
+			A tuple of (max_FF, N_injs)
+			If not None, the fitting factor of the bank will be computed with N_injs.
+			Whenever the bank fitting factor is below max_FF, the bank generation will end
+		
+		n_walkers: int
+			Number of independent walkers during the chain
+		
+		thin_factor: int
+			How many MC steps to discard before selecting one.
+			This value is computed authomatically based on the autocorrelation: it is recommended not to set it by hand 
+		
+		load_chain: str
+			Path to a file where the position of each walker is stored, togheter with integrated aucorellation tau.
+			The file must keep a np.array of dimensions (n_walkers, 2/4). The first line of the file is intended to be the autocorrelation time for each variable. If it is not provided, a standard value of 4 (meaning a thin step of 2) is assumed.
+			If not None, the sampler will start from there and the burn-in phase will not be required.
+		
+		save_chain: str
+			If not None, it saves the path in which to save the status of the sampler.
+			The file saved is ready to be given to load chain
+		
+		verbose: 'bool'
+			whether to print to screen the output
+		"""
+		ndim = np.array([2,4])[[self.nonspinning, not self.nonspinning]][0]
+		sampler = emcee.EnsembleSampler(n_walkers, ndim, metric_obj.log_pdf, args=[boundaries], vectorize = True)
+		n_burnin = 0
+		
+		if load_chain is not None:
+			#this will output an estimate of tau and a starting chain. The actual sampling will start straight away
+			burnin = False
+			loaded_chain = np.loadtxt(load_chain)
+			if loaded_chain.shape[0] == n_walkers:
+				start = loaded_chain
+				tau = 4 + np.zeros((ndim,))
+			else:
+				tau, start = loaded_chain[0,:], loaded_chain[1:,:]
+			print('tau', tau)
+			assert start.shape == (n_walkers, ndim), "Wrong shape for the starting chain. Unable to continue"
+		else:
+			burnin = True
+			start = np.random.uniform(*boundaries, (n_walkers, ndim))
+		
+			###########
+			#This part has two purposes:
+			#	- Give a first estimation for tau parameters (required to decide the size of burn-in steps and the thin step)
+			#	- Do a burn in phase (discard some samples to achieve stationariety)
+			###########
+			
+		if burnin:
+			tau_list = []
+			step = 30
+
+			def dummy_generator(): #dummy generator for having an infinite loop: only required for tqdm (is there a better way for doing this)
+				while True: yield
+			
+			if verbose:
+				it_obj = tqdm(dummy_generator(), desc='Burn-in/calibration phase')
+			else:
+				it_obj = dummy_generator()
+
+			for _ in it_obj:
+				n_burnin += step
+				#if verbose: print("\tIteration ", n_burnin//step)
+				state = sampler.run_mcmc(start, nsteps = step, progress = False, tune = False)
+				start = state.coords #very important! The chain will start from here
+						
+				tau = sampler.get_autocorr_time(tol = 0)
+				tau_list.append(tau)
+				
+				if len(tau_list)>1 and np.all(np.abs(tau_list[-2]-tau_list[-1]) < 0.001*tau_list[-1]):
+					tau = tau_list[-1]
+					break
+			#print(tau)		
+			#plt.plot(tau_list)
+			#plt.show()
+			if verbose: print("")
+			###########
+			#doing the actual sampling
+		#FIXME: this eventually should have a check on the FF
+			
+			#first estimate of thin
+		if thin_factor is None:
+			thin = max(int(0.5 * np.min(tau)),1)
+		else:
+			thin = thin_factor
+		
+		print('Thin, burn-in: ', thin, int(2 * np.max(tau)))
+
+		n_steps = int((N_templates*thin)/n_walkers) - int(n_burnin) #steps left to do...
+		print("Steps done/ steps new", n_burnin, n_steps)
+		
+			#remember to start from a proper position!!!!! You idiot!!		
+		if n_steps > 0:
+			state = sampler.run_mcmc(start, n_steps, progress = verbose, tune = False)
+	
+		tau = sampler.get_autocorr_time(tol = 0)
+		
+			#setting burn-in steps (if not set yet...)
+		burnin_steps = 0
+		if burnin:
+			burnin_steps = int(2 * np.max(tau))
+
+		#The lines commented below look useless
+			#FIXME: understand whether you want to change the thin factor... it is likely it is underestimated during the burn-in phase
+		if thin_factor is None:
+			thin = max(int(0.5 * np.min(tau)),1)
+			print('##updated thin## Thin, burn-in: ', thin, burnin_steps)
+
+		chain = sampler.get_chain(discard = burnin_steps, thin = thin, flat=True)[-N_templates:,:]
+		
+		if save_chain is not None:
+			chain_to_save = state.coords #(n_walkers, 4)/(n_walkers, 2)
+			to_save = np.concatenate([tau[None,:], chain_to_save], axis = 0)
+			np.savetxt(save_chain, to_save)
+
+			#adding chain to the bank
+		self.add_templates(chain)
+				
+		return
+
+	def generate_bank_hull_sampling(self, metric_obj, avg_match, seed_bank, boundaries, plot_debug = None):
+		"""
+		Generates a bank using the Voronoi tesselation method. It enforces boundaries by hull sampling
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		avg_match: float
+			Average match between templates
+
+		seed_bank: 'np.ndarray'/'string'/tuple
+			A starting seed bank for the tesselation algorithm. It can be generated with MCMC and has to have the dimensions of the space
+			If a string is given, the seed bank is load from that file with np.loadtxt
+			If a tuple is given, the first is intended to be a string, the second is intended to be a the number of templates to be loaded
+		
+		boundaries: 'np.ndarray' (2,4)/(2,2)
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+		
+		plot_debug: str
+			String with the folder to save the plots at.
+			If None, no plots will be produced. If 'show', the results will be shown.
+		"""
+		PLOT_DEBUG = True
+			#loading seed_bank, if it's the case
+		if isinstance(seed_bank, str):
+			seed_bank = np.loadtxt(seed_bank)
+		if isinstance(seed_bank, tuple):
+			seed_bank = np.loadtxt(seed_bank[0], max_rows = seed_bank[1])
+			
+			#making sure that seed bank and boundaries are of the right size
+		seed_bank = seed_bank[:,:self.D]
+		boundaries = boundaries[:,:self.D]
+
+			#making sure that seed_bank is within boundaries
+		ids_ok = np.logical_and(np.all(seed_bank > boundaries[0,:], axis =1), np.all(seed_bank < boundaries[1,:], axis = 1)) #(N,)
+		seed_bank = seed_bank[ids_ok,:]
+		seed_bank = self.s_handler.switch_BBH(seed_bank, self.spin_format)
+
+			#padding seed_bank, to avoid infinities
+		pad_points = get_pad_points(5, boundaries)
+		seed_bank = np.concatenate([seed_bank, pad_points], axis = 0)
+
+		if PLOT_DEBUG:
+			N_pad = pad_points.shape[0]
+			plt.figure()#PLOT_DEBUG
+			plt.title('Seed bank') #PLOT_DEBUG
+			plt.scatter(seed_bank[:-N_pad,0], seed_bank[:-N_pad,1], c = 'b', marker = 'o', s = 5)#PLOT_DEBUG
+			plt.scatter(pad_points[:,0], pad_points[:,1], c = 'r', marker = 'o', s = 12)#PLOT_DEBUG
+			plt.xlabel("m1");plt.ylabel("m1")
+			plt.figure()#PLOT_DEBUG
+			plt.title('tiling')#PLOT_DEBUG
+
+			#scaling to make voronoi better
+		scaling_consts = np.abs(boundaries[1,:] - boundaries[0,:])
+		scaling_vol = np.prod(scaling_consts)
+		seed_bank = seed_bank/scaling_consts
+		unscaled_boundaries = np.array(boundaries)
+		boundaries = boundaries/scaling_consts
+		
+			#creating Voronoi tesselation
+		vor = scipy.spatial.Voronoi(seed_bank)
+		#scipy.spatial.voronoi_plot_2d(vor)
+		#plt.show()
+		
+			#looping on regions
+			#each region is trimmed inside the boundaries and a number of templates are evenly spaced in each region
+			#FIXME: this can be parallelized
+		for id_region in tqdm(range(len(vor.regions)), desc = 'Generating a bank - loops on Voronoi regions'):
+		#for id_region in range(len(vor.regions)):
+			region = vor.regions[id_region]
+			if -1 in region: #region at infinity, discard (hopefully, it should be out of the boundaries)
+				continue
+			else:
+				points = vor.vertices[region]
+
+			try: #why this??
+				id_vertex = np.where(vor.point_region == id_region)[0][0]
+			except:
+				#weird region
+				continue
+
+			center = seed_bank[id_vertex]
+				#if center is outside, skip the region
+			if not np.logical_and(np.all(center > boundaries[0,:]), np.all(center < boundaries[1,:])):
+				continue
+	
+	
+				#this line can fail, I might better insert this in a try except statement
+			try:
+				hull = scipy.spatial.ConvexHull(points) #hull of the current region
+			except:
+				#import pandas as pd
+				#seaborn.pairplot(pd.DataFrame(data=points))
+				#plt.show()
+				warnings.warn("Region {}: the hull construction failed ".format(id_region))
+				continue
+
+				#making the hull inside the boundaries
+			hull_generators = sample_from_hull_boundaries(hull, 5000, boundaries, max_iter = 3000)
+			
+			if hull_generators is not None and len(hull_generators) >10:
+				try:
+					hull = scipy.spatial.ConvexHull(hull_generators) #this hull now has proper volume
+				except:
+					#import pandas as pd
+					#seaborn.pairplot(pd.DataFrame(data=hull_generators))
+					#plt.show()
+					warnings.warn("Region {}: the hull construction failed after the sampling: whyyyy?".format(id_region))
+					continue
+			else:
+				warnings.warn("Region {} is badly sampled: too close to the boundary!!".format(id_region))
+				continue
+
+				#TODO: think about splitting a volume, if it's too large: might improve convergence at almost no cost
+				
+				#recomputing the center
+			center = np.mean(hull_generators, axis = 0) #good improvement
+				#computing the volume of the center
+			volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center*scaling_consts)))
+			volume = hull.volume * volume_factor * scaling_vol
+			#print(center*scaling_consts, volume_factor,  hull.volume, scaling_vol, volume) #DEBUG
+			
+			N_templates = int( volume / np.power(1-avg_match, seed_bank.shape[1]) ) #find a good way to set this number
+			#print(N_templates) #DEBUG
+
+			if N_templates < 1: continue
+			
+			if False: #this is good but slow, find a better one
+				#FIXME: lloyd's algorithm is slow... Find a good alternative
+				kmeans = KMeans(n_clusters=N_templates, random_state=0).fit(hull_generators)
+				templates_in_hull = kmeans.cluster_centers_
+			else:
+				#FIXME: this part can fail easily... you need to make it more robust
+				if hull_generators.shape[0] > N_templates:
+					templates_in_hull = hull_generators[np.random.choice(hull_generators.shape[0], N_templates, False),:]
+					#PLOT_DEBUG = False
+				else:
+					templates_in_hull = hull_generators
+					#PLOT_DEBUG = True
+					warnings.warn("Region {}: too few templates were sampled. Result in this region are likely to be biased".format(id_region))
+					print(center*scaling_consts, volume_factor,  hull.volume, scaling_vol, volume) #DEBUG
+			
+			if PLOT_DEBUG:
+				if False:
+					for simplex in hull.simplices: #PLOT_DEBUG
+						plt.plot(hull_generators[simplex, 0]*scaling_consts[0], hull_generators[simplex, 1]*scaling_consts[1], 'k-', zorder = 1)  #PLOT_DEBUG
+				if True:
+					import pandas as pd
+					seaborn.pairplot(pd.DataFrame(data=hull_generators*scaling_consts, columns = self.s_handler.labels(self.spin_format)))
+					plt.show()
+			
+			self.add_templates(templates_in_hull*scaling_consts)
+		
+		if PLOT_DEBUG:
+			plt.scatter(self.templates[:,0], self.templates[:,1], marker = 'o', s = 2, c = 'r', zorder = 0)#PLOT_DEBUG
+			plt.xlabel("m1");plt.ylabel("m2")
+			plt.figure()#PLOT_DEBUG
+			plt.title('final bank')#PLOT_DEBUG
+			plt.scatter(self.templates[:,0], self.templates[:,1], marker = 'o', s = 2, c = 'b', zorder = 0)#PLOT_DEBUG
+			plt.xlabel("m1");plt.ylabel("m2")
+			plt.show() #PLOT_DEBUG
+			
+		return
+
+	#@do_profile(follow=[])
+	def generate_bank_voronoi(self, metric_obj, avg_match, seed_bank, boundaries, grid_list = None, p_disc = False, plot_debug = None):
+		"""
+		Generates a bank using the Voronoi tesselation method.
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		avg_match: float
+			Average match between templates
+
+		seed_bank: 'np.ndarray'/'string'/tuple
+			A starting seed bank for the tesselation algorithm. It can be generated with MCMC and has to have the dimensions of the space
+			If a string is given, the seed bank is load from that file with np.loadtxt
+			If a tuple is given, the first is intended to be a string, the second is intended to be a the number of templates to be loaded
+		
+		boundaries: 'np.ndarray' (2,D)/(2,2)
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+			
+		grid_list: 'list'
+			A list holding the number of split to be performed along each dimension (excluded the masses)
+			If the entry is a list, they are understood as the threshold values for the division (handy for a non equally spaced grid)
+			##SHITTY NAME: FIND A BETTER ONE
+		
+		p_disc: 'bool'
+			Whether to use Poisson disc sampling methods for sampling on the hypercubes. It ensures a higher uniformity in the points drawn
+			Not implemeted yet :(
+			(Needs module poisson_disc)
+
+		plot_debug: str
+			String with the folder to save the plots at.
+			If None, no plots will be produced. If 'show', the results will be shown.
+		"""
+		if self.spin_format.startswith('Mq_') or self.spin_format.startswith('mceta_'):
+			raise RuntimeError("The current placing method does not support Mq format for the masses")
+		
+		if qmc:
+			sampler = scipy.stats.qmc.LatinHypercube(d=self.D-2)
+
+			#loading seed_bank, if it's the case
+		if isinstance(seed_bank, str):
+			seed_bank = np.loadtxt(seed_bank)
+		if isinstance(seed_bank, tuple):
+			seed_bank = np.loadtxt(seed_bank[0], max_rows = seed_bank[1])
+		seed_bank = seed_bank[:,:2] #making sure the seed bank is of the right size
+
+			#taking care of the grid on extra dimensions
+		upper_boxes, lower_boxes = [], []
+		if self.D >2:
+			if grid_list is None:
+				raise ValueError("Parameter grid_list not provided")
+			assert len(grid_list) == self.D-2, "Wrong number of grid sizes"
+				#creating a proper grid list
+			grid_list_ = []
+			for i in range(self.D-2):
+				if isinstance(grid_list[i], int):
+					grid_list_.append( np.linspace(boundaries[0,2+i], boundaries[1,2+i], grid_list[i]+1) )
+				elif isinstance(grid_list[i], np.ndarray) or isinstance(grid_list[i], list):
+					grid_list_.append( np.array(grid_list[i]))
+				else:
+					raise ValueError("Grid type not understood. Expected list/np.array or int, got {}".format(type(grid_list[i])))
+			grid_list = grid_list_
+			
+			lower_boxes, upper_boxes = get_boundary_box(grid_list)
+			
+		else:
+			upper_boxes = [np.array([])]
+			lower_boxes = [np.array([])]
+			ids_region_bounds = np.array([[]])
+			mesh_grid = np.array([[]])
+		
+		boundaries = boundaries[:,:2] #forgetting about the extra dim boundaries
+
+			#making sure that seed_bank is within boundaries
+		ids_ok = np.logical_and(np.all(seed_bank > boundaries[0,:], axis =1), np.all(seed_bank < boundaries[1,:], axis = 1)) #(N,)
+		seed_bank = seed_bank[ids_ok,:]
+		seed_bank = self.s_handler.switch_BBH(seed_bank, self.spin_format)
+
+			#padding seed_bank, to avoid infinities
+		pad_points = get_pad_points_2d(5, boundaries)
+		seed_bank = np.concatenate([seed_bank, pad_points], axis = 0)
+
+			#Voronoi tassellation
+		vor = scipy.spatial.Voronoi(seed_bank)
+
+		m1, M1, m2, M2 = boundaries[0,0], boundaries[1,0], boundaries[0,1], boundaries[1,1]
+		box_2d = np.array([[m1, m1],[m1, m2],[M1, M1], [M1,M2], [M1,m2]])
+		box_2d = np.unique(box_2d, axis =0)
+		box_hull = scipy.spatial.ConvexHull(box_2d)
+
+		for id_region in tqdm(range(len(vor.regions)), desc = 'Generating a bank - loops on Voronoi regions'):
+			region = vor.regions[id_region]
+			
+			########
+			#Creating a tesselation on the mass space
+			########
+			
+			if -1 in region: #region at infinity: the center of the region is added instead of the infinities
+				id_vertex = np.where(vor.point_region == id_region)[0][0]
+				center = seed_bank[id_vertex] #getting the center
+				region = list(set(region)) #same as unique
+				region.remove(-1)
+				vertices = vor.vertices[region]
+				vertices = np.concatenate([vertices, center[None,:]], axis =0)
+			else:
+				vertices = vor.vertices[region]
+
+			if len(vertices) <1: continue #for some reason there is an empty region
+
+			vertices_in_box = points_in_hull(vertices, box_hull) #whether each vertex is in the box
+
+			if np.all(~vertices_in_box):
+				continue #all the vertices are outside
+
+			hull = scipy.spatial.ConvexHull(vertices)
+
+			if not np.all(vertices_in_box):
+					#intersecting with boundaries
+					#check whether the hull intersects with the boundaries
+				b_centers = np.column_stack(vertices[hull.simplices[:,0]]).T #centers of all the vertices of a hull
+				b_normals = np.column_stack([vertices[hull.simplices[:,1]]- vertices[hull.simplices[:,0]]]) #direction of all the vertices of a hull
+					#computing all the intersections between hull vertices and box hull
+				p_intersect = all_line_hull_intersection(b_normals, b_centers, box_hull)
+				p_intersect = np.concatenate([box_2d, p_intersect], axis =0) #to add centers
+				
+					#compute whether the intersections between current hull and box are inside both the hull and the box
+				p_to_add = p_intersect[points_in_hull(p_intersect, hull)]
+				p_to_add = p_to_add[points_in_hull(p_to_add, box_hull)]
+
+				new_vertices = np.column_stack([*vertices[vertices_in_box,:], *p_to_add]).T
+				
+				if new_vertices.shape[0] <1: continue #this shouldn't happen but it's better to check :)
+				
+				vertices = new_vertices
+				
+				hull = scipy.spatial.ConvexHull(vertices)
+			
+			if isinstance(plot_debug, str):
+				plt.plot(hull.points[hull.vertices,0], hull.points[hull.vertices,1], 'o', c ='g', ms = 5)
+				center = np.mean(hull.points[hull.vertices,:], axis = 0)
+				plt.plot(center[0], center[1], 'x', c ='r', ms = 7)
+				for simplex in hull.simplices: #PLOT_DEBUG
+					plt.plot(hull.points[simplex, 0], hull.points[simplex, 1], 'r-', zorder = 10)
+
+			########
+			#Generating the templates
+			########
+			
+			hull_volume_2d = hull.volume
+			center_2d = np.mean(hull.points[hull.vertices,:], axis = 0)
+				#loops on the boxes in which each mass tile is divided in d dimensions
+				#For each box it computes the geometric volume
+			extra_dim_samples = []
+			N_tot_templates = 0
+
+			if True: #crude square approx
+			
+				if self.D>2:
+					temp_grid_list = [np.sort([g[0], *np.random.uniform(g[0],g[-1],len(g)-2), g[-1]]) for g in grid_list]
+					lower_boxes, upper_boxes = get_boundary_box(temp_grid_list)
+			
+				for i in range(len(upper_boxes)):
+					center = np.concatenate([center_2d, (upper_boxes[i]+lower_boxes[i])/2.]) #center of the box
+					volume_extra_dim = np.prod(np.abs(upper_boxes[i] - lower_boxes[i]))	#euclidean volume given by the extra dimension
+					volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center))) #volume factor (from the metric)
+					volume = hull_volume_2d*volume_extra_dim*volume_factor	#volume of the box
+					
+						#FIXME: the choice here is absolutely crucial!!
+						#These two links might help:
+				#https://mathoverflow.net/questions/22592/mean-minimum-distance-for-k-random-points-on-a-n-dimensional-hyper-cube
+				#https://arxiv.org/abs/math/0212230
+				#You will probably need the inverse of the gamma function: https://mathoverflow.net/questions/12828/inverse-gamma-function
+
+						#eq 2.16 https://arxiv.org/pdf/gr-qc/9511032.pdf
+					#lambda_N_templates = volume / np.power(1-avg_match, self.D) #this is very wrong (look better at eq. 2.16)
+					lambda_N_templates = volume / np.power(np.sqrt(4*(1-avg_match)/self.D), self.D)
+					try:
+						N_templates = np.random.poisson(lambda_N_templates)
+					except:
+						print("Failed N_templates: ", lambda_N_templates, center)
+						N_templates = 0
+					
+					if self.D>2:
+						extra_dim_samples.append( np.random.uniform(lower_boxes[i], upper_boxes[i], (N_templates, len(lower_boxes[i]) )) )
+
+					N_tot_templates += N_templates
+
+			if N_tot_templates <1: continue #skipping boxes that shall be empty...
+			
+			new_templates_2d = sample_from_hull(hull, N_tot_templates) #(N_templates, 2)
+
+			if self.D>2:
+				extra_dim_samples = np.concatenate(extra_dim_samples, axis =0)
+				new_templates = np.concatenate([new_templates_2d, extra_dim_samples], axis =1)
+			else:
+				new_templates = new_templates_2d
+			
+			self.add_templates(new_templates)
+
+		if isinstance(plot_debug, str):
+			plt.scatter(*self.templates[:,:2].T, s = 1)
+			plt.xlabel(r'$m_1$')
+			plt.ylabel(r'$m_2$')
+			if plot_debug != 'show': plt.savefig(plot_debug+"voronoi.png")
+			import pandas as pd
+			seaborn.pairplot(pd.DataFrame(data=self.templates, columns = self.s_handler.labels(self.spin_format)),  markers = 'o', plot_kws={"s": 1})
+			if plot_debug != 'show': plt.savefig(plot_debug+"pairplot.png")
+			if plot_debug == 'show': plt.show()
+			
+		return
+
+	def get_templates(self, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = True):
+		"""
+		Place the templates on a sub-tile.
+		"""
+		#TODO:create a proper docstring for that
+		center_1d = (upper_boxes+lower_boxes)/2.
+		new_templates = [] #to store the newly added templates
+		metric_values = [] #to store the metric evaluation on the centroids
+		
+			#setting verbosity
+		if verbose: it = tqdm(range(len(upper_boxes_i)), desc = 'Generating a bank - loops on sub-tiles', leave = False)
+		else: it = range(len(upper_boxes_i))
+		
+		for j in it:
+			center = np.concatenate([[center_1d], (lower_boxes_i[j]+upper_boxes_i[j])/2.])
+			boundaries_ij = np.column_stack([np.concatenate([[lower_boxes], lower_boxes_i[j]]),
+				np.concatenate([[upper_boxes], upper_boxes_i[j]]) ]).T
+
+				#TODO: edit create_mesh, so that it produces meaningful results :)
+			#metric =  metric_obj.get_metric(center) #metric
+			#new_templates = create_mesh(avg_dist, (scipy.spatial.Rectangle(boundaries_ij[0,:],boundaries_ij[1,:]) , metric))
+			#self.add_templates(new_templates)
+			#continue
+				
+				######computing N_templates
+				#volume computation
+			volume = np.abs(np.prod(boundaries_ij[1,:] - boundaries_ij[0,:]))
+			volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center, optimize_phi = True))) #volume factor (from the metric)
+			volume = volume*volume_factor
+			
+			metric_values.append(np.concatenate([center, [volume_factor], [int(volume / np.power(avg_dist, self.D))] ]))
+			#DEBUUUUUUUUUUUUUUUUUUUG
+			#pay attention to that!!
+			new_templates.append(np.random.uniform(*boundaries_ij, (3, self.D))) #DEBUG
+			continue
+			
+				#extracting the templates and placing
+			if p_disc:
+				#FIXME: how the hell shall I tune this parameter??
+				radius = 0.5*avg_dist/np.power(volume_factor, 1/self.D)
+				new_templates.append(poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:])
+			else:
+				lambda_N_templates = volume / np.power(avg_dist, self.D)
+				N_templates = np.random.poisson(lambda_N_templates)
+				#print(center, N_templates)
+				#print(avg_dist)
+				new_templates.append(np.random.uniform(*boundaries_ij, (N_templates, self.D)))
+		
+			if new_templates[-1].ndim ==1: new_templates[-1]= new_templates[-1][None,:]
+			
+			if False:
+				corners = get_cube_corners(boundaries_ij[:,:2])
+				plt.scatter(corners[:,0], corners[:,1], c = 'r', s = 15)
+				plt.plot(*corners[[0,1],:].T, c = 'k', lw = 2)
+				plt.plot(*corners[[2,3],:].T, c = 'k', lw = 2)
+				plt.plot(*corners[[1,3],:].T, c = 'k', lw = 2)
+				plt.plot(*corners[[0,2],:].T, c = 'k', lw = 2)
+				plt.scatter(*center[:2], c = 'r', marker = 'x')
+				plt.scatter(*new_templates[-1][:,:2].T, c = 'r', s = 1)
+
+		new_templates = np.concatenate(new_templates, axis =0)
+		metric_values = np.stack(metric_values, axis =0)
+		
+		return new_templates, metric_values
+	
+	#@do_profile(follow=[])
+	def generate_bank_hypercubes(self, metric_obj, avg_match, boundaries, grid_list = None, p_disc = False, plot_debug = None, use_ray = False):
+		"""
+		Generates a bank using an hypercube tesselation.
+		Works only if spinf format includes M and q
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		avg_match: float
+			Average match between templates
+		
+		boundaries: 'np.ndarray' (2,D)
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+			
+		grid_list: 'list'
+			A list holding the number of split to be performed along each dimension (included M and q)
+			If the entry is a list, they are understood as the threshold values for the division (handy for a non equally spaced grid)
+			##SHITTY NAME: FIND A BETTER ONE
+
+		p_disc: 'bool'
+			Whether to use Poisson disc sampling methods for sampling on the hypercubes. It ensures a higher uniformity in the points drawn
+			(Needs module poisson_disc)
+
+		plot_debug: str
+			String with the folder to save the plots at.
+			If None, no plots will be produced. If 'show', the results will be shown.
+
+		use_ray: bool
+			Whether to use ray to parallelize
+		
+		Returns
+		-------
+		
+		metric_values: 'np.ndarray' (N_centers,D+1)
+			The evaluation of the metric in the centers of the hypercubes.
+			Each row has the format [center (D,), sqrt(|M|)]
+		"""
+		avg_dist = self.avg_dist(avg_match) #desired average distance between templates
+		
+		if use_ray: ray.init()
+		
+		if self.spin_format.startswith('m1m2_'):
+			raise RuntimeError("The current placing method does not support m1m2 format for the masses")
+		
+		if grid_list is None:
+			raise ValueError("Parameter grid_list not provided")
+		assert len(grid_list) == self.D, "Wrong number of grid sizes. Expected {}; given {}".format(self.D, len(grid_list))
+		
+			#creating a proper grid list
+		grid_list_ = []
+		for i in range(self.D):
+			if isinstance(grid_list[i], int):
+				if i ==0:
+					#g_list = np.geomspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #not based on physics but apparently better
+						#placing m_tot or M_chirp according the scaling relation: mc**(-8/3)*l ~ const.
+						#(but maybe it is better to use geomspace)
+					#g_list = plawspace(boundaries[0,i], boundaries[1,i], -8./3., grid_list[i]+1) #power law spacing
+					g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #linear spacing
+				else: g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1)
+				grid_list_.append( g_list )
+			elif isinstance(grid_list[i], np.ndarray) or isinstance(grid_list[i], list):
+				grid_list_.append( np.array(grid_list[i]))
+			else:
+				raise ValueError("Grid type not understood. Expected list/np.array or int, got {}".format(type(grid_list[i])))
+		grid_list = grid_list_
+		
+		lower_boxes, upper_boxes = get_boundary_box([grid_list[0]])
+		lower_boxes, upper_boxes = lower_boxes[:,0], upper_boxes[:,0]
+
+			#loop on the first dimension (i.e. M)
+		new_templates, metric_values = [], []
+		
+		for i in tqdm(range(len(upper_boxes)), desc = 'Generating a bank - loops on M/Mc tiles'):
+			#grid_list_i = [np.sort([g[0], *np.random.uniform(g[0],g[-1],len(g)-2), g[-1]]) for g in grid_list[1:]]
+			
+				#this is ugly but look alright! Probably, it is better to do a linspace
+			grid_list_i =  [np.array([g[0], 
+					*((g[-1]-g[0])*np.sort(np.linspace(0,1,len(g))*np.random.uniform(1-.5/(len(g)),1+.5/(len(g)),len(g)))[1:-1]+g[0]),
+					g[-1]]) for g in grid_list[1:]]
+			grid_list_i = grid_list[1:] #DEBUUUUUUUUUUUUUUUG
+			
+			lower_boxes_i, upper_boxes_i = get_boundary_box(grid_list_i)
+			
+			#getting the templates in this M/mc strip
+			if not use_ray:
+				new_templates_temp, metric_values_temp = self.get_templates(metric_obj, avg_dist, lower_boxes[i], upper_boxes[i], lower_boxes_i, upper_boxes_i, p_disc, True)
+				new_templates.append(new_templates_temp)
+				metric_values.append(metric_values_temp)
+			if use_ray:
+				#only the first one will have its progress bar: this gives a rough idea of the time that everything takes
+				#this new templates is a hack: it rather keeps a tuple of array [new_templates, metric_values]
+				new_templates.append(get_templates_ray.remote(self, metric_obj, avg_dist, lower_boxes[i], upper_boxes[i], lower_boxes_i, upper_boxes_i, p_disc, verbose = (i == 0)))
+		
+		if use_ray:
+			#gathering the ray results (that are executed in parallel)
+			#TODO: do a proper progress bar here
+			
+			new_templates = ray.get(new_templates)
+			ray.shutdown()
+			print("All ray jobs are done")
+			metric_values = [nt[1] for nt in new_templates]
+			new_templates = [nt[0] for nt in new_templates]
+
+		new_templates = np.concatenate(new_templates, axis =0) #concatenate a list of templates
+		metric_values = np.concatenate(metric_values, axis =0) #concatenate a list of metric values
+		self.add_templates(new_templates)
+
+		if isinstance(plot_debug, str):
+			import pandas as pd
+			if self.templates.shape[0] >50000:
+				ids_ = np.random.choice(self.templates.shape[0], 50000, replace = False)
+			else:
+				ids_ = range(self.templates.shape[0])
+			seaborn.pairplot(pd.DataFrame(data=self.templates[ids_,:], columns = self.s_handler.labels(self.spin_format, True)),  markers = 'o', plot_kws={"s": 3})
+			if plot_debug != 'show': plt.savefig(plot_debug+"pairplot.png")
+			if plot_debug == 'show': plt.show()
+			plt.show() #DEBUG
+			plt.close('all')
+
+		return metric_values
+	
+	def place_templates(self, t_obj, avg_match, placing_method = 'p_disc', verbose = True):
+		"""
+		Given a tiling, it places the templates and adds them to the bank
+		
+		Parameters
+		----------
+
+		t_obj: 'tiling_handler'
+			A tiling handler with a non-empty tiling
+		
+		avg_match: 'float'
+			Average match for the bank: it controls the distance between templates
+		
+		placing_method: 'str'
+			The placing method to set templates in each tile
+			It can be:	'p_disc' 	-> Poisson disc sampling
+						'uniform'	-> Uniform drawing in each hyper-rectangle
+						'geometric'	-> Geometric placement
+		verobse: 'bool'
+			Print output?
+		
+		"""
+		assert placing_method in ['p_disc', 'uniform', 'geometric'], ValueError("Wrong placing method selected")
+		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen spin format (space dimensionality mismatch)")
+		
+		avg_dist = self.avg_dist(avg_match) #desired average distance between templates
+		new_templates = []
+		
+		if verbose: it = tqdm(t_obj, desc = 'Placing the templates within a tile')
+		else: it = t_obj
+		
+		for t in it:
+			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
+			volume_factor = np.sqrt(np.abs(np.linalg.det(t[1]))) #* t[0].volume()
+			
+			if placing_method == 'p_disc':
+					#radius controls the relative distance between templates (not the radius of the circle!)
+				radius = avg_dist/np.power(volume_factor, 1/self.D)
+				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
+			elif placing_method == 'uniform':
+				lambda_N_templates = t_obj.N_templates(*t, avg_dist, self.D) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler
+				N_templates = int(lambda_N_templates)
+				#N_templates = np.random.poisson(lambda_N_templates) #probably not a good idea
+				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
+			elif placing_method == 'geometric':
+				new_templates_ = create_mesh(avg_dist, t )
+		
+			new_templates.append(new_templates_)
+
+		new_templates = np.concatenate(new_templates, axis =0)
+		self.add_templates(new_templates)
+		return 			
+
+	def create_grid_tiling(self):
+		"This would be equivalent to the old version of the code"
+		return
+	
+	def _generate_tiling(self, metric_obj, coarse_boundaries, avg_dist, N_temp, use_ray = False ):
+		"""
+		Creates a tiling of the space, starting from a coarse tile.
+		
+		Parameters
+		----------
+		
+		metric_obj: 'WF_metric'
+			A WF_metric object to compute the match with
+
+		N_temp: 'int'
+			Maximum number of templates that each tile may contain
+
+		avg_dist: 'float'
+			Average distance (in the metric space) between templates
+		
+		coarse_boundaries: 'list'
+			A list of boundaries for a coarse tiling. Each box will have its own independent hierarchical tiling
+			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube
+		
+		use_ray: 'bool'
+			Whether to use ray to parallelize
+		
+		Returns
+		-------
+					
+		tiling: 'tiling_handler' 
+			A list of tiles ready to be used for the bank generation
+		"""
+		t_obj = tiling_handler() #empty tiling handler
+		temp_t_obj = tiling_handler()
+		t_ray_list = []
+		
+		for i, b in enumerate(coarse_boundaries):
+			if use_ray:
+				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
+							N_temp, metric_obj, avg_dist, verbose = True , worker_id = i) )
+			else:
+				t_obj += temp_t_obj.create_tiling(b, N_temp, metric_obj, avg_dist, verbose = True, worker_id = None) #adding the newly computed templates to the tiling object
+			
+		if use_ray:
+			t_ray_list = ray.get(t_ray_list)
+			ray.shutdown()
+			print("All ray jobs are done")
+			t_obj = tiling_handler()
+			for t in t_ray_list:
+				t_obj += t
+		
+		return t_obj
+			
+	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp = 200, placing_method = 'p_disc', plot_folder = None, use_ray = False):
+		"""
+		Generates a bank using a hierarchical hypercube tesselation. 
+		It works only if spin format includes M and q
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		avg_match: float
+			Average match between templates
+		
+		boundaries: 'np.ndarray' (2,D)
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+		
+		grid_list: 'list'
+			A list of ints, each representing the number of coarse division of the space.
+			If use ray option is set, the subtiling of each coarse division will run in parallel
+		
+		N_temp: 'int'
+			Maximum number of templates that each tile may contain
+
+		placing_method: 'str'
+			The placing method to set templates in each tile
+			It can be:	'p_disc' 	-> Poisson disc sampling
+						'uniform'	-> Uniform drawing in each hyper-rectangle
+						'geometric'	-> Geometric placement
+
+		plot_folder: str
+			String with the folder to save the plots at.
+			If None, no plots will be produced. If 'show', the results will be shown.
+
+		use_ray: bool
+			Whether to use ray to parallelize
+		
+		Returns
+		-------
+		
+		tiling: 'tiling_handler' 
+			A list of tiles used for the bank generation		
+		"""
+		#TODO: add an option to avoid the hierarchical tiling??
+			##
+			#Initialization
+		avg_dist = self.avg_dist(avg_match) #desired average distance in the metric space between templates
+		
+		if use_ray: ray.init()
+		
+		if self.spin_format.startswith('m1m2_'):
+			raise RuntimeError("The current placing method does not support m1m2 format for the masses")
+		
+		assert len(grid_list) == self.D, "Wrong number of grid sizes. Expected {}; given {}".format(self.D, len(grid_list))
+		
+			###
+			#creating a proper grid list for a coarse boundary creation
+		grid_list_ = []
+		for i in range(self.D):
+			if i ==0:
+					#placing m_tot or M_chirp according the scaling relation: mc**(-8/3)*l ~ const.
+					#(but maybe it is better to use geomspace)
+				g_list = plawspace(boundaries[0,i], boundaries[1,i], -8./3., grid_list[i]+1) #power law spacing
+				#g_list = np.geomspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #not based on physics
+				#g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #linear spacing
+			else:
+				g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1)
+			grid_list_.append( g_list )
+		grid_list = grid_list_
+		
+		lower_boxes, upper_boxes = get_boundary_box(grid_list)
+		coarse_boundaries = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
+		
+			###
+			#creating the tiling
+		t_obj = self._generate_tiling(metric_obj, coarse_boundaries, avg_dist, N_temp, use_ray = use_ray )	
+		
+			##
+			#placing the templates
+		self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+		
+			##
+			#plot debug
+		if isinstance(plot_folder, str):
+			plot_tiles_templates(t_obj, self.templates, self.spin_format, plot_folder, show = True)
+		
+		return t_obj
+				
+	def enforce_boundaries(self, boundaries):
+		"""
+		Remove from the bank the templates that do not lie within the boundaries
+		
+		Parameters
+		----------
+
+		boundaries: 'np.ndarray' (2,4)/(2,2)
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+		"""	
+		if self.templates is None: return
+
+		ids_ok = np.logical_and(np.all(self.templates > boundaries[0,:], axis =1), np.all(self.templates < boundaries[1,:], axis = 1)) #(N,)
+		if len(ids_ok) == 0:
+			self.templates = None
+			warnings.warn("No template fits into the boundaries")
+		elif len(ids_ok) < self.templates.shape[0]:
+			self.templates = self.templates[ids_ok,:]
+		else:
+			pass
+			#print("The bank already fits into the boundaries")
+
+		return
+		
+	def _compute_cross_match(self, metric_obj, injections_set, N_templates, N_neigh):
+		"""
+		For each template in injections_set, it computes the optimal match with an element in the bank
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		injections_set: np.ndarray (N,2)/(N,4)
+			An array containing the set of injections
+
+		N_templates: int
+			Number of radom templates to be chosen from the bank. If None, all the element in the bank will be chosen
+
+		N_neigh: int
+			Number of neigbours to consider for the match calculation
+		
+		Returns
+		-------
+		
+		FF : 'np.ndarray' (M,)
+			Best match for each injection
+		
+		ids_templates: 'np.ndarray' (M,)
+			Indices of the templates used for the computation
+		"""
+		match_function = metric_obj.match #function to compute the match
+		metric_obj.set_spin_format(self.spin_format)
+		
+		injections_set = injections_set[:,:self.D]
+		bank = self.templates[:,:self.D]
+
+			#in the case where the inj_set and the bank are the same, we don't want to include the first neighbour: otherwise the FF =1 always
+		if np.all(bank==injections_set):
+			id_start = 1
+		else:
+			id_start = 0
+		
+		if isinstance(N_templates, int):
+			ids_templates = np.random.choice(bank.shape[0], size = (N_templates,), replace = False)
+			bank = bank[ids_templates,:]
+			if id_start ==1:
+				injections_set = injections_set[ids_templates,:]
+		else:
+			ids_templates = np.array(range(bank.shape[0]))
+		
+		bank_lookup_table = scipy.spatial.cKDTree(bank)
+		d, ids = bank_lookup_table.query(injections_set, k = N_neigh)
+		
+		FF_list = [] #this list keeps the match for each neighbours
+		for j in tqdm(range(id_start, N_neigh), desc="Computing fitting factor - evaluating neighbours"): #loop on neighbour order
+			temp_match = match_function(injections_set, bank[ids[:,j],:], True)
+			FF_list.append(temp_match)
+
+		FF = np.array(FF_list).T
+		FF = np.max(FF, axis =1)
+		
+		return FF, ids_templates
+	
+	def _compute_cross_match_opt(self, metric_obj, injections_set, N_templates, N_neigh):
+		"""
+		For each template in injections_set, it computes the optimal match with an element in the bank.
+		It is optimized so that the injections are computed only once.
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		injections_set: np.ndarray (N,2)/(N,4)
+			An array containing the set of injections
+
+		N_templates: int
+			Number of radom templates to be chosen from the bank. If None, all the element in the bank will be chosen
+
+		N_neigh: int
+			Number of neigbours to consider for the match calculation
+		
+		Returns
+		-------
+		
+		FF : 'np.ndarray' (M,)
+			Best match for each injection
+		
+		ids_templates: 'np.ndarray' (M,)
+			Indices of the templates used for the computation
+		"""
+		match_function = metric_obj.match #function to compute the match
+		metric_obj.set_spin_format(self.spin_format)
+		
+		injections_set = injections_set[:,:self.D]
+		bank = self.templates[:,:self.D]
+
+			#in the case where the inj_set and the bank are the same, we don't want to include the first neighbour: otherwise the FF =1 always
+		if np.all(bank==injections_set):
+			id_start = 1
+		else:
+			id_start = 0
+		
+			#trimming the bank to a given number of templates N_templates
+		if isinstance(N_templates, int):
+			ids_templates = np.random.choice(bank.shape[0], size = (N_templates,), replace = False)
+			bank = bank[ids_templates,:]
+			if id_start ==1:
+				injections_set = injections_set[ids_templates,:]
+		else:
+			ids_templates = np.array(range(bank.shape[0]))
+		
+			#precomputing the injections
+			#injections_set -> holds the parameters for the injs
+			#whiteWFs_injections_set -> holds the whithened WFs
+			#norm_injWFs -> holds the normalization constant
+		whiteWFs_injections_set = metric_obj.get_WF(injections_set, metric_obj.approx)
+		whiteWFs_injections_set = whiteWFs_injections_set/np.sqrt(metric_obj.PSD)
+		norm_injWFs = np.sum(np.multiply(np.conj(whiteWFs_injections_set), whiteWFs_injections_set),axis =1).real #(N,)
+		print("Generated {} injections".format(len(norm_injWFs)))
+
+		mchirp_bank = self.s_handler.get_mchirp(bank, self.spin_format)
+		mchirp_injs = self.s_handler.get_mchirp(injections_set, self.spin_format)
+
+		FF_list = [] #this list keeps the match for each neighbours
+		
+		bank_lookup_table = scipy.spatial.cKDTree(mchirp_bank[:,None])
+		d, ids = bank_lookup_table.query(mchirp_injs[:,None], k = N_neigh)
+		
+		for i in tqdm(range(bank.shape[0]), desc = 'Looping on the templates'):
+			template = bank[i,None,:]
+			
+				#computing the injections falling close to the template
+			#ids_template = np.where(np.abs(mchirp_bank[i] - mchirp_injs)<1)[0] #FIXME: this is garbage, do it better
+			ids_template = np.where(ids == i)[0]
+			
+			if len(ids_template)<=0: continue
+
+			temp_match = np.zeros(mchirp_injs.shape)
+
+			whiteWFs_bank = metric_obj.get_WF(template, metric_obj.approx)/np.sqrt(metric_obj.PSD)
+			norm_bank  = np.sum(np.multiply(np.conj(whiteWFs_bank), whiteWFs_bank),axis =1).real #(N,) 
+			
+			overlap = np.matmul(np.conj(whiteWFs_injections_set[ids_template,:]), whiteWFs_bank.T) #(N,) #np.einsum('ij,j->i')
+			#match_ = np.squeeze(overlap).real/np.sqrt(norm_injWFs[ids_template]*np.squeeze(norm_bank)) #this is WITHOUT phi maximization
+			match_ = np.abs(np.squeeze(overlap))/np.sqrt(norm_injWFs[ids_template]*np.squeeze(norm_bank)) #this is WITH phi maximization
+
+			temp_match[ids_template] = match_
+			
+			FF_list.append(temp_match)
+
+		FF = np.array(FF_list).T
+		FF = np.max(FF, axis =1)
+		
+		return FF, ids_templates
+
+
+	def compute_effectualness(self, metric_obj, N_templates = None, N_neigh = 5):
+		"""
+		It computes the effectualness of the bank. It is defined as:
+			MM_i = min_{j != i} <h_i|h_j>
+		where h_i is a generic template in the bank	
+		
+		Parameters
+		----------
+
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+
+		N_templates: int
+			Number of radom templates to be chosen from the bank. If None, all the element in the bank will be chosen
+
+		N_neigh: int
+			Number of neigbours to consider for the match calculation
+		
+		Returns
+		-------
+		
+		MM : 'np.ndarray' (N_templates,)
+			Best minimum match for each template
+		
+		ids_templates: 'np.ndarray' (M,)
+			Indices of the templates used for the computation.
+			This is only returned if N_templates is not None
+		"""
+		MM, ids_templates = self._compute_cross_match(metric_obj, self.templates, N_templates, N_neigh)
+
+		if N_templates is not None:
+			return MM, ids_templates
+		else:
+			return MM
+
+	def compute_fitting_factor(self, metric_obj, N_inj, boundaries, N_templates = None, N_neigh = 5):
+		"""
+		It computes the fitting factor of the bank by drawing random WFs within the boundaries.
+
+		Parameters
+		----------
+		
+		metric_obj: WF_metric
+			A WF_metric object to compute the match with
+		
+		N_inj: int
+			Number of random injections to compute the match
+
+		boundaries: 'np.ndarray' (2,4)/(2,2)
+			An optional array with the boundaries for the random extraction
+			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+
+		N_templates: int
+			Number of radom templates to be chosen from the bank. If None, all the element in the bank will be chosen
+
+		N_neigh: 'int'
+			Number of neighbours in the Euclidean space to compute the match with
+		
+		Returns
+		-------
+		
+		FF : 'np.ndarray' (N,)
+			Best match for each injection
+		
+		theta_inj: 'np.ndarray' (N,4)
+			Points in the space at which match is computed
+		
+		ids_templates: 'np.ndarray' (M,)
+			Indices of the templates used for the computation.
+			This is only returned if N_templates is not None
+		"""
+		boundaries = np.array(boundaries) #(2,2/(2,4)
+		injs = np.random.uniform(*boundaries, (N_inj, boundaries.shape[1]))
+			#switching s.t. m1>m2
+		ids = np.where(injs[:,0]<injs[:,1])[0]
+		injs[ids,0], injs[ids,1] = injs[ids,1], injs[ids,0]
+		
+		FF, ids_templates = self._compute_cross_match_opt(metric_obj, injs, N_templates, N_neigh)		
+	
+		if N_templates is not None:
+			return  FF, injs, ids_templates
+		return FF, injs, ids_templates
+	
+	def save_obj(self):
+		return
+	
+
+
+
+
+
+
+
+
+
+
+		
+		
+		

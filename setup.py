@@ -16,11 +16,12 @@ setuptools.setup(
 	long_description_content_type="text/markdown",
 	url="https://github.com/stefanoschmidt1995/mbank",
 	packages=setuptools.find_packages(),
+	licence = 'GNU GENERAL PUBLIC LICENSE v3',
 	classifiers=[
 		"Programming Language :: Python :: 3",
-		"License :: OSI Approved :: GPLv2",
 		"Operating System :: OS Independent",
 	],
 	scripts = ["bin/run_mbank", "bin/run_bank_injs", "bin/mbank_place_templates"],
 	python_requires='>=3.6',
 )
+

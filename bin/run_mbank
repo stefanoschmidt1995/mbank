@@ -54,7 +54,7 @@ parser.add_argument(
 	help="Name for the bank output file")
 parser.add_argument(
 	"--grid-size", default = None, type=int_tuple_type,
-	help="Number of grid points for each extra dimension (i.e. spins and iota). The number of grid must match the number extra dimensions. Argument ignored if no extra dimensions are required.")
+	help="Number of grid points for each dimension. The number of grid must match the number extra dimensions. If None, the grid size will be a set of ones")
 parser.add_argument(
 	"--f-min",  default = 10., type=float,
 	help="Minium frequency for the scalar product")
@@ -139,7 +139,9 @@ args, _ = parser.parse_known_args()
 if args.out_dir == './out':	args.out_dir = './out_'+args.name
 if not args.out_dir.endswith('/'): args.out_dir = args.out_dir+'/'
 if not os.path.exists(args.out_dir):
-    os.makedirs(args.out_dir)
+	os.makedirs(args.out_dir)
+
+if args.grid_size is None: args.grid_size = tuple([1 for i in range(s.D(args.spin_format))])
 
 f_min = 10.
 f_high = 1024.

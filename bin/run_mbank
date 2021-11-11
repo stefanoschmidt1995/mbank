@@ -82,6 +82,9 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
+parser.add_argument(
+	"--downsampling-factor", type=float, default = 1.,
+	help="Downsampling factor for the metric computation (useful for speed up) (0.1 seems a good compromise)")
 
 	#ranges for physical parameters
 parser.add_argument(
@@ -117,17 +120,6 @@ parser.add_argument(
 parser.add_argument(
 	"--phi-range", default = [0., 2*np.pi], type=float, nargs = 2,
 	help="Range values for phi (if applicable)")
-
-	# FF options
-parser.add_argument(
-	"--compute-FF", default = False, action='store_true',
-	help="Whether to compute the fitting factor")
-parser.add_argument(
-	"--n-injs", default = 400, type=int,
-	help="Number of injections for the FF computation")	
-parser.add_argument(
-	"--n-neigh", default = 50, type=int,
-	help="Number of neighbours to consider for the match computation")	
 
 args, _ = parser.parse_known_args()
 
@@ -202,7 +194,9 @@ if format_info['phi']:
 f, PSD = np.loadtxt(args.psd)[:,:2].T
 if args.asd: PSD = np.square(PSD)
 
-m = WF_metric((f, PSD), approx = args.approximant, f_min = args.f_min, f_high = args.f_high, spin_format = args.spin_format)
+m = WF_metric((f, PSD), approx = args.approximant,
+		f_min = args.f_min, f_high = args.f_high,
+		spin_format = args.spin_format, downsampling_factor = args.downsampling_factor)
 
 print("## Running: ",args.name)
 

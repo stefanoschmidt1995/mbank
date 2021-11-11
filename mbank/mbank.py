@@ -1,7 +1,7 @@
 """
 mbank
 =====
-	An attempt to build a template bank using a metric on the parameter space to define a PDF. This will be used to extract the templates
+	A geometric placement method for a template bank in gravitational waves data analysis
 """
 
 import numpy as np
@@ -36,6 +36,8 @@ import scipy.stats
 import scipy.sparse
 import scipy.spatial
 import scipy.interpolate 
+from scipy.linalg import toeplitz
+from scipy.signal import decimate
 
 import sys
 sys.path.insert(0,'/home/stefano/Dropbox/Stefano/PhD/mlgw_repository/mlgw_v2') #ugly temp thing
@@ -43,9 +45,6 @@ try:
 	import GW_generator as gen
 except:
 	import mlgw.GW_generator as gen
-
-from scipy.linalg import toeplitz
-from scipy.signal import decimate
 
 #TODO: create a package for placing N_points in a box with lloyd algorithm (extra)
 
@@ -723,6 +722,9 @@ class spin_handler(object):
 		theta = np.array(theta)
 		if theta.ndim == 1:
 			theta = theta[None, :]
+			squeeze = True
+		else:
+			squeeze = False
 		
 		assert theta.shape[1]>=self.D(spin_format), "The number of BBH parameter is not enough for the given spin format. Expected {}, given {}".format(self.D(spin_format), theta.shape[1])
 		
@@ -766,6 +768,9 @@ class spin_handler(object):
 			iota = np.zeros(m1.shape)
 		else:
 			iota, phi = np.zeros(m1.shape), np.zeros(m1.shape)
+		
+		if squeeze:
+			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = m1[0], m2[0], s1x[0], s1y[0], s1z[0], s2x[0], s2y[0], s2z[0], iota[0], phi[0]
 		
 		return m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi
 	
@@ -877,55 +882,30 @@ class WF_metric(object):
 		
 		self.f_min = f_min
 		
-		if PSD is None:
-		#####Tackling the flat PSD case
-			self.PSD = None
-			self.delta_f = None
-			self.f_high = f_high
-			self.kernel = None
-			self.t_default = np.linspace(-40.,.1, 10000)
-			self.dt = self.t_default[1]-self.t_default[0]
-		elif isinstance(PSD, tuple):
-		#####Tackling the PSD case
-			self.PSD = PSD[1]
-			self.f_grid = PSD[0]
-			self.delta_f = self.f_grid[1]-self.f_grid[0]
-				#checking that grid is equally spaced
-			assert np.all(np.diff(self.f_grid)-self.delta_f<1e-10), "Frequency grid is not evenly spaced!"
-
-		#####applying a low and a high frequency cutoff to the PSD
-			if isinstance(f_high, (int, float)): #high frequency cutoff
-				id_cut = np.argmin(np.abs(self.f_grid-f_high))
-				self.f_grid = self.f_grid[:id_cut]
-				self.PSD = self.PSD[:id_cut]
-			
-			N_grid = 4*(len(np.arange(0, self.f_grid[0], self.delta_f))+len(self.PSD)) #N_grid for mlgw
-			
-				#low frequency cutoff
-			id_cut = np.argmin(np.abs(self.f_grid-f_min))
-			self.f_grid = self.f_grid[id_cut:]
-			self.PSD = self.PSD[id_cut:]
-			
-			if (len(self.PSD)//2)*2 != len(self.PSD): #I want an even number of points in a grid
-				self.f_grid = self.f_grid[:-1]
-				self.PSD = self.PSD[:-1]
-			self.f_high = self.f_grid[-1]
-		
-		#####initializing t_grid for mlgw
-				#building the standard time grid for mlgw: all the WFs will be generated on this time grid and will match the size of the kernel.
-			self.dt = 1./((self.delta_f)*N_grid) #dt to have the same f_min/f_max
-			self.t_default = np.linspace(-N_grid*self.dt, 0., N_grid)
-			self.t_default = self.t_default + 0.4 #shifting time grid to accomodate ring-down
-
-			if downsampling_factor < 1. and downsampling_factor>0.:
-				f_grid_new = np.linspace(self.f_grid[0], self.f_grid[1], int(len(self.f_grid)*downsampling_factor) )
-				self.PSD = np.interp(f_grid_new, self.f_grid, self.PSD)
-				self.f_grid = f_grid_new
-			
-		else:
+		if not isinstance(PSD, tuple):
 			raise ValueError("Wrong format for the PSD. Expected a tuple of np.ndarray, got {}".format(type(PSD)))
 
-		self.generator = gen.GW_generator(0)
+		#####Tackling the PSD
+		self.PSD = PSD[1]
+		self.f_grid = PSD[0]
+		self.delta_f = self.f_grid[1]-self.f_grid[0]
+			#checking that grid is equally spaced
+		assert np.all(np.diff(self.f_grid)-self.delta_f<1e-10), "Frequency grid is not evenly spaced!"
+		
+		#####applying a low and a high frequency cutoff to the PSD
+		if isinstance(f_high, (int, float)): #high frequency cutoff
+			self.f_high = f_high
+			self.f_grid = np.linspace(0., f_high, int(f_high/self.delta_f)+1)
+			self.PSD = np.interp(self.f_grid, PSD[0], PSD[1])
+		else:
+			self.f_high = self.f_grid[-1]
+			
+		if downsampling_factor < 1. and downsampling_factor>0.:
+			#FIXME: this doesn't work yet
+			f_grid_new = np.linspace(self.f_grid[0], self.f_grid[-1], int(len(self.f_grid)*downsampling_factor) )
+			self.PSD = np.interp(f_grid_new, self.f_grid, self.PSD)
+			self.f_grid = f_grid_new
+			
 		return
 	
 	def set_approximant(self, approx):
@@ -941,8 +921,6 @@ class WF_metric(object):
 		self.approx = approx
 		
 			#checking if the approximant is right
-		if approx == 'mlgw': return
-		
 		try:
 			lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
 		except RuntimeError:
@@ -969,7 +947,7 @@ class WF_metric(object):
 		spin_format: 'string'
 			An identifier for the spin format
 		"""
-		assert spin_format in self.s_handler.valid_formats, "Wrong spin format. Available formats are: "+str(self.s_handler.valid_formats)
+		assert spin_format in self.s_handler.valid_formats, "Wrong spin format '{}'. Available formats are: ".format(spin_format)+str(self.s_handler.valid_formats)
 		
 		self.spin_format = spin_format
 
@@ -1039,7 +1017,7 @@ class WF_metric(object):
 		"""
 		return 2.18*np.power(1.21/M_c, 5./3.)*np.power(100./f, 8./3.)
 	
-	def get_metric_determinant(self, theta, optimize_phi = True):
+	def get_metric_determinant(self, theta):
 		"""
 		Returns the metric determinant
 		
@@ -1049,9 +1027,6 @@ class WF_metric(object):
 		theta: 'np.ndarray' (N,D)
 			parameters of the BBHs. The dimensionality depends on the spin format set for the metric
 
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-
 		Returns
 		-------
 		
@@ -1059,8 +1034,7 @@ class WF_metric(object):
 			Determinant of the metric for the given input
 			
 		"""
-		#TODO: understand whether optimize_phi should be kept in place or not...
-		return np.linalg.det(self.get_metric(theta, optimize_phi = optimize_phi)) #(N,)
+		return np.linalg.det(self.get_metric(theta)) #(N,)
 
 	def log_pdf_gauss(self, theta, boundaries = None):
 		"Gaussian PDF, for the purpose of debugging and testing the MCMC..."
@@ -1135,57 +1109,94 @@ class WF_metric(object):
 		h : 'np.ndarray' (N,D, 2)/(N,D, 4)
 			Complex array holding the gradient of the WFs evaluated on the default frequency/time grid
 		"""
-		if approx == 'mlgw':
-			if self.spin_format not in ['Mq_nonspinning', 'Mq_s1z_s2z','mceta_nonspinning', 'mceta_s1z_s2z', 'm1m2_nonspinning', 'm1m2_s1z_s2z']:
-				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
-				#removing spins just in case
-			if theta.shape[1] == 2:
-				theta = np.concatenate([theta, np.zeros(theta.shape)], axis =1)
+		 	#doing finite difference methods
+		delta_ij = lambda i,j: 1 if i ==j else 0
+		grad_h_list = []
+		epsilon_list = [1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6]  #FIXME: find a way to tune it
+			#PAY ATTENTION TO THE GRADIENTS! THEY REALLY MAKE A DIFFERENCE IN ACCURACY
+			#IT IS HARD TO COMPUTE GRADIENTS IN THE LOW MASS REGION! WHY??
+		WF = self.get_WF(theta, approx) #only for forward euler
 		
-			grad_hreal, grad_himag = self.generator.get_mode_grads(theta, self.t_default, modes = (2,2), out_type = "realimag", grad_var = 'm1_m2')
-			grad_h = grad_hreal +1j* grad_himag
-			if self.spin_format == 'nonspinning':
-				grad_h = grad_h[:,:,:2]
-
-			grad_h = np.fft.fft(grad_h, axis =1) #(N,D, 2/4)
-			grad_h = grad_h[:,:grad_h.shape[1]//2+1] #this is evaluated on f_grid_h (only real frequencies)
-
-				#getting indices for slicing
-			f_grid_h = np.fft.fftfreq(grad_h.shape[1], self.dt)[:grad_h.shape[1]//2+1]
-			id_start = np.argmin(np.abs(f_grid_h - self.f_grid[0]))
-			id_end = id_start + len(self.f_grid)
-			grad_h = grad_h[:,id_start:id_end] #removing unwanted frequencies
-		
-		else: 	#doing finite difference methods
-			delta_ij = lambda i,j: 1 if i ==j else 0
-			grad_h_list = []
-			epsilon_list = [1e-5, 1e-5, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6]  #FIXME: find a way to tune it
-			WF = self.get_WF(theta, approx) #only for forward euler
-			
-			for i in range(theta.shape[1]):
-				if i>=self.s_handler.D(self.spin_format): break
-				epsilon = epsilon_list[i]
-				theta_plus = np.column_stack([theta[:,j] + epsilon * delta_ij(i,j)  for j in range(theta.shape[1])]) #(N,2)/(N,4)
-				theta_minus = np.column_stack([theta[:,j] - epsilon * delta_ij(i,j)  for j in range(theta.shape[1])])
+		for i in range(theta.shape[1]):
+			if i>=self.s_handler.D(self.spin_format): break
+			epsilon = epsilon_list[i]
+			theta_plus = np.column_stack([theta[:,j] + epsilon * delta_ij(i,j)  for j in range(theta.shape[1])]) #(N,2)/(N,4)
+			theta_minus = np.column_stack([theta[:,j] - epsilon * delta_ij(i,j)  for j in range(theta.shape[1])])
 				
-					#computing gradients
-					#second difference method: slower but more accurate
-				#grad_i = (self.get_WF(theta_plus, approx) - self.get_WF(theta_minus, approx) )/(2*epsilon) #(N,D)
-					#forward euler: faster but less accurate
-				grad_i = (self.get_WF(theta_plus, approx) - WF )/(epsilon) #(N,D) 
+				#computing gradients
+				#second difference method: slower but more accurate
+			#grad_i = (self.get_WF(theta_plus, approx) - self.get_WF(theta_minus, approx) )/(2*epsilon) #(N,D)
+				#forward euler: faster but less accurate
+			grad_i = (self.get_WF(theta_plus, approx) - WF )/(epsilon) #(N,D) 
 				
-				#print("The two methods agree? ",np.allclose(grad_i, grad_i_smart,1e-3,0.))
+			#print("The two methods agree? ",np.allclose(grad_i, grad_i_smart,1e-3,0.))
 				
-				grad_h_list.append(grad_i)
+			grad_h_list.append(grad_i)
 
-			grad_h = np.stack(grad_h_list, axis = -1) #(N,D,4)/(N,D,2)
+		grad_h = np.stack(grad_h_list, axis = -1) #(N,D,K)
 
 		return grad_h
 	
-	def get_WF(self, theta, approx):
+	def get_WF_lal(self, theta, approx = None, df = None):
 		"""
-		Computes the WF with a given approximant with parameters theta. The WFs in FD are evaluated on the grid on which the PSD is evauated (self.f_grid)
-		An approximant can be either 'mlgw' either any lal approximant.
+		Returns the lal WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid set by lal
+		
+		Parameters
+		----------
+		
+		theta: 'np.ndarray' (D, )
+			Parameters of the BBHs. The dimensionality depends on self.spin_format
+	
+		approx: 'string'
+			Which approximant to use. It can be FD lal approx
+			If None, the default approximant will be used
+		
+		df: 'float'
+			The frequency step used for the WF generation.
+			If None, the default, given by the PSD will be used
+
+		Returns
+		-------
+		
+		hp, hc : 'np.ndarray' (N,D)
+			lal frequency series holding the polarizations
+		"""
+		if approx is None: approx = self.approx
+		theta = np.squeeze(theta)
+		if theta.ndim == 2: raise RuntimeError("Theta can be only one dimensional")
+
+		if df is None: df = self.delta_f
+		else: assert isinstance(df, float), "Wrong type {} for df: expected float".format(type(df))
+
+		try:
+			lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
+		except RuntimeError:
+			raise RuntimeError("Given approximant not supported by lal")
+			#generating the WF
+		if not lalsim.SimInspiralImplementedFDApproximants(lal_approx):
+			raise RuntimeError("Approximant {} is TD".format(approx)) #must be FD approximant
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(theta, self.spin_format)
+			#FIXME: WTF is this grid??
+		hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
+                        m2*lalsim.lal.MSUN_SI,
+                        s1x, s1y, s1z,
+                        s2x, s2y, s2z,
+                        1e6*lalsim.lal.PC_SI,
+                        iota, phi, 0., 0.,0., #inclination, phi0, longAscNodes, eccentricity, meanPerAno
+                        df,
+                        self.f_min, #flow
+                        self.f_high, #fhigh
+                        self.f_min, #fref
+                        lal.CreateDict(),
+                        lal_approx)
+		#f_grid = np.linspace(0., self.f_high, len(hptilde.data.data))
+		
+		return hptilde, hctilde
+	
+	def get_WF(self, theta, approx = None):
+		"""
+		Computes the WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid on which the PSD is evauated (self.f_grid)
+		An any lal FD approximant.
 		
 		Parameters
 		----------
@@ -1194,7 +1205,8 @@ class WF_metric(object):
 			Parameters of the BBHs. The dimensionality depends on self.spin_format
 	
 		approx: 'string'
-			Which approximant to use. It can be 'mlgw' or any lal approx
+			Which approximant to use. It can be FD lal approx
+			If None, the default approximant will be used
 
 		Returns
 		-------
@@ -1202,116 +1214,37 @@ class WF_metric(object):
 		h : 'np.ndarray' (N,D)
 			Complex array holding the WFs evaluated on the default frequency/time grid
 		"""
-		if approx == 'mlgw':
-			raise NotImplementedError("Currently mlgw is not a supported approximant: work in progress")
-			if self.spin_format not in ['Mq_nonspinning', 'Mq_s1z_s2z','mceta_nonspinning', 'mceta_s1z_s2z', 'm1m2_nonspinning', 'm1m2_s1z_s2z']:
-				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
-
-				#adding zero spins if theta has only the masses
-			if theta.shape[1] == 2:
-				theta = np.concatenate([theta, np.zeros(theta.shape)], axis =1)
+		if approx is None: approx = self.approx
 		
-			#FIXME: the fft with mlgw is disgusting, with lal looks nice. WTF!??!?!
-			h_real, h_imag = self.generator.get_modes(theta, self.t_default, modes = (2,2), out_type = "realimag") #(N,D)
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			squeeze = True
+		else:
+			squeeze = False
+
+		WF_list = []
+		for i in range(theta.shape[0]):
+				#lal WF evaluated in the given f_grid
+			hp, hc = self.get_WF_lal(theta, approx)
 			
-			window = scipy.signal.windows.tukey(len(self.t_default), alpha = 0.25, sym = False) #TODO: apply window
-			id_ = np.where(window == 1)[0][0]
-			window[id_:] = 1
-			
-			h = h_real +1j* h_imag
-			#h = h*window
-			h = np.fft.fft(h, axis =1) #(N,D)
-			h = h[:,:h.shape[1]//2+1] #(N,D) #this is evaluated on np.fft.fftfreq(h_real.shape[1], self.dt)[:h.shape[1]//2+1] (only real frequencies)
-
-				#getting indices for slicing
-			f_grid_h = np.fft.fftfreq(h_real.shape[1], self.dt)[:h_real.shape[1]//2]
-			id_start = np.argmin(np.abs(f_grid_h - self.f_grid[0]))
-			id_end = id_start + len(self.f_grid)
-			h = h[:,id_start:id_end] #removing unwanted frequencies
-
-		else: #tackling the lal case
-				#getting the components to be given to lal
-			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(theta, self.spin_format)
-			
-			prefactor = 4.7864188273360336e-20
-			h = np.zeros((theta.shape[0], self.f_grid.shape[0]), dtype = np.complex128)
-			try:
-				lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
-			except RuntimeError:
-				raise RuntimeError("Wrong approximant name: it must be either \'mlgw\' either an approximant supported by lal")
-				#generating the WF
-			if lalsim.SimInspiralImplementedFDApproximants(lal_approx): #FD approximant
-				for i in range(theta.shape[0]):
-					hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1[i]*lalsim.lal.MSUN_SI,
-                                       m2[i]*lalsim.lal.MSUN_SI,
-                                       s1x[i], s1y[i], s1z[i],
-                                       s2x[i], s2y[i], s2z[i],
-                                       1e6*lalsim.lal.PC_SI,
-                                       iota[i] , phi[i], 0., 0.,0., #inclination, phi0, longAscNodes, eccentricity, meanPerAno
-                                       self.delta_f,
-                                       self.f_min, #flow
-                                       self.f_high, #fhigh
-                                       self.f_min, #fref
-                                       lal.CreateDict(),
-                                       lal_approx)
-					hptilde, hctilde = hptilde.data.data /( prefactor*(m1[i]+m2[i])),  hctilde.data.data /( prefactor*(m1[i]+m2[i]))
-					temp_f = np.linspace(self.f_min, self.f_high, len(hptilde))
-					
-						#the WF in FD is evaluated on the PSD given by the user, not the enlarged one (this hopefully saves computational time and memory)
-					hptilde = np.interp(self.f_grid, temp_f, hptilde, left = 0, right = 0)
-					#hctilde = np.interp(self.f_grid, temp_f, hctilde, left = 0, right = 0)
-					h[i,:] = hptilde #+1j*hctilde  #(D,) 
-					
-					#FIXME: here you are just keeping the plus polarization for the WF! (totally removing the cross)
-					#FIXME: are you sure this is the right form for the WF?? The "inclination pattern" is totally wrong with this
-
-			elif lalsim.SimInspiralImplementedTDApproximants(lal_approx): #TD approximant
-				for i in range(theta.shape[0]):
-						#Use this, and avoid the need to perform the fft yourself: you will gain a lot!!
-						#WTF??? This gives a huge metric
-					hp, hc = lalsim.SimInspiralFD(
-						    m1[i]*lalsim.lal.MSUN_SI, m2[i]*lalsim.lal.MSUN_SI,
-						    s1x[i], s1y[i], s1z[i],
-						    s2x[i], s2y[i], s2z[i],
-						    1.e6*lalsim.lal.PC_SI, iota[i], phi[i],
-						    0., 0., 0.,
-						    self.delta_f, self.f_min, self.f_high, self.f_min,
-						    lal.CreateDict(), lal_approx)
-
-					#hp, hc = lalsim.SimInspiralChooseTDWaveform(m1[i]*lalsim.lal.MSUN_SI,
-                    #                   m2[i]*lalsim.lal.MSUN_SI,
-                    #                   s1x[i], s1y[i], s1z[i],
-                    #                   s2x[i], s2y[i], s2z[i],
-                    #                   1e6*lalsim.lal.PC_SI,
-                    #                   iota[i], phi[i], 0., 0.,0., #inclination, phi0, longAscNodes, eccentricity, meanPerAno
-                    #                   self.dt,
-                    #                   self.f_min,
-                    #                   self.f_min,
-                    #                   lal.CreateDict(),
-                    #                   lal_approx)
-
-					hp, hc = hp.data.data/( prefactor*(m1[i]+m2[i])),  hc.data.data/( prefactor*(m1[i]+m2[i]))
-					temp_h_tilde = hp +1j*hc
-					temp_f_grid = np.linspace(self.f_min, self.f_high, len(hp))
-					#windows = scipy.signal.windows.tukey(len(temp_h.real), alpha = 0.15, sym = True) #TODO: apply window
-					
-						#do not include the +1 here, it might include some negative freqs with catastrophic effects
-					#temp_h_tilde = np.fft.fft(temp_h)[:len(temp_h)//2] #(N,D)
-					#temp_f_grid = np.fft.fftfreq(len(temp_h), d = self.dt)[:len(temp_h)//2]
-					
-					h[i,:] = np.interp(self.f_grid, temp_f_grid, temp_h_tilde.real)
+				#trimming the WF to the proper PSD
+			if hp.data.length > self.PSD.shape[0]:
+				hp = hp.data.data[:self.PSD.shape[0]]
+				hc = hc.data.data[:self.PSD.shape[0]]
 			else:
-				raise RuntimeError('Wrong approximant name: it must be either \'mlgw\' either any approximant supported by lal')
+				hp = hp.data.data
+				hc = hc.data.data
+
+			WF_list.append(hp)
 		
-		if False:
-			plt.title(approx)
-			plt.plot(self.f_grid, h[0,:])
-			plt.show()
+		h = np.stack(WF_list, axis =0)
+		
+		if squeeze: h = h[0,:]
 		
 		return h
 	
 	
-	def get_metric(self, theta, optimize_phi = True):
+	def get_metric(self, theta):
 		"""
 		Returns the metric
 		
@@ -1321,11 +1254,6 @@ class WF_metric(object):
 		theta: 'np.ndarray' (N,D)
 			Parameters of the BBHs. The dimensionality depends on self.spin_format
 
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-			If True, it computes max_phi (h_1|h_2 exp[i*phi])
-			If False, it computes (h_1|h_2)
-
 		Returns
 		-------
 		
@@ -1333,8 +1261,8 @@ class WF_metric(object):
 			Array containing the metric in the given parameters
 			
 		"""
-			#TODO:check the accuracy of this function
-			#TODO: implement the WF generation with get_WF (in the PSD not None case)
+			#TODO: understand whether the time shift is an issue here!!
+			#		Usually match is max_t0 <h1(t)|h2(t-t0)>. How to cope with that? It this may make the space larger than expected
 		theta = np.array(theta)
 		squeeze = False
 		if theta.ndim ==1:
@@ -1346,58 +1274,41 @@ class WF_metric(object):
 		####
 			#M(theta) = 0.5 * { (h|d_i h)(h|d_j h) / <h|h>^2 + [h|d_i h][h|d_j h] / <h|h>^2 - (d_i h|d_j h) / <h|h> }
 
-		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h_real/h_grad_h_imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
+		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h.real/h_grad_h.imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
 
-		if self.PSD is None:
-		### No PSD case (with only mlgw)
-				#routines checks on theta (only for mlgw with no PSD, the rest are performed by get_WF)
-			if self.spin_format.endswith('nonspinning'):
-				theta = np.concatenate([theta[:,:2], np.zeros(theta[:,:2].shape)], axis =1) #added zero "fake" spins
-			elif self.spin_format.endswith('s1z_s2z'):
-				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
-			theta = theta[:,:4] #this will remove any other spin variable that may be given by the user
-		
-				#generating the WFs
-			grad_amp, grad_ph = self.generator.get_mode_grads(theta, self.t_default, modes = (2,2), out_type = "ampph", grad_var = 'm1_m2') #(N,D, 4)
-			h_amp, h_ph = self.generator.get_modes(theta, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
-
-				#low frequency cut-off		
-			t_min = self.t_of_f(self.f_min, (theta[:,0]*theta[:,1])**(3./5.)/(theta[:,0]+theta[:,1])**(1./5.) )
-				#adjusting for the rigth f_min
-			for i in range(grad_amp.shape[0]):
-				ids_ = np.where(self.t_default<-t_min[i])[0]
-				grad_amp[i, ids_,:], grad_ph[i, ids_,:] = 0., 0.
-				h_amp[i, ids_], h_ph[i, ids_] = 0., 0.
-		
-				#computing scalars
-			grad_h_grad_h_real = np.einsum('ijk,ijl -> ikl', grad_amp, grad_amp) + np.einsum('ijkl, ij -> ikl', np.einsum('ijk,ijl -> ijkl', grad_ph, grad_ph), np.square(h_amp)) #(N,4,4)
-			
-			h_grad_h_real = np.einsum('ijk,ij -> ik', grad_amp, h_amp) #(N,4)
-			h_grad_h_imag = np.einsum('ijk,ij -> ik', grad_ph, np.square(h_amp))
-			
-			h_h = np.sum(np.square(h_amp), axis = 1) #(N,)
-			
-		else:
 		### scalar product in FD
-			h = self.get_WF(theta, approx = self.approx) #(N,D)
-			grad_h = self.get_WF_grads(theta, approx = self.approx) #(N,D, K)
+		h = self.get_WF(theta, approx = self.approx) #(N,D)
+		grad_h = self.get_WF_grads(theta, approx = self.approx) #(N,D, K)
 			
-			h_W = h / self.PSD #whithened WF
-			grad_h_W = grad_h/self.PSD[:,None] #whithened grads
+		h_W = h / np.sqrt(self.PSD) #whithened WF
+		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
 			
-			h_h = np.sum(np.multiply(np.conj(h_W), h_W), axis =1).real #(N,)
-			h_grad_h = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W) #(N,4)
-			grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,4,4)
-			h_grad_h_real, h_grad_h_imag = h_grad_h.real, h_grad_h.imag
-			
+		h_h = np.sum(np.multiply(np.conj(h_W), h_W), axis =1).real #(N,)
+		h_grad_h = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W) #(N,4)
+		grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,D,D)
+		
 		###
-		#computing the metric, given h_grad_h_real (N,D,4), h_grad_h_imag (N,D,4) and h_h (N,D)
-		metric = np.einsum('ij,ik->ijk', h_grad_h_real, h_grad_h_real) 
-		if optimize_phi:
-			metric = metric + np.einsum('ij,ik->ijk', h_grad_h_imag, h_grad_h_imag)
+		#computing the metric, given h_grad_h.real (N,D,4), h_grad_h.imag (N,D,4) and h_h (N,D)
+		metric = np.einsum('ij,ik->ijk', h_grad_h.real, h_grad_h.real) 
+		metric = metric + np.einsum('ij,ik->ijk', h_grad_h.imag, h_grad_h.imag)
 		metric = np.einsum('ijk,i->ijk', metric , 1./np.square(h_h))
 		metric = (metric - np.divide(grad_h_grad_h_real, h_h[:,None,None]))*0.5
 
+		if False:
+			#including time dependence
+			h_h_f = np.sum(np.multiply(np.conj(h_W), h_W*self.f_grid), axis =1)
+			h_h_f2 = np.sum(np.multiply(np.conj(h_W), h_W*np.square(self.f_grid)), axis =1).real
+			h_grad_h_f = np.einsum('ij,ijk->ik', np.conj(h_W)*self.f_grid, grad_h_W) #(N,4)
+			
+			g_tt = np.square(h_h_f.real/h_h) - h_h_f2/h_h #(N,)
+			
+			g_ti = h_grad_h.imag * h_h_f.real + h_grad_h.real * h_h_f.imag #(N,4)
+			g_ti = (g_ti.T/np.square(h_h)).T
+			g_ti = g_ti - (h_grad_h_f.imag.T/h_h).T
+			
+			time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt)
+			metric = metric - time_factor
+		
 			#trimming the metric, just in case
 		metric = metric[:,:self.s_handler.D(self.spin_format),:self.s_handler.D(self.spin_format)] #(N,D,D)
 
@@ -1407,7 +1318,7 @@ class WF_metric(object):
 		return metric
 	
 	#@do_profile(follow=[])
-	def match(self, theta1, theta2, optimize_phi = True):
+	def match(self, theta1, theta2, overlap = False):
 		"""
 		Computes the match line by line between elements in theta1 and elements in theta2
 		
@@ -1420,11 +1331,10 @@ class WF_metric(object):
 		theta2: 'np.ndarray' (N,D)
 			Parameters of the second BBHs. The dimensionality depends on self.spin_format
 		
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-			If True, it computes max_phi (h_1|h_2 exp[i*phi])
-			If False, it computes (h_1|h_2)
-
+		overlap: 'bool'
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
+		
 		Returns
 		-------
 		
@@ -1432,6 +1342,7 @@ class WF_metric(object):
 			Array containing the match of the given WFs
 			
 		"""
+		#FIXME: this function agrees with pycbc but disagree with sbank!! WFT??
 		theta1 = np.array(theta1)
 		theta2 = np.array(theta2)
 		assert theta1.shape == theta2.shape, "Shapes of the two inputs should be the same!"
@@ -1441,59 +1352,34 @@ class WF_metric(object):
 			theta2 = theta2[None,:]
 			squeeze = True
 		
-		if self.PSD is None:
-				#usual checks on theta
-			if self.spin_format.endswith('nonspinning'):
-				theta1 = np.concatenate([theta1[:,:2], np.zeros(theta1[:,:2].shape)], axis =1) #added zero "fake" spins
-				theta2 = np.concatenate([theta2[:,:2], np.zeros(theta2[:,:2].shape)], axis =1) #added zero "fake" spins
-			elif self.spin_format.endswith('s1z_s2z'):
-				raise RuntimeError("Current spin format \'{}\' requires precession, whereas mlgw is a nonprecessing model.".format(self.spin_format))
-			theta1 = theta1[:,:4] #this will remove any other spin variable that may be given by the user
-			theta2 = theta2[:,:4] 
-			
-				#generating the WF
-			h_amp_1, h_ph_1 = self.generator.get_modes(theta1, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
-			h_amp_2, h_ph_2 = self.generator.get_modes(theta2, self.t_default, modes = (2,2), out_type = "ampph") #(N,D)
+		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = 1)
 		
-				#adjusting for the rigth f_min
-			t_min_1 = self.t_of_f(self.f_min, (theta1[:,0]*theta1[:,1])**(3./5.)/(theta1[:,0]+theta1[:,1])**(1./5.) )
-			t_min_2 = self.t_of_f(self.f_min, (theta2[:,0]*theta2[:,1])**(3./5.)/(theta2[:,0]+theta2[:,1])**(1./5.) )
-				
-			for i in range(h_amp_1.shape[0]):
-				ids_1 = np.where(self.t_default<-t_min_1[i])[0]
-				ids_2 = np.where(self.t_default<-t_min_2[i])[0]
-				h_amp_1[i, ids_1], h_ph_1[i, ids_1] = 0., 0.
-				h_amp_2[i, ids_2], h_ph_2[i, ids_2] = 0., 0.
-		
-			#<h2|h1> = A_1 A_2 exp(1j* (phi_2-phi_1) )
-			overlap_real = np.einsum('ij,ij,ij->i', h_amp_1, h_amp_2, np.cos(h_ph_2 - h_ph_1)) #(N,)
-			overlap_imag = np.einsum('ij,ij,ij->i', h_amp_1, h_amp_2, np.sin(h_ph_2 - h_ph_1)) #(N,)
-			overlap = overlap_real+1j*overlap_imag
-			#overlap_real_opt = overlap_real*np.cos(phi)+ overlap_imag*np.sin(phi)
+		h1 = self.get_WF(theta1, self.approx)
+		h2 = self.get_WF(theta2, self.approx)
+
+			#whithening and normalizing			
+		h1_WN = (h1/np.sqrt(self.PSD)) #whithened WF
+		h2_WN = (h2/np.sqrt(self.PSD)) #whithened WF
 			
-			norm_1 = np.sum(np.square(h_amp_1), axis = 1) #(N,)
-			norm_2 = np.sum(np.square(h_amp_2), axis = 1) #(N,)
-			
-		else:
-			h1 = self.get_WF(theta1, self.approx)
-			h2 = self.get_WF(theta2, self.approx)
-			
-			h1_W = (h1/np.sqrt(self.PSD)) #whithened WF
-			h2_W = (h2/np.sqrt(self.PSD)) #whithened WF
-			
-			overlap = np.sum(np.multiply(np.conj(h1_W), h2_W), axis =1) #(N,)
-			norm_1  = np.sum(np.multiply(np.conj(h1_W), h1_W),axis =1).real
-			norm_2  = np.sum(np.multiply(np.conj(h2_W), h2_W),axis =1).real
-		
-		if optimize_phi:
-			overlap_real = np.abs(overlap)
-		else:
-			overlap_real = overlap.real
-		
-		
-		return overlap_real/np.sqrt(norm_1*norm_2)
+		h1_WN = h1_WN/np.sqrt(sigmasq(h1_WN)) #normalizing WF
+		h2_WN = h2_WN/np.sqrt(sigmasq(h2_WN)) #normalizing WF
 	
-	def metric_match(self, theta1, theta2, optimize_phi = True):
+		SNR_fs = np.multiply(np.conj(h1_WN), h2_WN) #(N,D) #frequency series
+		
+		if overlap: #no time maximization
+			overlap = np.abs(np.sum(SNR_fs, axis =1))
+			if squeeze: overlap = overlap[0]
+			return overlap
+		
+		SNR_ts = np.fft.ifft(SNR_fs, axis =1)*SNR_fs.shape[1]
+
+		match = np.max(np.abs(SNR_ts), axis = 1)
+
+		if squeeze: match = match[0]
+
+		return match
+	
+	def metric_match(self, theta1, theta2):
 		"""
 		Computes the metric match line by line between elements in theta1 and elements in theta2.
 		The match is approximated by the metric:
@@ -1507,11 +1393,6 @@ class WF_metric(object):
 
 		theta2: 'np.ndarray' (N,D)
 			Parameters of the second BBHs. The dimensionality depends on self.spin_format
-
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-			If True, it computes max_phi (h_1|h_2 exp[i*phi])
-			If False, it computes (h_1|h_2)
 
 		Returns
 		-------
@@ -1534,13 +1415,13 @@ class WF_metric(object):
 
 		delta_theta = theta2 - theta1  #(N,2)/(N,4)
 		
-		metric = self.get_metric(theta1, optimize_phi)
+		metric = self.get_metric(theta1)
 		
 		match = 1 + np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		
 		return match
 		
-	def metric_accuracy(self, theta1, theta2, optimize_phi = True):
+	def metric_accuracy(self, theta1, theta2):
 		"""
 		Computes the metric accuracy at the given points of the parameter space.
 		The accuracy is the absolute value of the difference between true and metric mismatch (as computed by match and metric_match)
@@ -1553,11 +1434,6 @@ class WF_metric(object):
 
 		theta2: 'np.ndarray' (N,D)
 			Parameters of the second BBHs. The dimensionality depends on self.spin_format
-		
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-			If True, it computes max_phi (h_1|h_2 exp[i*phi])
-			If False, it computes (h_1|h_2)
 
 		Returns
 		-------
@@ -1566,11 +1442,11 @@ class WF_metric(object):
 			Array the accuracy of the metric approximation
 		
 		"""
-		accuracy = self.metric_match(theta1, theta2, optimize_phi) - self.match(theta1, theta2, optimize_phi) #(N,)
+		accuracy = self.metric_match(theta1, theta2) - self.match(theta1, theta2) #(N,)
 		return np.abs(accuracy)
 		
 	
-	def get_points_atdist(self, N_points, theta, dist, optimize_phi = True):
+	def get_points_atdist(self, N_points, theta, dist):
 		"""
 		Given a central theta point, it computes N_points random point with a metric match equals to distance.
 		
@@ -1585,11 +1461,6 @@ class WF_metric(object):
 
 		dist: float
 			Distance from the center theta
-		
-		optimize_phi: 'bool'
-			Whether to maximise over an arbitrary phase
-			If True, it computes max_phi (h_1|h_2 exp[i*phi])
-			If False, it computes (h_1|h_2)
 
 		Returns
 		-------
@@ -1597,7 +1468,7 @@ class WF_metric(object):
 		points : 'np.ndarray' (N,D)
 			Points with distance dist from the center
 		"""
-		metric = -self.get_metric(theta, optimize_phi = optimize_phi)
+		metric = -self.get_metric(theta)
 		
 		L = np.linalg.cholesky(metric).T
 		L_inv = np.linalg.inv(L)
@@ -1635,9 +1506,9 @@ class tiling_handler(list):
 		if isinstance(filename, str): self.load(filename)
 		return
 	
-	def N_templates(self, rect, metric, avg_dist, D):
+	def N_templates(self, rect, metric, avg_dist):
 		"Computes the number of templates given metric, rect and avg_dist"
-		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, D)
+		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
 	
 	@ray.remote
 	def create_tiling_ray(self, boundaries, N_temp, metric_obj, avg_dist, verbose = True, worker_id = None):
@@ -1700,9 +1571,9 @@ class tiling_handler(list):
 				
 				metric_0 = metric_obj.get_metric(get_center(nt[0]))
 				metric_2 = metric_obj.get_metric(get_center(nt[2]))
-				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, avg_dist, D)),
-								(nt[1], t[1],       self.N_templates(nt[1], t[1], avg_dist, D)),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist, D)), ]
+				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, avg_dist)),
+								(nt[1], t[1],       self.N_templates(nt[1], t[1], avg_dist)),
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist)), ]
 				
 				
 					#replacing the old tile with a new one
@@ -1922,9 +1793,9 @@ class GW_bank():
 		
 		return
 
-	def save_injs(self, filename, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20. ):
+	def save_injs(self, filename, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20., multiple_template = False ):
 		"""
-		Save the bank to a standard injection file
+		Save the bank to a standard injection file.
 		
 		Parameters
 		----------
@@ -1945,12 +1816,16 @@ class GW_bank():
 		approx: str
 			Lal approximant to use to perform injections
 		
-		luminosity_distance: int
+		luminosity_distance: float/tuple
 			Luminosity distance in Mpc for the all the injections
+			If a tuple, it has the meaning max luminosity/min luminosity
 
 		f_min: float
 			Starting frequency (in Hz) for the injection
-			
+		
+		multiple_template: bool
+			Whether to allow the same template to appear more than once in the injection set
+		
 		"""
 		#For inspiration see: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/injection_utils.py#L675
 		#https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168
@@ -1960,6 +1835,10 @@ class GW_bank():
 				'l' : lal.CachedDetectors[lal.LLO_4K_DETECTOR],
 				'v' : lal.CachedDetectors[lal.VIRGO_DETECTOR]
 			}
+			
+			#if luminosity_distance is an int, the max/min value shall change a bit, otherwise the dag won't run
+		if isinstance(luminosity_distance, float): luminosity_distance = (luminosity_distance, luminosity_distance*1.001)
+		else: assert isinstance(luminosity_distance, tuple), "Wrong format for luminosity distance. Must be a float or a tuple of float, not {}".format(type(luminosity_distance))
 		
 			#getting the masses and spins of the rows
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(self.templates, self.spin_format)
@@ -1978,7 +1857,10 @@ class GW_bank():
 			#loops on rows (i.e. injections)
 		for i, t_inj in enumerate(np.arange(GPS_start, GPS_end, time_step)):
 
-			if i>= len(m1): break
+			if multiple_template: id_template = np.random.randint(0, len(m1))
+			else: id_template = i
+			
+			if i>= len(m1) and not multiple_template: break
 
 				#boring initialization stuff
 			row =  DefaultSimInspiralTable()
@@ -1990,17 +1872,17 @@ class GW_bank():
 			row.bandpass = 0
 
 				#setting interesting row paramters
-			row.inclination = iota[i]
-			row.coa_phase = phi[i]
+			row.inclination = iota[id_template]
+			row.coa_phase = phi[id_template]
 			row.polarization = np.random.uniform(0.0, 2.0 * np.pi)
 			row.longitude = np.random.uniform(0.0, 2.0 * np.pi)
 			row.latitude = np.arcsin(np.random.uniform(-1.0, 1.0))
-			row.distance = luminosity_distance * np.random.normal(1.,0.01) #luminosity  distance must vary a bit, otherwise the dag doesn't run properly
+			row.distance = np.random.uniform(*luminosity_distance)
 
 				#setting masses/spins and other related quantities
-			row.mass1, row.mass2 = m1[i], m2[i]
-			row.spin1x, row.spin1y, row.spin1z = s1x[i], s1y[i], s1z[i]
-			row.spin2x, row.spin2y, row.spin2z = s2x[i], s2y[i], s2z[i]
+			row.mass1, row.mass2 = m1[id_template], m2[id_template]
+			row.spin1x, row.spin1y, row.spin1z = s1x[id_template], s1y[id_template], s1z[id_template]
+			row.spin2x, row.spin2y, row.spin2z = s2x[id_template], s2y[id_template], s2z[id_template]
 			
 			row.mtotal = row.mass1 + row.mass2
 			row.eta = row.mass1 * row.mass2 / row.mtotal**2
@@ -2616,7 +2498,7 @@ class GW_bank():
 				######computing N_templates
 				#volume computation
 			volume = np.abs(np.prod(boundaries_ij[1,:] - boundaries_ij[0,:]))
-			volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center, optimize_phi = True))) #volume factor (from the metric)
+			volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center))) #volume factor (from the metric)
 			volume = volume*volume_factor
 			
 			metric_values.append(np.concatenate([center, [volume_factor], [int(volume / np.power(avg_dist, self.D))] ]))
@@ -2819,7 +2701,7 @@ class GW_bank():
 				radius = avg_dist/np.power(volume_factor, 1/self.D)
 				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
 			elif placing_method == 'uniform':
-				lambda_N_templates = t_obj.N_templates(*t, avg_dist, self.D) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler
+				lambda_N_templates = t_obj.N_templates(*t, avg_dist) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler
 				N_templates = int(lambda_N_templates)
 				#N_templates = np.random.poisson(lambda_N_templates) #probably not a good idea
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))

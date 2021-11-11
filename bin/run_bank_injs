@@ -46,12 +46,14 @@ parser.add_argument(
 	"--f-min",  default = 10., type=float,
 	help="Minium frequency for the injection")
 parser.add_argument(
-	"--distance",  default = 100., type=float,
+	"--distance",  default = 100., type=float, nargs = '+',
 	help="Luminosity distance for all the injections (in Mpc)")
 parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the injection generation")
-
+parser.add_argument(
+	"--multiple-template", default = False, action='store_true',
+	help="Whether to allow the same template to appear more than once in the injection set")
 
 args, _ = parser.parse_known_args()
 
@@ -60,12 +62,17 @@ args, _ = parser.parse_known_args()
 
 bank = GW_bank(args.bank, spin_format = args.spin_format)
 
+if len(args.distance)==1:  args.distance = args.distance[0]
+elif len(args.distance)==2: args.distance = tuple(args.distance)
+else: raise ValueError("Wrong number of distance parameters given. Expected 1 or 2, got {} instead".format( len(args.distance)))
+
+
 	#shuffling the bank
 np.random.shuffle(bank.templates)
 
 	#injections
 bank.save_injs(args.inj_file, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
-		luminosity_distance = args.distance, f_min = args.f_min)
+		luminosity_distance = args.distance, f_min = args.f_min, multiple_template = args.multiple_template )
 quit()
 
 

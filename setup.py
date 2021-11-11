@@ -3,9 +3,6 @@ import setuptools
 with open("README.md", "r") as fh:
 	long_description = fh.read()
 
-print(setuptools.find_packages())
-#quit()
-
 setuptools.setup(
 	name="mbank",
 	version="0.0.1",

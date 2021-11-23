@@ -74,7 +74,7 @@ parser.add_argument(
 	"--p-disc", action='store_true', default = False,
 	help="Whether to use Poisson disc sampling for sampling a cube ##DEPRECATED##")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric'],
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,
@@ -82,9 +82,6 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
-parser.add_argument(
-	"--downsampling-factor", type=float, default = 1.,
-	help="Downsampling factor for the metric computation (useful for speed up) (0.1 seems a good compromise)")
 
 	#ranges for physical parameters
 parser.add_argument(
@@ -135,8 +132,6 @@ if not os.path.exists(args.out_dir):
 
 if args.grid_size is None: args.grid_size = tuple([1 for i in range(s.D(args.spin_format))])
 
-f_min = 10.
-f_high = 1024.
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range
 q_min, q_max = args.q_range
@@ -196,7 +191,7 @@ if args.asd: PSD = np.square(PSD)
 
 m = WF_metric((f, PSD), approx = args.approximant,
 		f_min = args.f_min, f_high = args.f_high,
-		spin_format = args.spin_format, downsampling_factor = args.downsampling_factor)
+		spin_format = args.spin_format)
 
 print("## Running: ",args.name)
 

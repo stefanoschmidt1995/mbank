@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import sys
 
 from mbank import *
+from mbank.mbank import plot_tiles_templates
 
 import argparse
 import os
@@ -47,7 +48,7 @@ parser.add_argument(
 	"--name", default = 'mbank',
 	help="Name for the bank output file")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric'],
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,

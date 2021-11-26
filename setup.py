@@ -18,7 +18,7 @@ setuptools.setup(
 		"Programming Language :: Python :: 3",
 		"Operating System :: OS Independent",
 	],
-	scripts = ["bin/run_mbank", "bin/run_bank_injs", "bin/mbank_place_templates", "bin/mbank_tile_injections"],
+	scripts = ["bin/run_mbank", "bin/run_bank_injs", "bin/mbank_place_templates", "bin/mbank_injections"],
 	python_requires='>=3.6',
 )
 

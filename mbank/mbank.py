@@ -34,7 +34,7 @@ import ray
 import scipy.stats
 import scipy.spatial
 
-from .utils import compute_tiling_injections, plot_tiles, get_templates_ray, plawspace, create_mesh, create_mesh_new, points_in_hull, all_line_hull_intersection, sample_from_hull, sample_from_hull_boundaries, get_pad_points_2d, get_pad_points, get_boundary_box #, plot_tiles_templates
+from .utils import plot_tiles, get_templates_ray, plawspace, create_mesh, create_mesh_new, points_in_hull, all_line_hull_intersection, sample_from_hull, sample_from_hull_boundaries, get_pad_points_2d, get_pad_points, get_boundary_box #, plot_tiles_templates
 
 #TODO: create a package for placing N_points in a box with lloyd algorithm (extra)
 
@@ -170,6 +170,7 @@ class spin_handler(object):
 		- 'chiP_chieff': spin components assigned to one BH, s1x = chiP, s1z = chieff, everythihng in polar coordinates, D = 4
 		- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, spin1 in polar coordinates, D = 5
 		- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, spin1 in polar coordinates,  D = 6
+		- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
 	On top of those, one can specify the mass formats:
 		- 'Mq': Total mass and q
 		- 'mceta': chirp mass and eta
@@ -182,9 +183,9 @@ class spin_handler(object):
 
 	def __init__(self):
 		"Initialization. Creates a dict of dict with all the info for each format" 
-		self.s_formats = ['nonspinning', 's1z_s2z', 'chiP_chieff', 'chiP_s1z_s2z', 'chiP2d_s1z_s2z'] #spin layouts
+		self.s_formats = ['nonspinning', 's1z_s2z', 'chiP_chieff', 'chiP_s1z_s2z', 'chiP2d_s1z_s2z', 'fullspins'] #spin layouts
 		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
-		temp_format_D = {'nonspinning':2, 's1z_s2z':4, 'chiP_chieff':4, 'chiP_s1z_s2z':5, 'chiP2d_s1z_s2z':6} #dimension of each spin format
+		temp_format_D = {'nonspinning':2, 's1z_s2z':4, 'chiP_chieff':4, 'chiP_s1z_s2z':5, 'chiP2d_s1z_s2z':6, 'fullspins': 8} #dimension of each spin format
 		self.format_info = {}
 		
 		self.valid_formats = []
@@ -252,6 +253,9 @@ class spin_handler(object):
 			theta[ids,3], theta[ids,4] = theta[ids,4], theta[ids,3] #switching spins
 		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
 			theta[ids,4], theta[ids,5] = theta[ids,5], theta[ids,4] #switching spins
+		elif self.format_info[spin_format]['s_format'] == 'fullspins':
+			theta[ids,[2,3,4]], theta[ids,[5,6,7]] =  theta[ids,[5,6,7]], theta[ids,[2,3,4]] #switching spins
+
 
 		return theta
 	
@@ -300,6 +304,9 @@ class spin_handler(object):
 		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
 			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$\phi_1$', r'$s_{2z}$'])
 			else: labels.extend(['s1','theta1', 'phi1', 's2z'])
+		elif self.format_info[spin_format]['s_format'] == 'fullspins':
+			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$\phi_1$', r'$s_{2}$', r'$\theta_2$', r'$\phi_2$'])
+			else: labels.extend(['s1','theta1', 'phi1', 's2z', 'theta2', 'phi2'])
 		
 		if self.format_info[spin_format]['iota'] and latex: labels.append(r'$\iota$')
 		if self.format_info[spin_format]['iota'] and not latex: labels.append('iota')
@@ -361,7 +368,7 @@ class spin_handler(object):
 		Parameters
 		----------
 		
-		BBH_components: 'np.ndarray' (N,9)
+		BBH_components: 'np.ndarray' (N,10)
 			Parameters of the BBHs.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi
 
@@ -376,12 +383,12 @@ class spin_handler(object):
 		"""
 		assert spin_format in self.valid_formats, "Wrong spin format given"
 		
-		BBH_components = np.array(BBH_components)
+		BBH_components = np.array(BBH_components) #(N,10)/(10,)
 		if BBH_components.ndim == 1:
-			BBH_components = BBH_components[None,:]
+			BBH_components = BBH_components[None,:] #(N,10)
 		
 		#TODO: fix the metric to accept phi
-		assert BBH_components.shape[1] == 10, "The number of BBH parameter is not enough. Expected 9 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota], given {}".format(BBH_components.shape[1])
+		assert BBH_components.shape[1] == 10, "The number of BBH parameter is not enough. Expected 10 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi], given {}".format(BBH_components.shape[1])
 		
 		if self.format_info[spin_format]['m_format'] == 'm1m2':
 			theta = [BBH_components[:,0], BBH_components[:,1]]
@@ -399,24 +406,29 @@ class spin_handler(object):
 			theta.append(BBH_components[:,4])
 			theta.append(BBH_components[:,7])
 		elif self.format_info[spin_format]['s_format'] == 'chiP_chieff':
-			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1) #(N,)
+			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
 			theta.append(s1)
 			theta.append(theta1)
 		elif self.format_info[spin_format]['s_format'] == 'chiP_s1z_s2z':
-			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1)+1e-10 #(N,)
+			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
 			theta.append(s1)
 			theta.append(theta1)
 			theta.append(BBH_components[:,7])
 		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
-			s1 = np.linalg.norm(BBH_components[:,[2,4]], axis =1)+1e-10 #(N,)
+			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
 			phi1 = atan2(BBH_components[:,3], BBH_components[:,2])
-			theta.append(s1)
-			theta.append(theta1)
-			theta.append(phi1)
-			theta.append(BBH_components[:,7])
+			theta.extend([s1, theta1, phi1, BBH_components[:,7]])
+		elif self.format_info[spin_format]['s_format'] == 'fullspins':
+			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
+			theta1 = np.arccos(BBH_components[:,4]/s1)
+			phi1 = atan2(BBH_components[:,3], BBH_components[:,2])
+			s2 = np.linalg.norm(BBH_components[:, 5:8], axis =1)+1e-10 #(N,)
+			theta2 = np.arccos(BBH_components[:,7]/s1)
+			phi2 = atan2(BBH_components[:,6], BBH_components[:,5])
+			theta.extend([s1, theta1, phi1, s2, theta2, phi2])
 		else:
 			raise RuntimeError("Wrong setting for self.spin_format")
 		
@@ -489,6 +501,9 @@ class spin_handler(object):
 			s1x, s1z, s2z = theta[:,2]*np.sin(theta[:,3]), theta[:,2]*np.cos(theta[:,3]), theta[:,4]
 		elif self.format_info[spin_format]['s_format'] == 'chiP2d_s1z_s2z':
 			s1x, s1y, s1z, s2z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3]), theta[:,5]
+		elif self.format_info[spin_format]['s_format'] == 'fullspins':
+			s1x, s1y, s1z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3])
+			s2x, s2y, s2z = theta[:,5]*np.sin(theta[:,6])*np.cos(theta[:,7]), theta[:,5]*np.sin(theta[:,6])*np.sin(theta[:,7]), theta[:,5]*np.cos(theta[:,6])
 
 			#dealing with iota and phi (tricky!!)
 		if self.format_info[spin_format]['iota'] and self.format_info[spin_format]['phi']:
@@ -604,6 +619,7 @@ class WF_metric(object):
 				- 'chieff_chiP': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
 				- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, D = 5
 				- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+				- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
 		"""
 		self.s_handler = spin_handler() #this obj is to keep in a single place all the possible spin manipulations that may be required
 
@@ -662,6 +678,7 @@ class WF_metric(object):
 			- 'chieff_chiP': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
 			- 'chiP_s1z_s2z': the two z components are assigned as well as s1x, D = 5
 			- 'chiP2d_s1z_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+			- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
 
 		where D is the dimensionality of the BBH space considered
 		
@@ -771,9 +788,6 @@ class WF_metric(object):
 		"""
 		#Take home message, to get a really nice metric:
 		# - The order of the integration is crucial. You can set this adaptively, depending on total mass
-		# - You can play with the frequency grid everything is evaluated (but this seems to be not important)
-		# - Probably the right way to keep the metric stable is to use a combination of both at lower masses (M<10)
-		#TODO: implement this and rerun a bank :D
 
 		def get_WF(theta_value, df_):
 			#return self.get_WF_lal(theta_value, approx, df_)[0].data.data
@@ -785,12 +799,22 @@ class WF_metric(object):
 		epsilon_list = [1e-6, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-6, 1e-6]  #FIXME: find a way to tune it
 			#PAY ATTENTION TO THE GRADIENTS! THEY REALLY MAKE A DIFFERENCE IN ACCURACY
 			#IT IS HARD TO COMPUTE GRADIENTS IN THE LOW MASS REGION! WHY??
-			
+		
+		def get_order(M):
+			#TODO:fix the thresholds
+			if M>50.: order = 1
+			if M<=50. and M>15.: order = 2
+			if M<=15. and M>10.: order = 4
+			if M<=10. and M>1.: order = 6
+			if M<=1.: order = 8
+			return order
+		
 		for theta_ in theta:
 			df = self.delta_f#*10.
-			#WF =  get_WF(theta_, df) #only for forward euler
-			
+			order = get_order(theta_[0])
 			grad_theta_list = []
+			if order==1: WF =  get_WF(theta_, df) #only for forward euler
+			
 			for i in range(theta.shape[1]):
 
 				deltax = np.zeros(theta.shape[1])
@@ -798,31 +822,46 @@ class WF_metric(object):
 				epsilon = epsilon_list[i]
 				
 				#computing WFs
-				WF_p = get_WF(theta_ + epsilon * deltax, df)
-				WF_2p = get_WF(theta_ + 2.*epsilon * deltax, df)
-				WF_3p = get_WF(theta_ + 3.*epsilon * deltax, df)
-				WF_4p = get_WF(theta_ + 4.*epsilon * deltax, df)
-				WF_m = get_WF(theta_ - epsilon * deltax, df)
-				WF_2m = get_WF(theta_ - 2.*epsilon * deltax, df)
-				WF_3m = get_WF(theta_ - 3.*epsilon * deltax, df)
-				WF_4m = get_WF(theta_ - 4.*epsilon * deltax, df)
+				if order>1:
+					WF_p = get_WF(theta_ + epsilon * deltax, df)
+					WF_m = get_WF(theta_ - epsilon * deltax, df)
+	
+				if order>2:
+					WF_2p = get_WF(theta_ + 2.*epsilon * deltax, df)
+					WF_2m = get_WF(theta_ - 2.*epsilon * deltax, df)
+					
+				if order>4:
+					WF_3p = get_WF(theta_ + 3.*epsilon * deltax, df)
+					WF_3m = get_WF(theta_ - 3.*epsilon * deltax, df)				
+
+				if order>6:
+					WF_4p = get_WF(theta_ + 4.*epsilon * deltax, df)
+					WF_4m = get_WF(theta_ - 4.*epsilon * deltax, df)
+
 				
 				#######
 				# computing gradients with finite difference method
 				# see: https://en.wikipedia.org/wiki/Finite_difference_coefficient
 
 					#forward euler: faster but less accurate
-				#grad_i = (WF_p - WF )/(epsilon) #(N,D) 
+				if order ==1:
+					grad_i = (WF_p - WF )/(epsilon) #(N,D) 
 					#second order method: slower but more accurate
-				#grad_i = (WF_p - WF_m )/(2*epsilon) #(N,D)
+				if order==2:
+					grad_i = (WF_p - WF_m )/(2*epsilon) #(N,D)
 					#fourth order method
-				#grad_i = (-WF_2p/4. + 2*WF_p - 2.*WF_m + WF_2m/4. )/(3*epsilon) #(N,D)
+				elif order==4:
+					grad_i = (-WF_2p/4. + 2*WF_p - 2.*WF_m + WF_2m/4. )/(3*epsilon) #(N,D)
 					#sixth order method
-				#grad_i = (WF_3p -9.*WF_2p + 45.*WF_p \
-				#	- 45.*WF_m + 9.*WF_2m -WF_3m)/(60.*epsilon) #(N,D)
+				elif order==6:
+					grad_i = (WF_3p -9.*WF_2p + 45.*WF_p \
+						- 45.*WF_m + 9.*WF_2m -WF_3m)/(60.*epsilon) #(N,D)
 					#eight order method
-				grad_i = (- WF_4p/56. + (4./21.)*WF_3p - WF_2p + 4.*WF_p \
-					- 4. *WF_m + WF_2m - (4./21.)* WF_3m + WF_4m/56.)/(5*epsilon) #(N,D)
+				elif order==8:
+					grad_i = (- WF_4p/56. + (4./21.)*WF_3p - WF_2p + 4.*WF_p \
+						- 4. *WF_m + WF_2m - (4./21.)* WF_3m + WF_4m/56.)/(5*epsilon) #(N,D)
+				else:
+					raise ValueError("Wrong value for the derivative order")
 
 				#TODO: maybe this should be replaced by scipy.signal.decimate?				
 				#grad_i = np.interp(self.f_grid, np.linspace(0, df*len(grad_i),len(grad_i)), grad_i)
@@ -1486,6 +1525,9 @@ class GW_bank():
 			row.eta = row.mass1 * row.mass2 / row.mtotal**2
 			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
 			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
+				#this is chi from https://git.ligo.org/lscsoft/gstlal/-/blob/master/gstlal-inspiral/python/_spawaveform.c#L896
+			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
+			
 			row.f_final = 2500 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
 			row.ifo = 'L1' #default ifo #FIXME:make it better
 			
@@ -1631,6 +1673,8 @@ class GW_bank():
 			row.eta = row.mass1 * row.mass2 / row.mtotal**2
 			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
 			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
+			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
+			
 			row.f_final = 2500 /(row.mtotal)
 			
 				#dealing with geocentric time for the injections
@@ -1917,7 +1961,7 @@ class GW_bank():
 				radius = 0.5* avg_dist/np.power(volume_factor, 1/self.D)
 				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
 				
-				print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
+				#print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
 				
 			elif placing_method == 'uniform':
 				lambda_N_templates = t_obj.N_templates(*t, avg_dist) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler

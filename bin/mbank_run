@@ -3,13 +3,13 @@
 A script to run mbank for generating a bank
 Usage
 -----
-To run the bank:
-	run_mbank --options-you-like
+To generate a bank:
+	mbank_run --options-you-like
 Make sure that the mbank is installed with
 	python setup.py sdist
 	pip install dist/mbank-0.0.1.tar.gz
 To know which options are available:
-	run_mbank --help
+	mbank_run --help
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -169,12 +169,14 @@ if format_info['s_format'] == 'nonspinning':
 	boundaries = np.array([[var1_min, var2_min],[var1_max, var2_max]])
 elif format_info['s_format'] == 's1z_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, s2_min],[var1_max, var2_max, s1_max, s2_max]])
-elif format_info['s_format'] == 'chiP_chieff':
+elif format_info['s_format'] == 's1xz':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min],[var1_max, var2_max, s1_max, theta_max]])
-elif format_info['s_format'] == 'chiP_s1z_s2z':
+elif format_info['s_format'] == 's1xz_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, s2_min],[var1_max, var2_max, s1_max, theta_max, s2_max]])
-elif format_info['s_format'] == 'chiP2d_s1z_s2z':
+elif format_info['s_format'] == 's1xyz_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max]])
+elif format_info['s_format'] == 'fullspins':
+	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min, theta_min, phi_min,],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max, theta_max, phi_max]])
 else:
 	raise RuntimeError("Boundaries current not implemented for this format")
 

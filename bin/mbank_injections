@@ -18,7 +18,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches
 import sys
-import pickle 
+import pickle
 
 from ligo.lw import utils as lw_utils
 from ligo.lw import ligolw
@@ -26,7 +26,9 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import *
-from mbank.utils import compute_metric_injections_match, compute_avg_dist
+from mbank.utils import compute_metric_injections_match, compute_injections_match, compute_avg_dist
+
+from itertools import combinations, permutations
 
 import argparse
 import os
@@ -35,6 +37,10 @@ def int_tuple_type(strings):
 	strings = strings.replace("(", "").replace(")", "")
 	mapped_int = map(int, strings.split(","))
 	return tuple(mapped_int)
+
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
 
 ##### Creating parser
 s = spin_handler()
@@ -119,15 +125,17 @@ t_obj = tiling_handler(args.tiling_file)
 	######
 	#	Generating injections
 	######
-	
+#FIXME: storing projected_injs is a waste of memory that can scale super badly
+
 if args.inj_file is None:
 		#generating tiles injections
 	projected_injs = [np.random.uniform(t[0].mins, t[0].maxes, (args.injs_per_tile, len(t[0].maxes))) for t in t_obj]
 	projected_injs = np.concatenate(projected_injs, axis =0) #(N_tiles * inj_per_tile, D)
-	injections = projected_injs
+	injections_full = np.array(s.get_BBH_components(projected_injs, args.spin_format)).T
 else:
 		#loading injections from file and projecting them on the bank manifold
 	xmldoc = lw_utils.load_filename(args.inj_file, verbose = True, contenthandler = LIGOLWContentHandler)
+	print(args.inj_file)
 	sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
 		
 	injections = []
@@ -135,41 +143,46 @@ else:
 	for row in sim_inspiral_table:
 		injections.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.inclination, row.coa_phase])
 			
-	injections = np.array(injections) #(N,1)
-	projected_injs = s.get_theta(injections, args.spin_format) #(N,D)
-	raise NotImplementedError("Please, debug this trash")	
+	injections_full = np.array(injections) #(N,10)
+		#projecting over the template manifold
+	projected_injs = s.get_theta(injections_full, args.spin_format) #(N,D)
 
 	######
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_metric_injections_match(projected_injs, bank, t_obj, metric,
+injection_stat_dict = compute_metric_injections_match(injections_full, bank, t_obj, metric,
 			N_neigh_templates = args.N_neigh_templates, N_neigh_tiles = args.N_neigh_tiles)
 #out_list = compute_avg_dist(bank, t_obj, metric)
 
-
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
-	#	(if it's the case
+	#	(if it's the case)
 	######
 if args.full_match:
-	templates_full = s.get_BBH_components(bank.templates, args.spin_format)
+	templates_full = np.array(s.get_BBH_components(bank.templates, args.spin_format)).T #(N,10)
 		#this function should take the stat_dict and for each best_id, it should replace the metric match with the actual match
 		#The actual match shall be computed with metric.WF_match
 		#The function returns an updated version of injection_stat_dict
-	injection_stat_dict = compute_injections_match(injection_stat_dict, injections, templates, metric)
-	raise NotImplementedError("Do proper injections")
+	metric.set_spin_format('m1m2_fullspins_iotaphi')
 
+	best_matches_metric = np.array(injection_stat_dict['match'])
+
+	injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric)
+	metric.set_spin_format(args.spin_format)
+	
 	######
 	#	Writing to file
 	######
-save_name = os.path.splitext(os.path.basename( args.bank_file))[0]+'-tile_injections.pkl'
-#filehandler = open(args.out_dir+save_name, 'rb')
-#injection_stat_dict = pickle.load( filehandler)
+save_name = os.path.basename(args.bank_file).split('.')[0]+'-tile_injections.pkl'
 
-filehandler = open(args.out_dir+save_name, 'wb')
-pickle.dump(injection_stat_dict, filehandler)
-filehandler.close()
+with open(args.out_dir+save_name, 'wb') as filehandler:
+	pickle.dump(injection_stat_dict, filehandler)
+
+	#to load... just in case
+#with open(args.out_dir+save_name, 'rb') as filehandler:
+#	injection_stat_dict = pickle.load( filehandler)
+
 
 	######
 	#	Making some plots
@@ -183,26 +196,58 @@ if args.plot:
 	
 	print("Matches percentiles [50, 5, 1]: ", np.percentile(best_matches, [50, 5,1]))
 	
+		###
+		# Histogram
+		###
 	plt.figure()
 	N_bins = 20
 	logbins = np.logspace(np.log10(np.percentile(best_matches, [.5])[0]),np.log10(max(best_matches)), N_bins)
-	plt.hist(best_matches, bins = logbins)
+	plt.hist(best_matches, bins = logbins, density = True)
+	if args.full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step', density = True)
+	
+	plt.axvline(x = 0.97, c = 'r') #DEBUG
 	plt.xscale('log')
 	#plt.show()
+	plt.savefig(args.out_dir+'FF_hist.png')
 
-	fig = plt.figure()
-	plt.scatter(*bank.templates[:,[0,1]].T, s = 10, marker = 'x', c= 'r')
-	plt.scatter(*projected_injs[:,[0,1]].T, s = 50, marker = 'o', c= best_matches)
-	plt.colorbar()
+	ids_to_plot = np.where(best_matches<np.percentile(best_matches, 5))[0]
+
+		###
+		# Colored plots
+		###
+	fig, axes = plt.subplots(projected_injs.shape[1]-1, projected_injs.shape[1]-1, figsize = (20,20))
+	if projected_injs.shape[1]-1 == 1:
+		axes = np.array([[axes]])
+	for i,j in permutations(range(projected_injs.shape[1]-1), 2):
+		if i<j:	axes[i,j].remove()
 	
-	currentAxis = plt.gca()
-	for t in t_obj:
-		d = t[0].maxes- t[0].mins
-		currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins, d[0], d[1], fill = None, alpha =1))
+	for ax_ in combinations(range(projected_injs.shape[1]), 2):
+		currentAxis = axes[ax_[1]-1, ax_[0]]
+		ax_ = list(ax_)
+		
+		#fig = plt.figure()
+		currentAxis.scatter(*bank.templates[:,ax_].T, s = 5, marker = 'x', c= 'r', alpha = 0.5)
+		cbar_vals = currentAxis.scatter(projected_injs[ids_to_plot,ax_[0]], projected_injs[ids_to_plot,ax_[1]],
+				s = 20, marker = 'o', c= best_matches[ids_to_plot])
+		if ax_[0] == 0:
+			currentAxis.set_ylabel(s.labels(args.spin_format, latex = True)[ax_[1]])
+		else:
+			currentAxis.set_yticks([])
+		if ax_[1] == projected_injs.shape[1]-1:
+			currentAxis.set_xlabel(s.labels(args.spin_format, latex = True)[ax_[0]])
+		else:
+			currentAxis.set_xticks([])
+		
+		for t in t_obj:
+			d = t[0].maxes- t[0].mins
+			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 	
+	cbar_ax = fig.add_axes([0.95, 0.15, 0.015, 0.7])
+	fig.colorbar(cbar_vals, cax=cbar_ax)
+	plt.subplots_adjust(wspace=0, hspace=0, bottom = 0.05, right = 0.92, left = 0.05, top = 0.97)
+	plt.savefig(args.out_dir+'injections_scatter.png')
 	plt.show()
 
-	raise NotImplementedError("Please make some nice plots here")
 
 
 

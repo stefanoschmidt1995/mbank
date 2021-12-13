@@ -26,7 +26,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import *
-from mbank.utils import compute_metric_injections_match, compute_injections_match, compute_avg_dist
+from mbank.utils import compute_metric_injections_match, compute_metric_injections_match_bruteforce, compute_injections_match, compute_avg_dist
 
 from itertools import combinations, permutations
 
@@ -80,6 +80,9 @@ parser.add_argument(
 	"--plot", action='store_true',
 	help="Whether to make some plots. They will be store in out-dir")
 parser.add_argument(
+	"--show", action='store_true',
+	help="Whether to show the plots.")
+parser.add_argument(
 	"--out-dir", default = None,
 	help="Output directory in which the output will be saved. If default is used, the output will be saved in the same folder of the bank.")
 parser.add_argument(
@@ -113,7 +116,7 @@ if args.plot: plot_folder = args.out_dir
 f, PSD = np.loadtxt(args.psd)[:,:2].T
 if args.asd: PSD = np.square(PSD)
 
-metric = WF_metric((f, PSD), approx = args.approximant,
+metric = WF_metric(PSD = (f, PSD), approx = args.approximant,
 		f_min = args.f_min, f_high = args.f_high,
 		spin_format = args.spin_format)
 
@@ -122,16 +125,31 @@ s = spin_handler()
 
 t_obj = tiling_handler(args.tiling_file)
 
+	#looking for an option al tile_id_population object saved in the out folder.
+	#If there is None, no big deal: it will be created from scratch
+tile_id_population_file = os.path.dirname(args.bank_file)
+tile_id_population_file = [ f for f in os.listdir(tile_id_population_file) if f.find('tile_id_population') != -1 ]
+if len(tile_id_population_file) == 1:
+	with open('{}/{}'.format(os.path.dirname(args.bank_file),tile_id_population_file[0]), 'rb') as filehandler:
+		tile_id_population = pickle.load(filehandler)
+else:
+	tile_id_population = None
+
 	######
 	#	Generating injections
 	######
-#FIXME: storing projected_injs is a waste of memory that can scale super badly
 
 if args.inj_file is None:
 		#generating tiles injections
 	projected_injs = [np.random.uniform(t[0].mins, t[0].maxes, (args.injs_per_tile, len(t[0].maxes))) for t in t_obj]
 	projected_injs = np.concatenate(projected_injs, axis =0) #(N_tiles * inj_per_tile, D)
+	
+		#cropping injections
+	#projected_injs = projected_injs[np.where( np.prod(projected_injs >= [3,1., 0.,0., -np.pi, -0.95], axis =1) & np.prod(projected_injs <= [300, 4., 0.95, np.pi, np.pi, 0.99], axis =1) )]
+	#projected_injs = projected_injs[np.where( np.prod(projected_injs > [3,1., 0.,-100, -100, -0.9], axis =1) & np.prod(projected_injs < [300, 4., 0.9, 100, 100, 0.9], axis =1) )]
+	
 	injections_full = np.array(s.get_BBH_components(projected_injs, args.spin_format)).T
+	del projected_injs #storing projected_injs is a waste of memory that can scale super badly
 else:
 		#loading injections from file and projecting them on the bank manifold
 	xmldoc = lw_utils.load_filename(args.inj_file, verbose = True, contenthandler = LIGOLWContentHandler)
@@ -144,15 +162,15 @@ else:
 		injections.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.inclination, row.coa_phase])
 			
 	injections_full = np.array(injections) #(N,10)
-		#projecting over the template manifold
-	projected_injs = s.get_theta(injections_full, args.spin_format) #(N,D)
 
-	######
+	######inj_dict['match'][ids_low]
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_metric_injections_match(injections_full, bank, t_obj, metric,
-			N_neigh_templates = args.N_neigh_templates, N_neigh_tiles = args.N_neigh_tiles)
+injection_stat_dict = compute_metric_injections_match_bruteforce(injections_full, bank,  t_obj, N_neigh_templates = args.N_neigh_templates)
+#injection_stat_dict = compute_metric_injections_match(injections_full, bank, t_obj, metric,
+#			N_neigh_templates = args.N_neigh_templates, N_neigh_tiles = args.N_neigh_tiles,
+#			tile_id_population = tile_id_population)
 #out_list = compute_avg_dist(bank, t_obj, metric)
 
 	######
@@ -178,7 +196,7 @@ save_name = os.path.basename(args.bank_file).split('.')[0]+'-tile_injections.pkl
 
 with open(args.out_dir+save_name, 'wb') as filehandler:
 	pickle.dump(injection_stat_dict, filehandler)
-
+	
 	#to load... just in case
 #with open(args.out_dir+save_name, 'rb') as filehandler:
 #	injection_stat_dict = pickle.load( filehandler)
@@ -189,7 +207,10 @@ with open(args.out_dir+save_name, 'wb') as filehandler:
 	######
 if args.plot:
 	
-	#histogram for the overall match
+		#projecting over the template manifold
+	projected_injs = s.get_theta(injections_full, args.spin_format) #(N,D)
+	
+		#histogram for the overall match
 	
 	best_matches = injection_stat_dict['match']
 	best_matches[best_matches<=0] = 0.01
@@ -246,7 +267,8 @@ if args.plot:
 	fig.colorbar(cbar_vals, cax=cbar_ax)
 	plt.subplots_adjust(wspace=0, hspace=0, bottom = 0.05, right = 0.92, left = 0.05, top = 0.97)
 	plt.savefig(args.out_dir+'injections_scatter.png')
-	plt.show()
+	
+	if args.show: plt.show()
 
 
 

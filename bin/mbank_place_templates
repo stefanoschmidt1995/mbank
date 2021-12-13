@@ -14,6 +14,7 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import pickle
 
 from mbank import *
 from mbank.mbank import plot_tiles_templates
@@ -80,19 +81,21 @@ bank = GW_bank(spin_format = args.spin_format)
 
 t_obj = tiling_handler(args.tiling_file)
 
-bank.place_templates(t_obj, args.MM, placing_method = args.placing_method, verbose = True)
+tile_id_population = bank.place_templates(t_obj, args.MM, placing_method = args.placing_method, verbose = True)
 
 	######
 	#	Plotting & saving
 	######
 
-if args.plot:
-	plot_tiles_templates(t_obj, bank.templates, args.spin_format, plot_folder, show = args.show)
-
 print("Generated bank with {} templates".format(len(bank.templates)))
 bank.save_bank(args.out_dir+'bank_{}.dat'.format(args.name))
 bank.save_bank(args.out_dir+'bank_{}.xml.gz'.format(args.name))
 
+with open(args.out_dir+'tile_id_population_{}.pkl'.format(args.name), 'wb') as filehandler:
+	pickle.dump(tile_id_population, filehandler)
+
+if args.plot:
+	plot_tiles_templates(t_obj, bank.templates, args.spin_format, plot_folder, show = args.show)
 
 
 

@@ -14,9 +14,11 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import pickle
+
 try:
 	sys.path.insert(0, '../mbank')
-	from mbank import *
+	from mbank import spin_handler, WF_metric, GW_bank
 except:
 	from mbank import *
 
@@ -106,17 +108,15 @@ parser.add_argument(
 	"--s2-range", default = [-0.8,0.8], type=float, nargs = 2,
 	help="Range values for magnitude of spin 1 (if applicable)")
 parser.add_argument(
-	"--theta1-range", default = [0., 3.14], type=float, nargs = 2,
-	help="Range values for theta angles of spin 1 (if applicable)")
+	"--theta-range", default = [0., np.pi], type=float, nargs = 2,
+	help="Range values for theta angles of spins (if applicable)")
 parser.add_argument(
-	"--phi1-range", default = [0., 2*3.14], type=float, nargs = 2,
-	help="Range values for phi angles of spin 1 (if applicable)")
+	"--phi-range", default = [-np.pi, np.pi], type=float, nargs = 2,
+	help="Range values for phi angles of spins (if applicable)")
 parser.add_argument(
 	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for iota (if applicable)")
-parser.add_argument(
-	"--phi-range", default = [0., 2*np.pi], type=float, nargs = 2,
-	help="Range values for phi (if applicable)")
+
 
 args, _ = parser.parse_known_args()
 
@@ -139,10 +139,9 @@ mc_min, mc_max = args.mc_range
 eta_min, eta_max = args.eta_range
 s1_min, s1_max = args.s1_range
 s2_min, s2_max = args.s2_range
-theta_min, theta_max = args.theta1_range
-phi_min, phi_max = args.phi1_range
-iota_min, iota_max = args.iota_range
+theta_min, theta_max = args.theta_range
 phi_min, phi_max = args.phi_range
+iota_min, iota_max = args.iota_range
 
 plot_folder = None
 if args.plot: plot_folder = args.out_dir
@@ -191,7 +190,7 @@ if format_info['phi']:
 f, PSD = np.loadtxt(args.psd)[:,:2].T
 if args.asd: PSD = np.square(PSD)
 
-m = WF_metric((f, PSD), approx = args.approximant,
+m = WF_metric(PSD = (f, PSD), approx = args.approximant,
 		f_min = args.f_min, f_high = args.f_high,
 		spin_format = args.spin_format)
 
@@ -218,10 +217,13 @@ if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
 	#metric_values = bank.generate_bank_hypercubes(m, avg_match = args.MM, boundaries = boundaries,
 	#	grid_list = args.grid_size, p_disc = args.p_disc, plot_debug = plot_folder, use_ray = args.use_ray)
 	
-	t_obj = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
+	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
 		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray)
 	
 	t_obj.save(args.out_dir+'tiling_{}.npy'.format(args.name)) #storing the tiling in the out_folder
+
+	with open(args.out_dir+'tile_id_population_{}.pkl'.format(args.name), 'wb') as filehandler:
+		pickle.dump(tile_id_population, filehandler)
 	
 if format_info['m_format'] == 'Mq' == 'm1m2':
 	bank.generate_bank(m, avg_match = args.MM, seed_bank = seed_bank,  boundaries = boundaries,

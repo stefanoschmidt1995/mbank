@@ -29,7 +29,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import get_templates_ray, plawspace, create_mesh, create_mesh_new, get_boundary_box, plot_tiles_templates
+from .utils import get_templates_ray, plawspace, create_mesh, get_boundary_box, plot_tiles_templates
 
 from .handlers import spin_handler, tiling_handler
 
@@ -115,7 +115,7 @@ class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 class WF_metric(object):
 	"This class implements the metric on the space, defined for each point of the space. The metric is defined as M(theta)_ij = <d_i h | d_j h>"
 	
-	def __init__(self, PSD = None, f_min = 10., f_high = None, approx = 'mlgw', spin_format = 'nonspinning'):
+	def __init__(self, spin_format, PSD = None, f_min = 10., f_high = None, approx = 'mlgw'):
 		"""
 		Initialize the class.
 		
@@ -1204,7 +1204,7 @@ class GW_bank():
 		
 		return new_templates, metric_values
 	
-	def place_templates(self, t_obj, avg_match, placing_method = 'p_disc', verbose = True):
+	def place_templates(self, t_obj, avg_match, placing_method, verbose = True):
 		"""
 		Given a tiling, it places the templates and adds them to the bank
 		
@@ -1222,15 +1222,28 @@ class GW_bank():
 			It can be:	'p_disc' 	-> Poisson disc sampling
 						'uniform'	-> Uniform drawing in each hyper-rectangle
 						'geometric'	-> Geometric placement
+		
 		verobse: 'bool'
 			Print output?
 		
+		Returns
+		-------
+					
+		tile_id_population: 'list' 
+			A list of list. 
+			tile_id_population[i] keeps the ids of the templates inside tile i
 		"""
 		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative'], ValueError("Wrong placing method selected")
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen spin format (space dimensionality mismatch)")
 		
+			#getting coarse_boundaries from the tiling
+		if placing_method == 'geometric':
+			coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
+			coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
+		
 		avg_dist = self.avg_dist(avg_match) #desired average distance between templates
 		new_templates = []
+		tile_id_population = [] #for each tile, this stores the templates inside it
 		
 		if verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile')
 		else: it = t_obj
@@ -1255,23 +1268,22 @@ class GW_bank():
 				#print(new_templates_)
 				
 			elif placing_method == 'geometric':
-				new_templates_ = create_mesh(avg_dist, t )
-				#new_templates_ = create_mesh_new(avg_dist, t )
+				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries)
 			
 			elif placing_method == 'iterative':
 				temp_t_obj = tiling_handler()
 				temp_metric_fun = lambda theta: t[1]
+
 				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), 1, temp_metric_fun, avg_dist, verbose = False, worker_id = None)
-				
-				print(len(temp_t_obj), t_obj.N_templates(*t, avg_dist))
 				
 				new_templates_ = temp_t_obj.get_centers()
 		
-			new_templates.append(new_templates_)
+			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
+			new_templates.extend(new_templates_)
 
-		new_templates = np.concatenate(new_templates, axis =0)
+		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)
-		return 			
+		return tile_id_population #shall I save it somewhere??	
 
 	def create_grid_tiling(self):
 		"This would be equivalent to the old version of the code"
@@ -1368,7 +1380,12 @@ class GW_bank():
 		-------
 		
 		tiling: 'tiling_handler' 
-			A list of tiles used for the bank generation		
+			A list of tiles used for the bank generation
+		
+		tile_id_population: 'list' 
+			A list of list. 
+			tile_id_population[i] keeps the ids of the templates inside tile i
+			
 		"""
 		#TODO: add an option to avoid the hierarchical tiling??
 			##
@@ -1406,14 +1423,14 @@ class GW_bank():
 		
 			##
 			#placing the templates
-		self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+		tile_id_population = self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
 		
 			##
 			#plot debug
 		if isinstance(plot_folder, str):
 			plot_tiles_templates(t_obj, self.templates, self.spin_format, plot_folder, show = True)
 		
-		return t_obj
+		return t_obj, tile_id_population
 				
 	def enforce_boundaries(self, boundaries):
 		"""

@@ -290,15 +290,15 @@ class spin_handler(object):
 		elif self.format_info[spin_format]['s_format'] == 's1xyz_s2z':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
-			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])+np.pi #adding pi for periodicity issue...
+			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
 			theta.extend([s1, theta1, phi1, BBH_components[:,7]])
 		elif self.format_info[spin_format]['s_format'] == 'fullspins':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
-			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])+np.pi
+			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
 			s2 = np.linalg.norm(BBH_components[:, 5:8], axis =1)+1e-10 #(N,)
 			theta2 = np.arccos(BBH_components[:,7]/s1)
-			phi2 = np.arctan2(BBH_components[:,6], BBH_components[:,5])+np.pi
+			phi2 = np.arctan2(BBH_components[:,6], BBH_components[:,5])
 			theta.extend([s1, theta1, phi1, s2, theta2, phi2])
 		else:
 			raise RuntimeError("Wrong setting for self.spin_format")
@@ -349,10 +349,12 @@ class spin_handler(object):
 			m1, m2 = theta[:,0], theta[:,1]
 		elif self.format_info[spin_format]['m_format'] == 'Mq':
 			m1, m2 = theta[:,0]*theta[:,1]/(1+theta[:,1]), theta[:,0]/(1+theta[:,1])
+			m1, m2 = np.maximum(m1, m2), np.minimum(m1, m2) #this is to make sure that m1>m2, also if q is less than 1
 		elif self.format_info[spin_format]['m_format'] == 'mceta':
 				#see https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py#L215
 			M = theta[:,0] / np.power(theta[:,1], 3./5.)
-			if not np.all(theta[:,1]<0.25): print("WTF?? eta> 0.25!! ",theta[:,1])
+			if not np.all(theta[:,1]<0.25):
+				raise ValueError("Values of the symmetric mass ratio should be all <= 0.25. The given array has some entries not satisfying this: {}".format(theta[:,1]))
 			temp_ = np.power(1.0 - 4.0 * theta[:,1], 0.5)
 			m1 = 0.5 * M * (1.0 + temp_)
 			m2 = 0.5 * M * (1.0 - temp_)
@@ -548,7 +550,7 @@ class tiling_handler(list):
 				tiles_list.remove(t)
 				tiles_list.extend(extended_list)
 
-			if verbose: pbar.update(np.round((V_covered/V_tot)*100. - pbar.last_print_n,2))
+			if verbose: pbar.update(np.round(min(V_covered/V_tot*100. - pbar.last_print_n, 100),2))
 
 		if verbose: pbar.close()
 		#plot_tiles(tiles_list, boundaries)
@@ -574,7 +576,10 @@ class tiling_handler(list):
 		return
 	
 	def load(self, filename):
-		in_array = np.load(filename)
+		try:
+			in_array = np.load(filename)
+		except FileNotFoundError:
+			raise FileNotFoundError("Input tiling file {} does not exist".format(filename))
 		for in_ in in_array:
 			self.append( (scipy.spatial.Rectangle(in_[0,:], in_[1,:]), in_[2:,:]) )
 		

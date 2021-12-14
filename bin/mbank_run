@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 A script to run mbank for generating a bank
-Usage
 -----
 To generate a bank:
 	mbank_run --options-you-like
@@ -15,12 +14,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import pickle
+import lal.series
+from ligo.lw.utils import load_filename
 
 try:
 	sys.path.insert(0, '../mbank')
 	from mbank import spin_handler, WF_metric, GW_bank
+	from mbank.utils import parse_from_file
 except:
-	from mbank import *
+	from mbank import spin_handler, WF_metric, GW_bank
+	from mbank.utils import parse_from_file
 
 import argparse
 import os
@@ -30,21 +33,28 @@ def int_tuple_type(strings):
 	mapped_int = map(int, strings.split(","))
 	return tuple(mapped_int)
 
+
 ##### Creating parser
 s = spin_handler()
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
-	"--spin-format", choices= s.valid_formats, required = True,
+	'--ini-file', type=open, action=parse_from_file, required = False,
+	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
+parser.add_argument(
+	"--spin-format", choices= s.valid_formats, required = False,
 	help="Choose which spin variables to include in the bank")
 parser.add_argument(
-	"--MM", required = True, type = float,
+	"--MM", required = False, type = float,
 	help="Minimum match for the bank (a.k.a. average distance between templates)")
 parser.add_argument(
-	"--psd",  required = True,
-	help="The input file for the PSD")
+	"--psd",  required = False,
+	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
 parser.add_argument(
 	"--asd",  default = False, action='store_true',
 	help="Whether the input file has an ASD (sqrt of the PSD)")
+parser.add_argument(
+	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
+	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
 parser.add_argument(
 	"--plot", action='store_true',
 	help="Whether to make some plots. They will be store in out-dir")
@@ -73,9 +83,6 @@ parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
-	"--p-disc", action='store_true', default = False,
-	help="Whether to use Poisson disc sampling for sampling a cube ##DEPRECATED##")
-parser.add_argument(
 	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
@@ -84,7 +91,7 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
-
+	
 	#ranges for physical parameters
 parser.add_argument(
 	"--m-range", default = [10., 100], type=float, nargs = 2,
@@ -124,6 +131,9 @@ args, _ = parser.parse_known_args()
 	######
 	#	Interpreting the parser and initializing variables
 	######
+
+if (args.psd is None) or (args.MM is None) or (args.spin_format is None):
+	raise ValueError("The arguments MM, PSD and spin_format must be set!")
 
 if args.out_dir == './out':	args.out_dir = './out_'+args.name
 if not args.out_dir.endswith('/'): args.out_dir = args.out_dir+'/'
@@ -187,7 +197,20 @@ if format_info['phi']:
 	######
 	#	Loading PSD and initializing metric
 	######
-f, PSD = np.loadtxt(args.psd)[:,:2].T
+if args.psd.endswith('xml') or args.psd.endswith('xml.gz'):
+	PSD_fseries = lal.series.read_psd_xmldoc(
+			load_filename(args.psd, verbose=False,
+			contenthandler=lal.series.PSDContentHandler)
+		)
+	try:
+		PSD_fseries = PSD_fseries[args.ifo]
+	except KeyError:
+		raise ValueError("The given PSD file doesn't have an entry for the chosen interferometer {}".format(args.ifo))
+	f = np.linspace(PSD_fseries.f0, PSD_fseries.deltaF*PSD_fseries.data.length, PSD_fseries.data.length)
+	PSD = PSD_fseries.data.data
+else:
+	f, PSD = np.loadtxt(args.psd)[:,:2].T
+
 if args.asd: PSD = np.square(PSD)
 
 m = WF_metric(PSD = (f, PSD), approx = args.approximant,
@@ -211,27 +234,18 @@ if format_info['m_format'] == 'm1m2':
 bank = GW_bank(spin_format = args.spin_format)
 
 if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
-
-		#old version with fixed hypercubes
-		#TODO: understand if you want to keep it!
-	#metric_values = bank.generate_bank_hypercubes(m, avg_match = args.MM, boundaries = boundaries,
-	#	grid_list = args.grid_size, p_disc = args.p_disc, plot_debug = plot_folder, use_ray = args.use_ray)
 	
 	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
-		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray)
+		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, plot = args.plot)
 	
 	t_obj.save(args.out_dir+'tiling_{}.npy'.format(args.name)) #storing the tiling in the out_folder
 
 	with open(args.out_dir+'tile_id_population_{}.pkl'.format(args.name), 'wb') as filehandler:
 		pickle.dump(tile_id_population, filehandler)
-	
-if format_info['m_format'] == 'Mq' == 'm1m2':
-	bank.generate_bank(m, avg_match = args.MM, seed_bank = seed_bank,  boundaries = boundaries,
-		grid_list = args.grid_size, p_disc = args.p_disc, plot_debug = plot_folder)
 
 print("Generated bank with {} templates".format(len(bank.templates)))
 bank.save_bank(args.out_dir+'bank_{}.dat'.format(args.name))
-bank.save_bank(args.out_dir+'bank_{}.xml.gz'.format(args.name)); title = ''
+bank.save_bank(args.out_dir+'bank_{}.xml.gz'.format(args.name), args.ifo); title = ''
 
 
 

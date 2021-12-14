@@ -115,30 +115,13 @@ class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 class WF_metric(object):
 	"This class implements the metric on the space, defined for each point of the space. The metric is defined as M(theta)_ij = <d_i h | d_j h>"
 	
-	def __init__(self, spin_format, PSD = None, f_min = 10., f_high = None, approx = 'mlgw'):
+	def __init__(self, spin_format, PSD, approx, f_min = 10., f_high = None):
 		"""
 		Initialize the class.
 		
 		Parameters
 		----------
-		
-		PSD: ('np.ndarray', 'np.ndarray')
-			PSD for computing the scalar product.
-			It is a tuple with a frequency grid array and a PSD array
-			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies.
-			If None, the PSD is assumed to be flat
-		
-		f_min: 'float'
-			Minimum frequency at which the scalar product is computed (and the WF is generated from)
-		
-		f_high: `float`
-			Cutoff for the high frequencies in the PSD. If not None, frequencies up to f_high will be removed from the computation
-			If None, no cutoff is applied
-		
-		approx: 'string'
-			Which approximant to use. It can be 'mlgw' or any lal approx.
-			The approximant can be changed with set_approximant() and can be accessed under name WF_metric.approx
-		
+			
 		spin_format: 'string'
 			How to handle the spin variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
 			Spin format can be changed with set_spin_format() and can be accessed under name WF_metric.spin_format
@@ -149,6 +132,24 @@ class WF_metric(object):
 				- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
 				- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
 				- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+
+		PSD: ('np.ndarray', 'np.ndarray')
+			PSD for computing the scalar product.
+			It is a tuple with a frequency grid array and a PSD array
+			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies (starting from f0 =0 Hz).
+			If None, the PSD is assumed to be flat
+
+		approx: 'string'
+			Which approximant to use. It can be any lal approx.
+			The approximant can be changed with set_approximant() and can be accessed under name WF_metric.approx
+		
+		f_min: 'float'
+			Minimum frequency at which the scalar product is computed (and the WF is generated from)
+		
+		f_high: `float`
+			Cutoff for the high frequencies in the PSD. If not None, frequencies up to f_high will be removed from the computation
+			If None, no cutoff is applied
+		
 		"""
 		self.s_handler = spin_handler() #this obj is to keep in a single place all the possible spin manipulations that may be required
 
@@ -161,6 +162,7 @@ class WF_metric(object):
 			raise ValueError("Wrong format for the PSD. Expected a tuple of np.ndarray, got {}".format(type(PSD)))
 
 		#####Tackling the PSD
+		#FIXME: do you really need to store the PSD and the frequency grid all the way to zero? It seems like an useless waste of memory/computational time
 		self.PSD = PSD[1]
 		self.f_grid = PSD[0]
 		self.delta_f = self.f_grid[1]-self.f_grid[0]
@@ -889,15 +891,19 @@ class GW_bank():
 
 		return
 
-	def _save_xml(self, filename):
+	def _save_xml(self, filename, ifo = 'L1'):
 		"""
 		Save the bank to an xml file suitable for LVK applications
 		
 		Parameters
 		----------
 			
-		filename: str
+		filename: 'str'
 			Filename to save the bank at
+		
+		ifo: 'str'
+			Name of the interferometer the bank refers to 
+		
 		"""
 			#getting the masses and spins of the rows
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(self.templates, self.spin_format)
@@ -937,7 +943,7 @@ class GW_bank():
 			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
 			
 			row.f_final = 2500 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
-			row.ifo = 'L1' #default ifo #FIXME:make it better
+			row.ifo = ifo #setting the ifo chosen by the user
 			
 				#Setting additional parameters
 			row.process_id = process.process_id #This must be an int
@@ -956,7 +962,7 @@ class GW_bank():
 		
 		return
 		
-	def save_bank(self, filename, full_space = False):
+	def save_bank(self, filename, full_space = False, ifo = 'L1'):
 		"""
 		Save the bank to file
 		
@@ -968,6 +974,10 @@ class GW_bank():
 		
 		full_space: False
 			Whether to save the masses and the full spins of each template (does not apply if the input file is an xml).
+		
+		ifo: 'str'
+			Name of the interferometer the bank refers to (only applies if the format is xml)
+		
 		"""
 		if self.templates is None:
 			raise ValueError('Bank is empty: cannot save an empty bank!')
@@ -980,7 +990,7 @@ class GW_bank():
 		elif filename.endswith('.txt') or filename.endswith('.dat'):
 			templates_to_add = np.savetxt(filename, to_save)
 		elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
-			self._save_xml(filename)
+			self._save_xml(filename, ifo)
 		else:
 			raise RuntimeError("Type of file not understood. The file can only end with 'npy', 'txt', 'data, 'xml', 'xml.gx'.")
 		
@@ -1097,8 +1107,11 @@ class GW_bank():
 				setattr(row, site + "_end_time", tend.gpsSeconds)
 				setattr(row, site + "_end_time_ns", tend.gpsNanoSeconds)
 				setattr(row, "eff_dist_" + site, row.distance) #this is not d_eff, but there is not such a thing as d_eff for precessing searches...
-			row.alpha4 = 20 #This is H1 SNR?? Required?
-			row.alpha5 = 20 #This is L1 SNR?? Required?
+			
+				#this setting fucks things a bit! (is it really required)
+			#row.alpha4 = 20 #This is H1 SNR?? Required?
+			#row.alpha5 = 20 #This is L1 SNR?? Required?
+			#row.alpha6 = 20 #This is V1 SNR?? Required?
 
 				#appending row
 			sim_inspiral_table.append(row)
@@ -1339,7 +1352,7 @@ class GW_bank():
 		
 		return t_obj
 			
-	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp = 200, placing_method = 'p_disc', plot_folder = None, use_ray = False):
+	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp = 200, placing_method = 'geometric', plot_folder = None, use_ray = False, show = True):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		It works only if spin format includes M and q
@@ -1375,6 +1388,9 @@ class GW_bank():
 
 		use_ray: bool
 			Whether to use ray to parallelize
+		
+		show: bool
+			Whether to show the plotted output
 		
 		Returns
 		-------
@@ -1428,7 +1444,7 @@ class GW_bank():
 			##
 			#plot debug
 		if isinstance(plot_folder, str):
-			plot_tiles_templates(t_obj, self.templates, self.spin_format, plot_folder, show = True)
+			plot_tiles_templates(t_obj, self.templates, self.spin_format, plot_folder, show = show)
 		
 		return t_obj, tile_id_population
 				

@@ -83,6 +83,16 @@ mbank_injections \
 If you specify the `--full-match` option, the match will be recomputed without a metric approximation.
 You can also throw some injection chosen from a file: you just need to set an input xml injection file with the `--inj-file` option.
 
+If you don't feel like typing all the options every time, you can add them to a text file and pass all of them through the `--ini-file` option. You can find an example ini file in the repo. To run it:
+
+```Bash
+mbank_run --ini-file test.ini
+mbank_injections --ini-file test.ini
+```
+
+As you see, the same file can be used for different commands: they will just ignore options not relevant for them
+
+
 ## Contacts
 
 Fore more info, or just to say hello, you can contact me: [stefanoschmidt1995@gmail.com](mailto:stefanoschmidt1995@gmail.com)

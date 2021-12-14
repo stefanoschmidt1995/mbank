@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 A script to create an injection list from a bank
-Usage
 -----
 To run the bank:
 	python get_bank_injs.py --options-you-like
@@ -46,7 +45,7 @@ parser.add_argument(
 	"--f-min",  default = 10., type=float,
 	help="Minium frequency for the injection")
 parser.add_argument(
-	"--distance",  default = 100., type=float, nargs = '+',
+	"--distance-range", default = [100., 1000.], type=float, nargs = 2,
 	help="Luminosity distance for all the injections (in Mpc)")
 parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
@@ -62,9 +61,7 @@ args, _ = parser.parse_known_args()
 
 bank = GW_bank(args.bank, spin_format = args.spin_format)
 
-if len(args.distance)==1:  args.distance = args.distance[0]
-elif len(args.distance)==2: args.distance = tuple(args.distance)
-else: raise ValueError("Wrong number of distance parameters given. Expected 1 or 2, got {} instead".format( len(args.distance)))
+min_dist, max_dist = args.distance_range
 
 
 	#shuffling the bank
@@ -72,7 +69,7 @@ np.random.shuffle(bank.templates)
 
 	#injections
 bank.save_injs(args.inj_file, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
-		luminosity_distance = args.distance, f_min = args.f_min, multiple_template = args.multiple_template )
+		luminosity_distance = (min_dist, max_dist), f_min = args.f_min, multiple_template = args.multiple_template )
 quit()
 
 

@@ -59,6 +59,9 @@ parser.add_argument(
 	"--plot", action='store_true',
 	help="Whether to make some plots. They will be store in out-dir")
 parser.add_argument(
+	"--show", action='store_true',
+	help="Whether to show the plots.")
+parser.add_argument(
 	"--out-dir", default = './out',
 	help="Output directory in which the bank will be saved. If default is used, the bank name will be appended.")
 parser.add_argument(
@@ -74,16 +77,10 @@ parser.add_argument(
 	"--f-high",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
-	"--seed-bank",  default = None, type = str,
-	help="Input file for the seed bank. This will create a binning in the masses space. If None, a uniform seed will be used")
-parser.add_argument(
-	"--seed-bank-rows",  default = None, type = int,
-	help="How many rows to read in the seed bank file. If None, all the available rows will be read")
-parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative'],
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,
@@ -236,7 +233,7 @@ bank = GW_bank(spin_format = args.spin_format)
 if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
 	
 	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
-		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, plot = args.plot)
+		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, show = args.show)
 	
 	t_obj.save(args.out_dir+'tiling_{}.npy'.format(args.name)) #storing the tiling in the out_folder
 

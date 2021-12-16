@@ -158,6 +158,7 @@ if args.full_match: #in this case we need to load the PSD and instantiate the me
 	#	We also try to load a tile_id_population obj
 	######
 bank = GW_bank(args.bank_file, spin_format = args.spin_format)
+print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
 s = spin_handler()
 
 t_obj = tiling_handler(args.tiling_file)
@@ -181,13 +182,16 @@ if args.inj_file is None:
 	projected_injs = [np.random.uniform(t[0].mins, t[0].maxes, (args.injs_per_tile, len(t[0].maxes))) for t in t_obj]
 	projected_injs = np.concatenate(projected_injs, axis =0) #(N_tiles * inj_per_tile, D)
 	
+	#projected_injs = bank.templates; print("######### Bank injections!! ###########") #FIXME: this will become a bank-injs option!! Or something similar
+	
 	injections_full = np.array(s.get_BBH_components(projected_injs, args.spin_format)).T
 	del projected_injs #storing projected_injs is a waste of memory that can scale super badly
 else:
 		#loading injections from file and projecting them on the bank manifold
-	xmldoc = lw_utils.load_filename(args.inj_file, verbose = True, contenthandler = LIGOLWContentHandler)
+	xmldoc = lw_utils.load_filename(args.inj_file, verbose = False, contenthandler = LIGOLWContentHandler)
 	print(args.inj_file)
 	sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
+
 		
 	injections = []
 			
@@ -254,6 +258,7 @@ if args.plot:
 		# Histogram
 		###
 	plt.figure()
+	plt.title("Injection recovery for bank {}".format(os.path.basename(args.bank_file)))
 	N_bins = 20
 	logbins = np.logspace(np.log10(np.percentile(best_matches, [.5])[0]),np.log10(max(best_matches)), N_bins)
 	plt.hist(best_matches, bins = logbins, density = True)
@@ -270,6 +275,7 @@ if args.plot:
 		# Colored plots
 		###
 	fig, axes = plt.subplots(projected_injs.shape[1]-1, projected_injs.shape[1]-1, figsize = (20,20))
+	plt.suptitle("Bad injections for {}".format(os.path.basename(args.bank_file)))
 	if projected_injs.shape[1]-1 == 1:
 		axes = np.array([[axes]])
 	for i,j in permutations(range(projected_injs.shape[1]-1), 2):

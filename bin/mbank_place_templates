@@ -57,7 +57,7 @@ parser.add_argument(
 	"--name", default = 'mbank',
 	help="Name for the bank output file")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative'],
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,

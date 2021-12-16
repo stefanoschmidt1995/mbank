@@ -90,7 +90,7 @@ mbank_run --ini-file test.ini
 mbank_injections --ini-file test.ini
 ```
 
-As you see, the same file can be used for different commands: they will just ignore options not relevant for them
+As you see, the same file can be used for different commands: each command will just ignore any option not relevant for it.
 
 
 ## Contacts

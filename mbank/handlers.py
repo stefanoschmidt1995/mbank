@@ -515,7 +515,8 @@ class tiling_handler(list):
 			return (rect.maxes + rect.mins)/2.
 		
 			#tiles list is initialized with a start cell. The first split is done no matter what
-		tiles_list = [(start_rect, start_metric, N_temp+1)] 
+		#tiles_list = [(start_rect, start_metric, N_temp+1)] 
+		tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, avg_dist))] 
 		tiles_list_old = []
 		
 			 #progress bar = % of volume covered

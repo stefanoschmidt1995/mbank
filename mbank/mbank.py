@@ -29,7 +29,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import get_templates_ray, plawspace, create_mesh, get_boundary_box, plot_tiles_templates
+from .utils import get_templates_ray, plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically, place_stochastically_globally
 
 from .handlers import spin_handler, tiling_handler
 
@@ -1246,13 +1246,13 @@ class GW_bank():
 			A list of list. 
 			tile_id_population[i] keeps the ids of the templates inside tile i
 		"""
-		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative'], ValueError("Wrong placing method selected")
+		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic'], ValueError("Wrong placing method selected")
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen spin format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling
-		if placing_method == 'geometric':
-			coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
-			coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
+		#if placing_method in ['geometric', 'uniform']:
+		coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
+		coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
 		
 		avg_dist = self.avg_dist(avg_match) #desired average distance between templates
 		new_templates = []
@@ -1273,15 +1273,13 @@ class GW_bank():
 				#print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
 				
 			elif placing_method == 'uniform':
+					#N_templates is computed with a mesh, more realistic...
 				lambda_N_templates = t_obj.N_templates(*t, avg_dist) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler
-				N_templates = int(lambda_N_templates)+1
+				N_templates = create_mesh(avg_dist, t, coarse_boundaries).shape[0] #int(lambda_N_templates)+1
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 				
-				#print(avg_match, avg_dist, N_templates)
-				#print(new_templates_)
-				
 			elif placing_method == 'geometric':
-				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries)
+				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries) #(N,D)
 			
 			elif placing_method == 'iterative':
 				temp_t_obj = tiling_handler()
@@ -1290,9 +1288,18 @@ class GW_bank():
 				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), 1, temp_metric_fun, avg_dist, verbose = False, worker_id = None)
 				
 				new_templates_ = temp_t_obj.get_centers()
+			elif placing_method == 'stochastic':
+				#new_templates_ = place_stochastically(avg_match, t)
+				break
 		
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
+
+		if placing_method == 'stochastic':
+			new_templates = place_stochastically_globally(avg_match, t_obj)
+			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
+				dist_t = t[0].min_distance_point(new_templates)
+				tile_id_population.append( np.where(dist_t == 0.)[0] )
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)

@@ -11,11 +11,14 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+
 try:
 	sys.path.insert(0, '../mbank')
-	from mbank import *
+	from mbank import GW_bank, spin_handler
+	from mbank.utils import  parse_from_file
 except:
-	from mbank import *
+	from mbank import GW_bank
+	from mbank.utils import  parse_from_file
 
 import argparse
 import os
@@ -24,22 +27,25 @@ import os
 s = spin_handler()
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
-	"--bank", required = True, type=str,
+	'--ini-file', type=open, action=parse_from_file, required = False,
+	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
+parser.add_argument(
+	"--bank-file", required = False, type=str,
 	help="The path to the bank file")
 parser.add_argument(
-	"--inj-file", required = True, type=str,
+	"--inj-out-file", required = False, type=str,
 	help="Injection file (in xml format) in wich the bank is stored ")
 parser.add_argument(
-	"--spin-format", choices= s.valid_formats, required = True,
+	"--spin-format", choices= s.valid_formats, required = False,
 	help="Choose which spin variables the bank is generated with")
 parser.add_argument(
-	"--GPS-start",  required = True, type=int,
+	"--GPS-start",  required = False, type=int,
 	help="Start GPS time for the injections")
 parser.add_argument(
-	"--GPS-end",  required = True, type=int,
+	"--GPS-end",  required = False, type=int,
 	help="End GPS time for the injections")
 parser.add_argument(
-	"--time-step",  required = True, type=float,
+	"--time-step",  required = False, type=float,
 	help="Distance in time between consecutive injections")
 parser.add_argument(
 	"--f-min",  default = 10., type=float,
@@ -59,7 +65,10 @@ args, _ = parser.parse_known_args()
 ####################
 #Interpreting the parser and calling the function
 
-bank = GW_bank(args.bank, spin_format = args.spin_format)
+if (args.bank_file is None) or (args.inj_out_file is None) or (args.spin_format is None) or (args.GPS_start is None) or (args.GPS_end is None) or (args.time_step is None):
+	raise ValueError("The arguments bank-file, inj-out-file, spin-format, GPS-start, GPS-end and time-step must be set!")
+
+bank = GW_bank(args.bank_file, spin_format = args.spin_format)
 
 min_dist, max_dist = args.distance_range
 
@@ -68,7 +77,7 @@ min_dist, max_dist = args.distance_range
 np.random.shuffle(bank.templates)
 
 	#injections
-bank.save_injs(args.inj_file, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
+bank.save_injs(args.inj_out_file, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
 		luminosity_distance = (min_dist, max_dist), f_min = args.f_min, multiple_template = args.multiple_template )
 quit()
 

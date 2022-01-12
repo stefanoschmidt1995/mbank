@@ -297,7 +297,7 @@ class WF_metric(object):
 		
 		return res
 	
-	def get_WF_grads(self,theta, approx):
+	def get_WF_grads(self, theta, approx):
 		"""
 		Computes the gradient of the WF with a given approximant, both in TD or FD, depending on the option set at initialization.
 		An approximant can be either 'mlgw' either any lal approximant. In the case of mlgw an analytical expression for the gradient is used. In the case of lal, the gradients are computed with finite difference methods.
@@ -335,8 +335,8 @@ class WF_metric(object):
 			#TODO:fix the thresholds
 			if M>50.: order = 1
 			if M<=50. and M>15.: order = 2
-			if M<=15. and M>10.: order = 4
-			if M<=10. and M>1.: order = 6
+			if M<=15. and M>5.: order = 4
+			if M<=5. and M>1.: order = 6
 			if M<=1.: order = 8
 			return order
 		
@@ -441,7 +441,7 @@ class WF_metric(object):
 			raise RuntimeError("Given approximant not supported by lal")
 			#generating the WF
 		if not lalsim.SimInspiralImplementedFDApproximants(lal_approx):
-			raise RuntimeError("Approximant {} is TD".format(approx)) #must be FD approximant
+			raise RuntimeError("Approximant {} is TD: only FD approximants are supported".format(approx)) #must be FD approximant
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(theta, self.spin_format)
 			#FIXME: WTF is this grid??
 		hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
@@ -460,7 +460,7 @@ class WF_metric(object):
 		
 		return hptilde, hctilde
 	
-	def get_WF(self, theta, approx = None):
+	def get_WF(self, theta, approx = None, plus_cross = False):
 		"""
 		Computes the WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid on which the PSD is evauated (self.f_grid)
 		An any lal FD approximant.
@@ -474,6 +474,9 @@ class WF_metric(object):
 		approx: 'string'
 			Which approximant to use. It can be FD lal approx
 			If None, the default approximant will be used
+		
+		plus_cross: 'bool'
+			Whether to return both polarizations. If False, only the plus polarization will be returned
 
 		Returns
 		-------
@@ -498,13 +501,15 @@ class WF_metric(object):
 			hp = hp.data.data[:self.PSD.shape[0]]
 			hc = hc.data.data[:self.PSD.shape[0]]
 
-			WF_list.append(hp)
+			if plus_cross: WF_list.append((hp, hc))
+			else: WF_list.append(hp)
 		
-		h = np.stack(WF_list, axis =0)
+		h = np.stack(WF_list, axis = -1).T #(N,D)/(N,D,2)
 		
-		if squeeze: h = h[0,:]
+		if squeeze: h = h[0,...]
 		
-		return h
+		if plus_cross: return h[...,0], h[...,1]
+		else: return h
 	
 	
 	def get_metric(self, theta, overlap = False):
@@ -585,6 +590,69 @@ class WF_metric(object):
 
 		return metric
 	
+	def WF_symphony_match(self, h1, h2, overlap = False):
+		"""
+		Computes the symphony match line by line between two WFs. The WFs shall be evaluated on the custom grid 
+		No checks will be done on the input
+		The symphony match is defined in: arxiv.org/abs/1709.09181
+		
+		Parameters
+		----------
+		
+		h1: ('np.ndarray','np.ndarray') (N,D)
+			First WF: tuple (hp, hc)
+
+		h1: ('np.ndarray','np.ndarray') (N,D)
+			Second WF: tuple (hp, hc)
+		
+		overlap: 'bool'
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
+		
+		Returns
+		-------
+		
+		sym_match : 'np.ndarray' (N,)
+			Array containing the symphony match of the given WFs
+			
+		"""
+		warnings.warn("The symphony match is not fully implemented yet... Still work in progress...")
+		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
+		
+			#whithening and normalizing
+		s_WN = h2[0] + 0*h2[1] #TODO: set a proper linear combination coeff!!
+		h1p_WN = (h1[0]/np.sqrt(self.PSD)) #whithened WF
+		h1c_WN = (h1[1]/np.sqrt(self.PSD)) #whithened WF
+		s_WN = (s_WN/np.sqrt(self.PSD)) #whithened WF
+		
+		h1p_WN = (h1p_WN.T/np.sqrt(sigmasq(h1p_WN))).T #normalizing WF
+		h1c_WN = (h1c_WN.T/np.sqrt(sigmasq(h1c_WN))).T #normalizing WF
+		s_WN = (s_WN.T/np.sqrt(sigmasq(s_WN))).T #normalizing s
+	
+			#computing frequency series, time series and denominator
+		SNR_fs_p = np.multiply(np.conj(s_WN), h1p_WN) #(N,D) #frequency series
+		SNR_fs_c = np.multiply(np.conj(s_WN), h1c_WN) #(N,D) #frequency series
+		
+		SNR_ts_p = np.fft.ifft(SNR_fs_p, axis =-1).real*SNR_fs_p.shape[-1]
+		SNR_ts_c = np.fft.ifft(SNR_fs_c, axis =-1).real*SNR_fs_c.shape[-1]
+
+			#This correlation does not agree with sbank!!
+		h1pc = np.sum(np.multiply(np.conj(h1p_WN), h1c_WN), axis = -1).real
+		den = 1- np.square(h1pc)
+		
+		SNR_ts = np.square(SNR_ts_p) + np.square(SNR_ts_c) - 2*SNR_ts_p*SNR_ts_c*h1pc #(N,D)
+		SNR_ts = SNR_ts/den #(N,D)
+		SNR_ts = np.sqrt(SNR_ts) #remember this!! It is important :)
+		
+		print("mbank hphccorr: ", h1pc)
+		
+		if overlap: #no time maximization
+			return SNR_ts[...,0]
+
+		match = np.max(SNR_ts, axis = -1)
+
+		return match
+	
 	def WF_match(self, h1, h2, overlap = False):
 		"""
 		Computes the match line by line between two WFs. The WFs shall be evaluated on the custom grid 
@@ -633,9 +701,14 @@ class WF_metric(object):
 	
 	
 	#@do_profile(follow=[])
-	def match(self, theta1, theta2, overlap = False):
+	def match(self, theta1, theta2, symphony = False, overlap = False):
 		"""
 		Computes the match line by line between elements in theta1 and elements in theta2
+		
+		If symphony is False, the match is the standard non-precessing one 
+			|<h1p|h2p>|^2
+		If symphony is True, it returns the symphony match (as in arxiv.org/abs/1709.09181)
+			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
 		
 		Parameters
 		----------
@@ -645,6 +718,9 @@ class WF_metric(object):
 
 		theta2: 'np.ndarray' (N,D) /(D,)
 			Parameters of the second BBHs. The dimensionality depends on self.spin_format
+		
+		symphony: 'bool'
+			Whether to compute the symphony match (default False)
 		
 		overlap: 'bool'
 			Whether to compute the overlap between WFs (rather than the match)
@@ -672,10 +748,13 @@ class WF_metric(object):
 			theta2 = theta2[None,:]
 			squeeze = True
 		
-		h1 = self.get_WF(theta1, self.approx)
-		h2 = self.get_WF(theta2, self.approx)
+		h1 = self.get_WF(theta1, self.approx, plus_cross = symphony)
+		h2 = self.get_WF(theta2, self.approx, plus_cross = symphony)
 
-		match = self.WF_match(h1, h2, overlap)
+		if symphony:
+			match = self.WF_symphony_match(h1, h2, overlap)
+		else:
+			match = self.WF_match(h1, h2, overlap)
 
 		if squeeze: match = match[0]
 
@@ -721,7 +800,7 @@ class WF_metric(object):
 		delta_theta = theta2 - theta1  #(N,D)
 		
 		if metric is None:
-			metric = self.get_metric(theta1)
+			metric = self.get_metric((theta1+theta2)/2.)
 			match = 1 + np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		else:
 			match = 1 + np.einsum('ij, jk, ik -> i', delta_theta, metric, delta_theta) #(N,)
@@ -849,7 +928,7 @@ class GW_bank():
 			avg_dist: 'float'
 				Average distance between templates
 		"""
-		#return 2*np.sqrt((1-avg_match))
+		#return np.sqrt((1-avg_match)/self.D)
 		return 2*np.sqrt((1-avg_match)/self.D) #Owen
 
 	def load(self, filename):
@@ -1121,6 +1200,8 @@ class GW_bank():
 		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
 		xmldoc.unlink()
 
+		print("Saved {} injections to {}".format(i, filename))
+
 		return 
 
 	def add_templates(self, new_templates):
@@ -1272,13 +1353,13 @@ class GW_bank():
 				
 				#print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
 				
-			elif placing_method == 'uniform':
+			elif placing_method == 'uniform' or placing_method == 'stochastic':
 					#N_templates is computed with a mesh, more realistic...
-				lambda_N_templates = t_obj.N_templates(*t, avg_dist) #volume / np.power(avg_dist, self.D) #Computed by tiling_handler
-				N_templates = create_mesh(avg_dist, t, coarse_boundaries).shape[0] #int(lambda_N_templates)+1
+				N_templates = int(t_obj.N_templates(*t, avg_dist)+1) #Computed by tiling_handler
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 				
-			elif placing_method == 'geometric':
+			elif placing_method == 'geometric':# or placing_method == 'stochastic':
+					#creting a first guess for stochastic placing method (if stochastic option is set)
 				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries) #(N,D)
 			
 			elif placing_method == 'iterative':
@@ -1288,15 +1369,16 @@ class GW_bank():
 				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), 1, temp_metric_fun, avg_dist, verbose = False, worker_id = None)
 				
 				new_templates_ = temp_t_obj.get_centers()
-			elif placing_method == 'stochastic':
+			#elif placing_method == 'stochastic':
 				#new_templates_ = place_stochastically(avg_match, t)
-				break
+				#break
 		
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
 
 		if placing_method == 'stochastic':
-			new_templates = place_stochastically_globally(avg_match, t_obj)
+			#new_templates = place_stochastically_globally(avg_match, t_obj, first_guess = None)
+			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 10, first_guess = new_templates) #this is if I have a first guess
 			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
 				dist_t = t[0].min_distance_point(new_templates)
 				tile_id_population.append( np.where(dist_t == 0.)[0] )

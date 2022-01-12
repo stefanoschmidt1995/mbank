@@ -255,7 +255,9 @@ class spin_handler(object):
 		assert spin_format in self.valid_formats, "Wrong spin format given"
 		
 		BBH_components = np.array(BBH_components) #(N,10)/(10,)
+		squeeze = False
 		if BBH_components.ndim == 1:
+			squeeze = True
 			BBH_components = BBH_components[None,:] #(N,10)
 		
 		#TODO: fix the metric to accept phi
@@ -293,11 +295,11 @@ class spin_handler(object):
 			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
 			theta.extend([s1, theta1, phi1, BBH_components[:,7]])
 		elif self.format_info[spin_format]['s_format'] == 'fullspins':
-			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
+			s1 = np.maximum(np.linalg.norm(BBH_components[:,2:5], axis =1), 1e-20) #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
 			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
-			s2 = np.linalg.norm(BBH_components[:, 5:8], axis =1)+1e-10 #(N,)
-			theta2 = np.arccos(BBH_components[:,7]/s1)
+			s2 = np.maximum(np.linalg.norm(BBH_components[:, 5:8], axis =1), 1e-20) #(N,)
+			theta2 = np.arccos(BBH_components[:,7]/s2)
 			phi2 = np.arctan2(BBH_components[:,6], BBH_components[:,5])
 			theta.extend([s1, theta1, phi1, s2, theta2, phi2])
 		else:
@@ -310,6 +312,8 @@ class spin_handler(object):
 			theta.append(BBH_components[:,9])
 		
 		theta = np.column_stack(theta)
+		
+		if squeeze: theta = np.squeeze(theta)
 		
 		return theta
 
@@ -353,7 +357,7 @@ class spin_handler(object):
 		elif self.format_info[spin_format]['m_format'] == 'mceta':
 				#see https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py#L215
 			M = theta[:,0] / np.power(theta[:,1], 3./5.)
-			if not np.all(theta[:,1]<0.25):
+			if not np.all(theta[:,1]<=0.25):
 				raise ValueError("Values of the symmetric mass ratio should be all <= 0.25. The given array has some entries not satisfying this: {}".format(theta[:,1]))
 			temp_ = np.power(1.0 - 4.0 * theta[:,1], 0.5)
 			m1 = 0.5 * M * (1.0 + temp_)

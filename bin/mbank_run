@@ -20,10 +20,10 @@ from ligo.lw.utils import load_filename
 try:
 	sys.path.insert(0, '../mbank')
 	from mbank import spin_handler, WF_metric, GW_bank
-	from mbank.utils import parse_from_file
+	from mbank.utils import parse_from_file, load_PSD
 except:
 	from mbank import spin_handler, WF_metric, GW_bank
-	from mbank.utils import parse_from_file
+	from mbank.utils import parse_from_file, load_PSD
 
 import argparse
 import os
@@ -120,11 +120,14 @@ parser.add_argument(
 parser.add_argument(
 	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for iota (if applicable)")
+parser.add_argument(
+	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
+	help="Range values for reference phase (if applicable)")
 
 
 args, _ = parser.parse_known_args()
 
-##################################################
+####################################################################################################
 	######
 	#	Interpreting the parser and initializing variables
 	######
@@ -149,6 +152,7 @@ s2_min, s2_max = args.s2_range
 theta_min, theta_max = args.theta_range
 phi_min, phi_max = args.phi_range
 iota_min, iota_max = args.iota_range
+ref_phase_min, ref_phase_max = args.ref_phase_range
 
 plot_folder = None
 if args.plot: plot_folder = args.out_dir
@@ -157,7 +161,7 @@ if args.plot: plot_folder = args.out_dir
 format_info = s.format_info[args.spin_format]
 
 	######
-	#	Setting boundaries
+	#	Setting boundaries: shape (2,D)
 	######
 	#setting mass boundaries
 if format_info['m_format'] == 'm1m2':
@@ -189,32 +193,17 @@ else:
 if format_info['iota']:
 	boundaries = np.concatenate([boundaries, [[iota_min], [iota_max]]], axis =1)
 if format_info['phi']:
-	boundaries = np.concatenate([boundaries, [[phi_min], [phi_max]]], axis =1)
+	boundaries = np.concatenate([boundaries, [[ref_phase_min], [ref_phase_max]]], axis =1)
 
 	######
 	#	Loading PSD and initializing metric
 	######
-if args.psd.endswith('xml') or args.psd.endswith('xml.gz'):
-	PSD_fseries = lal.series.read_psd_xmldoc(
-			load_filename(args.psd, verbose=False,
-			contenthandler=lal.series.PSDContentHandler)
-		)
-	try:
-		PSD_fseries = PSD_fseries[args.ifo]
-	except KeyError:
-		raise ValueError("The given PSD file doesn't have an entry for the chosen interferometer {}".format(args.ifo))
-	f = np.linspace(PSD_fseries.f0, PSD_fseries.deltaF*PSD_fseries.data.length, PSD_fseries.data.length)
-	PSD = PSD_fseries.data.data
-else:
-	f, PSD = np.loadtxt(args.psd)[:,:2].T
+m = WF_metric(args.spin_format,
+			PSD = load_PSD(args.psd, args.asd, args.ifo),
+			approx = args.approximant,
+			f_min = args.f_min, f_high = args.f_high)
 
-if args.asd: PSD = np.square(PSD)
-
-m = WF_metric(PSD = (f, PSD), approx = args.approximant,
-		f_min = args.f_min, f_high = args.f_high,
-		spin_format = args.spin_format)
-
-print("## Running: ",args.name)
+print("## Running: ", args.name)
 
 	#dealing with seed bank (only if masses are m1m2)
 if format_info['m_format'] == 'm1m2':

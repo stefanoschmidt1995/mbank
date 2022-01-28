@@ -29,7 +29,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import get_templates_ray, plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically, place_stochastically_globally
+from .utils import get_templates_ray, plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically, place_stochastically_globally, DefaultSnglInspiralTable
 
 from .handlers import spin_handler, tiling_handler
 
@@ -63,52 +63,6 @@ except:
 #FIXME: you are not able to perform the FFT of the WFs... Learn how to do it and do it well!
 
 #TODO: eventually you should set a better import chain
-
-####################################################################################################################
-
-class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
-	"""
-	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
-	This is a copy of SnglInspiralTable with implmented defaults.
-	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
-	"""
-	def __init__(self, *args, **kwargs):
-		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
-		for entry in self.validcolumns.keys():
-			if not(hasattr(self, entry)):
-				if self.validcolumns[entry] in ['real_4', 'real_8']:
-					setattr(self, entry, 0.)
-				elif self.validcolumns[entry] == 'int_4s':
-					setattr(self, entry, 0)
-				elif self.validcolumns[entry] == 'lstring':
-					setattr(self, entry, '')
-				elif self.validcolumns[entry] == 'ilwd:char':
-					setattr(self, entry, '')
-			else:
-				print("Column %s not recognized" % entry, file=sys.stderr)
-				raise ValueError
-
-class DefaultSimInspiralTable(lsctables.SimInspiralTable):
-	"""
-	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
-	This is a copy of SnglInspiralTable with implmented defaults.
-	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
-	"""
-	def __init__(self, *args, **kwargs):
-		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
-		for entry in self.validcolumns.keys():
-			if not(hasattr(self, entry)):
-				if self.validcolumns[entry] in ['real_4', 'real_8']:
-					setattr(self, entry, 0.)
-				elif self.validcolumns[entry] == 'int_4s':
-					setattr(self, entry, 0)
-				elif self.validcolumns[entry] == 'lstring':
-					setattr(self, entry, '')
-				elif self.validcolumns[entry] == 'ilwd:char':
-					setattr(self, entry, '')
-			else:
-				print("Column %s not recognized" % entry, file=sys.stderr)
-				raise ValueError
 
 ####################################################################################################################
 
@@ -443,6 +397,8 @@ class WF_metric(object):
 		if not lalsim.SimInspiralImplementedFDApproximants(lal_approx):
 			raise RuntimeError("Approximant {} is TD: only FD approximants are supported".format(approx)) #must be FD approximant
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(theta, self.spin_format)
+		#print("mbank pars: ",m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi) #DEBUG
+		
 			#FIXME: WTF is this grid??
 		hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
                         m2*lalsim.lal.MSUN_SI,
@@ -616,7 +572,6 @@ class WF_metric(object):
 			Array containing the symphony match of the given WFs
 			
 		"""
-		warnings.warn("The symphony match is not fully implemented yet... Still work in progress...")
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
 		
 			#whithening and normalizing
@@ -640,11 +595,12 @@ class WF_metric(object):
 		h1pc = np.sum(np.multiply(np.conj(h1p_WN), h1c_WN), axis = -1).real
 		den = 1- np.square(h1pc)
 		
-		SNR_ts = np.square(SNR_ts_p) + np.square(SNR_ts_c) - 2*SNR_ts_p*SNR_ts_c*h1pc #(N,D)
+		SNR_ts = np.square(SNR_ts_p).T + np.square(SNR_ts_c).T - 2*SNR_ts_p.T*SNR_ts_c.T*h1pc #(N,D)
 		SNR_ts = SNR_ts/den #(N,D)
+		SNR_ts = SNR_ts.T
 		SNR_ts = np.sqrt(SNR_ts) #remember this!! It is important :)
 		
-		print("mbank hphccorr: ", h1pc)
+		#print("mbank hphccorr: ", h1pc)
 		
 		if overlap: #no time maximization
 			return SNR_ts[...,0]
@@ -1075,135 +1031,6 @@ class GW_bank():
 		
 		return
 
-	def save_injs(self, filename, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20., multiple_template = False ):
-		"""
-		Save the bank to a standard injection file.
-		
-		Parameters
-		----------
-			
-		filename: str
-			Filename to save the injections at
-		
-		GPS_start: int
-			Start GPS time for the injections
-
-		GPS_end: int
-			End GPS time for the injections
-
-		time_step: float
-			Time step between consecutive injections
-			Warning: no checks are made for overlapping injections
-		
-		approx: str
-			Lal approximant to use to perform injections
-		
-		luminosity_distance: float/tuple
-			Luminosity distance in Mpc for the all the injections
-			If a tuple, it has the meaning max luminosity/min luminosity
-
-		f_min: float
-			Starting frequency (in Hz) for the injection
-		
-		multiple_template: bool
-			Whether to allow the same template to appear more than once in the injection set
-		
-		"""
-		#For inspiration see: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/injection_utils.py#L675
-		#https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168
-			#defining detectors
-		detectors = {
-				'h' : lal.CachedDetectors[lal.LHO_4K_DETECTOR],
-				'l' : lal.CachedDetectors[lal.LLO_4K_DETECTOR],
-				'v' : lal.CachedDetectors[lal.VIRGO_DETECTOR]
-			}
-			
-			#if luminosity_distance is an int, the max/min value shall change a bit, otherwise the dag won't run
-		if isinstance(luminosity_distance, float): luminosity_distance = (luminosity_distance, luminosity_distance*1.001)
-		else: assert isinstance(luminosity_distance, tuple), "Wrong format for luminosity distance. Must be a float or a tuple of float, not {}".format(type(luminosity_distance))
-		
-			#getting the masses and spins of the rows
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi = self.s_handler.get_BBH_components(self.templates, self.spin_format)
-		
-			#opening a document
-		xmldoc = ligolw.Document()
-		xmldoc.appendChild(ligolw.LIGO_LW())
-		sim_inspiral_table = lsctables.New(lsctables.SimInspiralTable)
-
-		process = ligolw_process.register_to_xmldoc(
-			xmldoc,
-			program="mbank",
-			paramdict={},
-			comment="Injections matching a bank")
-
-			#loops on rows (i.e. injections)
-		for i, t_inj in enumerate(np.arange(GPS_start, GPS_end, time_step)):
-
-			if multiple_template: id_template = np.random.randint(0, len(m1))
-			else: id_template = i
-			
-			if i>= len(m1) and not multiple_template: break
-
-				#boring initialization stuff
-			row =  DefaultSimInspiralTable()
-			row.process_id = process.process_id
-			row.simulation_id = i #int?
-			row.waveform = approx
-			row.f_lower = f_min
-			row.taper = "TAPER_START"
-			row.bandpass = 0
-
-				#setting interesting row paramters
-			row.inclination = iota[id_template]
-			row.coa_phase = phi[id_template]
-			row.polarization = np.random.uniform(0.0, 2.0 * np.pi)
-			row.longitude = np.random.uniform(0.0, 2.0 * np.pi)
-			row.latitude = np.arcsin(np.random.uniform(-1.0, 1.0))
-			row.distance = np.random.uniform(*luminosity_distance)
-
-				#setting masses/spins and other related quantities
-			row.mass1, row.mass2 = m1[id_template], m2[id_template]
-			row.spin1x, row.spin1y, row.spin1z = s1x[id_template], s1y[id_template], s1z[id_template]
-			row.spin2x, row.spin2y, row.spin2z = s2x[id_template], s2y[id_template], s2z[id_template]
-			
-			row.mtotal = row.mass1 + row.mass2
-			row.eta = row.mass1 * row.mass2 / row.mtotal**2
-			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
-			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
-			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
-			
-			row.f_final = 2500 /(row.mtotal)
-			
-				#dealing with geocentric time for the injections
-			tj = lal.LIGOTimeGPS(float(t_inj)) #do you want to jitter it?
-			row.geocent_end_time = tj.gpsSeconds
-			row.geocent_end_time_ns = tj.gpsNanoSeconds
-			row.end_time_gmst = lal.GreenwichMeanSiderealTime(tj)
-
-				# calculate and set detector-specific columns
-			for site, det in detectors.items():
-				tend = tj + lal.TimeDelayFromEarthCenter(det.location, row.longitude, row.latitude, tj)
-				setattr(row, site + "_end_time", tend.gpsSeconds)
-				setattr(row, site + "_end_time_ns", tend.gpsNanoSeconds)
-				setattr(row, "eff_dist_" + site, row.distance) #this is not d_eff, but there is not such a thing as d_eff for precessing searches...
-			
-				#this setting fucks things a bit! (is it really required)
-			#row.alpha4 = 20 #This is H1 SNR?? Required?
-			#row.alpha5 = 20 #This is L1 SNR?? Required?
-			#row.alpha6 = 20 #This is V1 SNR?? Required?
-
-				#appending row
-			sim_inspiral_table.append(row)
-
-		ligolw_process.set_process_end_time(process)
-		xmldoc.childNodes[-1].appendChild(sim_inspiral_table)
-		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
-		xmldoc.unlink()
-
-		print("Saved {} injections to {}".format(i, filename))
-
-		return 
-
 	def add_templates(self, new_templates):
 		"""
 		Adds a bunch of templates to the bank.
@@ -1327,7 +1154,7 @@ class GW_bank():
 			A list of list. 
 			tile_id_population[i] keeps the ids of the templates inside tile i
 		"""
-		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic'], ValueError("Wrong placing method selected")
+		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'], ValueError("Wrong placing method selected")
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen spin format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling
@@ -1353,14 +1180,17 @@ class GW_bank():
 				
 				#print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
 				
-			elif placing_method == 'uniform' or placing_method == 'stochastic':
+			elif placing_method == 'uniform':
 					#N_templates is computed with a mesh, more realistic...
 				N_templates = int(t_obj.N_templates(*t, avg_dist)+1) #Computed by tiling_handler
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 				
-			elif placing_method == 'geometric':# or placing_method == 'stochastic':
-					#creting a first guess for stochastic placing method (if stochastic option is set)
-				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries) #(N,D)
+			elif placing_method == 'geometric' or placing_method == 'stochastic':
+					#if stochastic option is set, we create a first guess for stochastic placing method 
+				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries = None) #(N,D)
+			
+			elif placing_method == 'pure_stochastic':
+				break
 			
 			elif placing_method == 'iterative':
 				temp_t_obj = tiling_handler()
@@ -1376,9 +1206,9 @@ class GW_bank():
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
 
-		if placing_method == 'stochastic':
-			#new_templates = place_stochastically_globally(avg_match, t_obj, first_guess = None)
-			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 10, first_guess = new_templates) #this is if I have a first guess
+		if placing_method == 'pure_stochastic' or placing_method == 'stochastic':
+			if len(new_templates) == 0: new_templates = None #pure stochastic
+			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, first_guess = new_templates) #this is if I have a first guess
 			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
 				dist_t = t[0].min_distance_point(new_templates)
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
@@ -1528,7 +1358,13 @@ class GW_bank():
 		
 			##
 			#placing the templates
-		tile_id_population = self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+			#(if there is KeyboardInterrupt, the tiling is returned anyway)
+		try:
+			tile_id_population = self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+		except KeyboardInterrupt:
+			tile_id_population = None
+			plot_folder	= None
+			self.templates = None
 		
 			##
 			#plot debug

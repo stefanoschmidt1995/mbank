@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches
 import sys
 import pickle
+import json
 
 from ligo.lw import utils as lw_utils
 from ligo.lw import ligolw
@@ -27,7 +28,7 @@ from ligo.lw import lsctables
 try:
 	sys.path.insert(0, '../mbank')
 	from mbank import spin_handler, WF_metric, GW_bank, tiling_handler
-	from mbank.utils import compute_metric_injections_match, compute_metric_injections_match_bruteforce, compute_injections_match, compute_avg_dist, parse_from_file, load_PSD
+	from mbank.utils import compute_metric_injections_match, compute_metric_injections_match_bruteforce, compute_injections_match, ray_compute_injections_match, compute_avg_dist, parse_from_file, load_PSD
 except:
 	from mbank import spin_handler, WF_metric, GW_bank, tiling_handler
 	from mbank.utils import compute_metric_injections_match, compute_metric_injections_match_bruteforce, compute_injections_match, compute_avg_dist, parse_from_file, load_PSD
@@ -78,10 +79,16 @@ parser.add_argument(
 	help="Number of injections to read from inj-file. If None, all the injections will be read")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
-	help="Whether to perform the full match computation. If False, a metric approximation to the match will be used")
+	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
+parser.add_argument(
+	"--full-match-symphony", action='store_true', default = False,
+	help="Whether to perform the full symphony match computation. If False, a metric approximation to the match will be used")
 parser.add_argument(
 	"--seed", type = int, default = None,
 	help="Random seed for extracting the random injections (if it applies)")
+parser.add_argument(
+	"--use-ray", action='store_true', default = False,
+	help="Whether to use ray package to parallelize the match computation")
 
 ###########
 parser.add_argument(
@@ -140,7 +147,7 @@ if args.plot: plot_folder = args.out_dir
 	######
 	#	Loading PSD, and creating an istance of metric (if it applies)
 	######
-if args.full_match: #in this case we need to load the PSD and instantiate the metric
+if args.full_match or args.full_match_symphony: #in this case we need to load the PSD and instantiate the metric
 		#load PSD
 	f, PSD = load_PSD(args.psd, args.asd, args.ifo)
 
@@ -186,19 +193,37 @@ if args.inj_file is None:
 	injections_full = np.array(s.get_BBH_components(projected_injs, args.spin_format)).T
 	del projected_injs #storing projected_injs is a waste of memory that can scale super badly
 else:
-		#loading injections from file and projecting them on the bank manifold
-	xmldoc = lw_utils.load_filename(args.inj_file, verbose = False, contenthandler = LIGOLWContentHandler)
-	sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
-
 	injections = []
-	if args.N_inj is None: args.N_inj = len(sim_inspiral_table)
-	if args.N_inj > len(sim_inspiral_table): args.N_inj = len(sim_inspiral_table)
-	print("Loading {} injections from file: {}".format(args.N_inj, args.inj_file))
-			
-	for i, row in enumerate(sim_inspiral_table):
-		if i >= args.N_inj: break
-		injections.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.inclination, row.coa_phase])
-			
+	
+		#loading injections from file and projecting them on the bank manifold
+		#The injection fle can be either xml or json
+	if args.inj_file.endswith('xml') or args.inj_file.endswith('xml.gz'):
+		xmldoc = lw_utils.load_filename(args.inj_file, verbose = False, contenthandler = LIGOLWContentHandler)
+		sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
+
+		if args.N_inj is None: args.N_inj = len(sim_inspiral_table)
+		if args.N_inj > len(sim_inspiral_table): args.N_inj = len(sim_inspiral_table)
+
+		for i, row in enumerate(sim_inspiral_table):
+			if i >= args.N_inj: break
+			injections.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.inclination, row.coa_phase])
+				
+	elif args.inj_file.endswith('json'):
+		with open(args.inj_file) as f:
+			inj_json = json.load(f)
+		
+		if args.N_inj is None: args.N_inj = len(inj_json['items'])
+		if args.N_inj > len(inj_json['items']): args.N_inj = len(inj_json['items'])
+		
+		for i, row in enumerate(inj_json['items']):
+			if i >= args.N_inj: break
+			injections.append([row['m1'], row['m2'], row['s_1x'], row['s_1y'], row['s_1z'], row['s_2x'], row['s_2y'], row['s_2z'], row['inclination'], 0.]) #You set phi arbitrarly!! Pay attention
+	
+		
+	else:
+		raise ValueError("Format for the input file for the injections must be either xml or json")
+	
+	print("Loaded {} injections from file: {}".format(args.N_inj, args.inj_file))
 	injections_full = np.array(injections) #(N,10)
 
 	######
@@ -216,7 +241,7 @@ injection_stat_dict = compute_metric_injections_match_bruteforce(injections_full
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
 	#	(if it's the case)
 	######
-if args.full_match:
+if args.full_match or args.full_match_symphony:
 	templates_full = np.array(s.get_BBH_components(bank.templates, args.spin_format)).T #(N,10)
 		#this function should take the stat_dict and for each best_id, it should replace the metric match with the actual match
 		#The actual match shall be computed with metric.WF_match
@@ -225,7 +250,12 @@ if args.full_match:
 
 	best_matches_metric = np.array(injection_stat_dict['match'])
 
-	injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric, args.N_neigh_templates_full)
+	if args.use_ray:
+		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
+				args.N_neigh_templates_full, symphony_match = args.full_match_symphony)
+	else:
+		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
+				args.N_neigh_templates_full, symphony_match = args.full_match_symphony)
 	metric.set_spin_format(args.spin_format)
 	
 	######
@@ -261,7 +291,7 @@ if args.plot:
 		###
 	plt.figure()
 	plt.title("Injection recovery for bank {}".format(os.path.basename(args.bank_file)))
-	N_bins = 20
+	N_bins = 30
 	logbins = np.logspace(np.log10(np.percentile(best_matches, [.5])[0]),np.log10(max(best_matches)), N_bins)
 	plt.hist(best_matches, bins = logbins, density = True)
 	if args.full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step', density = True)
@@ -271,7 +301,7 @@ if args.plot:
 	#plt.show()
 	plt.savefig(args.out_dir+'FF_hist.png')
 
-	ids_to_plot = np.where(best_matches<np.percentile(best_matches, 5))[0]
+	ids_to_plot = np.where(best_matches<np.percentile(best_matches, 50))[0]
 
 		###
 		# Colored plots
@@ -288,7 +318,7 @@ if args.plot:
 		ax_ = list(ax_)
 		
 		#fig = plt.figure()
-		currentAxis.scatter(*bank.templates[:,ax_].T, s = 5, marker = 'x', c= 'r', alpha = 0.5)
+		currentAxis.scatter(*bank.templates[:,ax_].T, s = 2, marker = 'x', c= 'r', alpha = 0.5)
 		cbar_vals = currentAxis.scatter(projected_injs[ids_to_plot,ax_[0]], projected_injs[ids_to_plot,ax_[1]],
 				s = 20, marker = 'o', c= best_matches[ids_to_plot])
 		if ax_[0] == 0:

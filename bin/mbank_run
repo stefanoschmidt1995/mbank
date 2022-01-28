@@ -80,7 +80,7 @@ parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic'],
+	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,
@@ -228,6 +228,10 @@ if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
 
 	with open(args.out_dir+'tile_id_population_{}.pkl'.format(args.name), 'wb') as filehandler:
 		pickle.dump(tile_id_population, filehandler)
+
+if bank.templates is None:
+	print("No templates were added to the bank: the bank is not saved")
+	quit()
 
 print("Generated bank with {} templates".format(len(bank.templates)))
 bank.save_bank(args.out_dir+'bank_{}.dat'.format(args.name))

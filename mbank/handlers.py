@@ -526,7 +526,7 @@ class tiling_handler(list):
 			 #progress bar = % of volume covered
 		if verbose:
 			if worker_id is None: desc = 'Volume covered by the tiling'
-			else:  desc = 'Worker {}: volume covered by tiling'.format(worker_id)
+			else:  desc = 'Worker {} - Volume covered by tiling'.format(worker_id)
 			pbar = tqdm(total=100, desc = desc,
 				bar_format = "{desc}: {percentage:.2f}%|{bar}| [{elapsed}<{remaining}]")
 			V_tot = tiles_list[0][0].volume()

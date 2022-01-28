@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+"""
+A script to create an xml file with random injections.
+If a bank is given, they will be randomly chosen among the templates. If a tiling obj is given, they will be randomly drawn within the tile.
+
+-----
+To run the bank:
+	mbank_injfile --options-you-like
+Make sure that the mbank is installed. In future versions, a cleaner way of doing this will be implemented
+To know which options are available:
+	mbank_injfile --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import warnings
+
+try:
+	sys.path.insert(0, '../mbank')
+	from mbank import GW_bank, spin_handler
+	from mbank.utils import  parse_from_file, save_injs
+	from mbank.handlers import spin_handler, tiling_handler
+except:
+	from mbank import GW_bank
+	from mbank.utils import  parse_from_file, save_injs
+	from mbank.handlers import spin_handler, tiling_handler
+
+import argparse
+import os
+
+##### Creating parser
+s = spin_handler()
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	'--ini-file', type=open, action=parse_from_file, required = False,
+	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
+parser.add_argument(
+	"--bank-file", required = False, type=str,
+	help="The path to the bank file")
+parser.add_argument(
+	"--tiling-file", required = False, type=str,
+	help="A tiling file to draw the injections wihin the tiles")
+parser.add_argument(
+	"--inj-out-file", required = False, type=str,
+	help="Injection file (in xml format) in wich the injections are stored ")
+parser.add_argument(
+	"--spin-format", choices= s.valid_formats, required = False,
+	help="Choose which spin variables the bank is generated with")
+parser.add_argument(
+	"--GPS-start",  required = False, type=int,
+	help="Start GPS time for the injections")
+parser.add_argument(
+	"--GPS-end",  required = False, type=int,
+	help="End GPS time for the injections")
+parser.add_argument(
+	"--time-step",  required = False, type=float,
+	help="Distance in time between consecutive injections")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the injection")
+parser.add_argument(
+	"--distance-range", default = [100., 1000.], type=float, nargs = 2,
+	help="Luminosity distance for all the injections (in Mpc)")
+parser.add_argument(
+	"--approximant", default = 'IMRPhenomPv2threePointFivePN',
+	help="LAL approximant for the injection generation")
+
+args, _ = parser.parse_known_args()
+
+####################
+#Interpreting the parser and calling the function
+
+if  (args.inj_out_file is None) or (args.spin_format is None) or (args.GPS_start is None) or (args.GPS_end is None) or (args.time_step is None):
+	raise ValueError("The arguments inj-out-file, spin-format, GPS-start, GPS-end and time-step must be set!")
+
+if not args.approximant.endswith('PN'):
+	warnings.warn("GstLAL wants the injection approximant name to end with a the required PN order, e.g. IMRPhenomPv2 -> IMRPhenomPv2threePointFivePN . Are you sure you want to omit it?")
+
+min_dist, max_dist = args.distance_range
+rng = np.random.default_rng()
+
+if args.tiling_file is not None:
+	print("Generating random tile injections from the given tiling file: {}".format(args.tiling_file))
+	t_obj = tiling_handler(args.tiling_file)
+	t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
+
+	injs = []
+	for _ in np.arange(args.GPS_start, args.GPS_end, args.time_step):
+		id_ = rng.integers(0, len(t_obj)) #random tile for the inj
+
+		min_, max_ = t_obj[id_][0].mins, t_obj[id_][0].maxes
+
+		inj_tile_ = rng.uniform(min_, max_, max_.shape) #random inj for the tile
+		injs.append(inj_tile_)
+
+	injs = np.column_stack(injs).T #(N_templates,D)
+
+elif args.bank_file is not None:
+	print("Loading injections from the given bank: {}".format(args.bank_file))
+	bank = GW_bank(args.bank_file, spin_format = args.spin_format)
+
+		#shuffling the bank
+	np.random.shuffle(bank.templates)
+
+	N_templates = int((args.GPS_end-args.GPS_start)/args.time_step)
+	ids_ = rng.choice(bank.templates.shape[0], N_templates)
+	
+	injs = bank.templates[ids_, :] #(N_templates, D)
+
+else:
+	raise ValueError("Either --tiling-file or --bank-file options must be non empty")
+
+s_handler = spin_handler()
+injs = np.array(s_handler.get_BBH_components(injs, args.spin_format)).T
+
+save_injs(args.inj_out_file, injs, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
+	luminosity_distance = (min_dist, max_dist), f_min = args.f_min)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

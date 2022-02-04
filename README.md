@@ -1,5 +1,5 @@
 # mbank
-`mbank` is a code for fast Gravitational Waves bank generation. It is very handy for generating precessing banks.
+`mbank` is a code for fast Gravitational Waves bank generation. It is very handy for generating precessing and eccentric banks.
 The repository is still work-in-progress!
 
 ## How it works

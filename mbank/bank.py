@@ -172,7 +172,7 @@ class cbc_bank():
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(self.templates, self.variable_format)
 		
 		if np.any(e != 0.):
-			warnings.warn("Currently xml format does not support eccentricity... The saved bank {} will have zero eccentricity".format(filename))
+			warnings.warn("Currently xml format does not support eccentricity... The saved bank '{}' will have zero eccentricity".format(filename))
 		
 			#preparing the doc
 			#See: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168

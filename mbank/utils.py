@@ -608,6 +608,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 	size_template = [20 if templates.shape[0] < 10000 else 2][0]
 	centers = np.array([ (t[0].maxes + t[0].mins)/2. for t in t_obj])
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (15,15))
+	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]))
 	if templates.shape[1]-1 == 1:
 		axes = np.array([[axes]])
 	for i,j in permutations(range(templates.shape[1]-1), 2):
@@ -628,9 +629,10 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 		else:
 			currentAxis.set_xticks([])
 
-	plt.savefig(save_folder+'bank.png', transparent = True)
+	plt.savefig(save_folder+'bank.png', transparent = False)
 
 		#Plot the tiling
+	plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]))
 	for ax_ in combinations(range(templates.shape[1]), 2):
 		currentAxis = axes[ax_[1]-1, ax_[0]]
 		ax_ = list(ax_)
@@ -640,10 +642,11 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 
 
-	plt.savefig(save_folder+'tiling.png', transparent = True)
+	plt.savefig(save_folder+'tiling.png', transparent = False)
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
+	plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]))
 	hist_kwargs = {'bins': min(50, int(len(ids_)/50) ), 'histtype':'step', 'color':'orange'}
 	for i, ax_ in enumerate(axes):
 		ax_.hist(templates[ids_,i], **hist_kwargs)
@@ -652,7 +655,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 		min_, max_ = np.min(templates[:,i]), np.max(templates[:,i])
 		d_ = 0.1*(max_-min_)
 		ax_.set_xlim((min_-d_, max_+d_ ))
-	plt.savefig(save_folder+'hist.png', transparent = True)
+	plt.savefig(save_folder+'hist.png', transparent = False)
 	
 	if show: plt.show()
 	

@@ -1,6 +1,12 @@
-"mbank: a package for a GW bank generation with metric"
+"""
+mbank
+=====
+	A package for generating a CBC bank generation with metric placement
+	#TODO: write more here....
+"""
 
-from . import mbank, handlers
-from mbank.mbank import WF_metric, GW_bank
-from mbank.handlers import spin_handler, tiling_handler
+from . import bank, metric, handlers
+from mbank.metric import cbc_metric
+from mbank.bank import cbc_bank
+from mbank.handlers import variable_handler, tiling_handler
 

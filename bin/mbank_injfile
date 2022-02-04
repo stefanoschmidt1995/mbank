@@ -15,36 +15,29 @@ import matplotlib.pyplot as plt
 import sys
 import warnings
 
-try:
-	sys.path.insert(0, '../mbank')
-	from mbank import GW_bank, spin_handler
-	from mbank.utils import  parse_from_file, save_injs
-	from mbank.handlers import spin_handler, tiling_handler
-except:
-	from mbank import GW_bank
-	from mbank.utils import  parse_from_file, save_injs
-	from mbank.handlers import spin_handler, tiling_handler
+from mbank import cbc_bank, variable_handler, tiling_handler
+from mbank.utils import  parse_from_file, save_injs
 
 import argparse
 import os
 
 ##### Creating parser
-s = spin_handler()
+var_handler = variable_handler()
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
 	'--ini-file', type=open, action=parse_from_file, required = False,
 	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
 parser.add_argument(
-	"--bank-file", required = False, type=str,
-	help="The path to the bank file")
-parser.add_argument(
 	"--tiling-file", required = False, type=str,
-	help="A tiling file to draw the injections wihin the tiles")
+	help="A tiling file to draw the injections wihin the tiles. If not given, the injection will be read from the given --bank-file")
+parser.add_argument(
+	"--bank-file", required = False, type=str,
+	help="The path to the bank file to pick injection from. Ignored if --tiling-file is set ")
 parser.add_argument(
 	"--inj-out-file", required = False, type=str,
-	help="Injection file (in xml format) in wich the injections are stored ")
+	help="Injection file (in xml format) in wich the injections are saved")
 parser.add_argument(
-	"--spin-format", choices= s.valid_formats, required = False,
+	"--variable-format", choices= var_handler.valid_formats, required = False,
 	help="Choose which spin variables the bank is generated with")
 parser.add_argument(
 	"--GPS-start",  required = False, type=int,
@@ -70,7 +63,7 @@ args, _ = parser.parse_known_args()
 ####################
 #Interpreting the parser and calling the function
 
-if  (args.inj_out_file is None) or (args.spin_format is None) or (args.GPS_start is None) or (args.GPS_end is None) or (args.time_step is None):
+if  (args.inj_out_file is None) or (args.variable_format is None) or (args.GPS_start is None) or (args.GPS_end is None) or (args.time_step is None):
 	raise ValueError("The arguments inj-out-file, spin-format, GPS-start, GPS-end and time-step must be set!")
 
 if not args.approximant.endswith('PN'):
@@ -82,7 +75,7 @@ rng = np.random.default_rng()
 if args.tiling_file is not None:
 	print("Generating random tile injections from the given tiling file: {}".format(args.tiling_file))
 	t_obj = tiling_handler(args.tiling_file)
-	t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
+	#t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
 
 	injs = []
 	for _ in np.arange(args.GPS_start, args.GPS_end, args.time_step):
@@ -97,7 +90,7 @@ if args.tiling_file is not None:
 
 elif args.bank_file is not None:
 	print("Loading injections from the given bank: {}".format(args.bank_file))
-	bank = GW_bank(args.bank_file, spin_format = args.spin_format)
+	bank = cbc_bank(args.variable_format, args.bank_file)
 
 		#shuffling the bank
 	np.random.shuffle(bank.templates)
@@ -110,8 +103,8 @@ elif args.bank_file is not None:
 else:
 	raise ValueError("Either --tiling-file or --bank-file options must be non empty")
 
-s_handler = spin_handler()
-injs = np.array(s_handler.get_BBH_components(injs, args.spin_format)).T
+s_handler = variable_handler()
+injs = np.array(s_handler.get_BBH_components(injs, args.variable_format)).T
 
 save_injs(args.inj_out_file, injs, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
 	luminosity_distance = (min_dist, max_dist), f_min = args.f_min)

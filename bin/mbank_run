@@ -17,13 +17,8 @@ import pickle
 import lal.series
 from ligo.lw.utils import load_filename
 
-try:
-	sys.path.insert(0, '../mbank')
-	from mbank import spin_handler, WF_metric, GW_bank
-	from mbank.utils import parse_from_file, load_PSD
-except:
-	from mbank import spin_handler, WF_metric, GW_bank
-	from mbank.utils import parse_from_file, load_PSD
+from mbank import variable_handler, cbc_metric, cbc_bank
+from mbank.utils import parse_from_file, load_PSD
 
 import argparse
 import os
@@ -35,14 +30,14 @@ def int_tuple_type(strings):
 
 
 ##### Creating parser
-s = spin_handler()
+var_handler = variable_handler()
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
 	'--ini-file', type=open, action=parse_from_file, required = False,
 	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
 parser.add_argument(
-	"--spin-format", choices= s.valid_formats, required = False,
-	help="Choose which spin variables to include in the bank")
+	"--variable-format", choices= var_handler.valid_formats, required = False,
+	help="Choose which variables to include in the bank")
 parser.add_argument(
 	"--MM", required = False, type = float,
 	help="Minimum match for the bank (a.k.a. average distance between templates)")
@@ -57,15 +52,15 @@ parser.add_argument(
 	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
 parser.add_argument(
 	"--plot", action='store_true',
-	help="Whether to make some plots. They will be store in out-dir")
+	help="Whether to make some plots. They will be store in run-dir")
 parser.add_argument(
 	"--show", action='store_true',
 	help="Whether to show the plots.")
 parser.add_argument(
-	"--out-dir", default = './out',
+	"--run-dir", default = './out_$(run_name)',
 	help="Output directory in which the bank will be saved. If default is used, the bank name will be appended.")
 parser.add_argument(
-	"--name", default = 'mbank',
+	"--run-name", default = 'cbc_mbank',
 	help="Name for the bank output file")
 parser.add_argument(
 	"--grid-size", default = None, type=int_tuple_type,
@@ -74,7 +69,7 @@ parser.add_argument(
 	"--f-min",  default = 10., type=float,
 	help="Minium frequency for the scalar product")
 parser.add_argument(
-	"--f-high",  default = 1024., type=float,
+	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
@@ -118,6 +113,12 @@ parser.add_argument(
 	"--phi-range", default = [-np.pi, np.pi], type=float, nargs = 2,
 	help="Range values for phi angles of spins (if applicable)")
 parser.add_argument(
+	"--e-range", default = [0., 0.5], type=float, nargs = 2,
+	help="Range values for the eccentricity (if applicable)")
+parser.add_argument(
+	"--meanano-range", default = [0., 1], type=float, nargs = 2,
+	help="Range values for the mean anomaly (if applicable). TODO: find a nice default...")
+parser.add_argument(
 	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for iota (if applicable)")
 parser.add_argument(
@@ -132,15 +133,14 @@ args, _ = parser.parse_known_args()
 	#	Interpreting the parser and initializing variables
 	######
 
-if (args.psd is None) or (args.MM is None) or (args.spin_format is None):
-	raise ValueError("The arguments MM, PSD and spin_format must be set!")
+if (args.psd is None) or (args.MM is None) or (args.variable_format is None):
+	raise ValueError("The arguments MM, PSD and variable_format must be set!")
 
-if args.out_dir == './out':	args.out_dir = './out_'+args.name
-if not args.out_dir.endswith('/'): args.out_dir = args.out_dir+'/'
-if not os.path.exists(args.out_dir):
-	os.makedirs(args.out_dir)
+if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.run_name)
+if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
+if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
-if args.grid_size is None: args.grid_size = tuple([1 for i in range(s.D(args.spin_format))])
+if args.grid_size is None: args.grid_size = tuple([1 for i in range(s.D(args.variable_format))])
 
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range
@@ -150,46 +150,51 @@ eta_min, eta_max = args.eta_range
 s1_min, s1_max = args.s1_range
 s2_min, s2_max = args.s2_range
 theta_min, theta_max = args.theta_range
+e_min, e_max = args.e_range
+meanano_min, meanano_max = args.meanano_range
 phi_min, phi_max = args.phi_range
 iota_min, iota_max = args.iota_range
 ref_phase_min, ref_phase_max = args.ref_phase_range
 
 plot_folder = None
-if args.plot: plot_folder = args.out_dir
-#plot_folder = 'show'
+if args.plot: plot_folder = args.run_dir
 
-format_info = s.format_info[args.spin_format]
+format_info = var_handler.format_info[args.variable_format]
 
 	######
 	#	Setting boundaries: shape (2,D)
 	######
 	#setting mass boundaries
-if format_info['m_format'] == 'm1m2':
+if format_info['mass_format'] == 'm1m2':
 	var1_min, var1_max = m_min, m_max
 	var2_min, var2_max = m_min, m_max
-elif format_info['m_format'] == 'Mq':
+elif format_info['mass_format'] == 'Mq':
 	var1_min, var1_max = mtot_min, mtot_max
 	var2_min, var2_max = q_min, q_max
-elif format_info['m_format'] == 'mceta':
+elif format_info['mass_format'] == 'mceta':
 	var1_min, var1_max = mc_min, mc_max
 	var2_min, var2_max = eta_min, eta_max
 
 	#setting spin boundaries
-if format_info['s_format'] == 'nonspinning':
+if format_info['spin_format'] == 'nonspinning':
 	boundaries = np.array([[var1_min, var2_min],[var1_max, var2_max]])
-elif format_info['s_format'] == 's1z_s2z':
+elif format_info['spin_format'] == 's1z_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, s2_min],[var1_max, var2_max, s1_max, s2_max]])
-elif format_info['s_format'] == 's1xz':
+elif format_info['spin_format'] == 's1xz':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min],[var1_max, var2_max, s1_max, theta_max]])
-elif format_info['s_format'] == 's1xz_s2z':
+elif format_info['spin_format'] == 's1xz_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, s2_min],[var1_max, var2_max, s1_max, theta_max, s2_max]])
-elif format_info['s_format'] == 's1xyz_s2z':
+elif format_info['spin_format'] == 's1xyz_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max]])
-elif format_info['s_format'] == 'fullspins':
+elif format_info['spin_format'] == 'fullspins':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min, theta_min, phi_min,],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max, theta_max, phi_max]])
 else:
-	raise RuntimeError("Boundaries current not implemented for this format")
+	raise RuntimeError("Boundaries current not implemented for this format of spins: apologies :(")
 
+if format_info['e']:
+	boundaries = np.concatenate([boundaries, [[e_min], [e_max]]], axis =1)
+if format_info['meanano']:
+	boundaries = np.concatenate([boundaries, [[meanano_min], [meanano_max]]], axis =1)
 if format_info['iota']:
 	boundaries = np.concatenate([boundaries, [[iota_min], [iota_max]]], axis =1)
 if format_info['phi']:
@@ -198,35 +203,29 @@ if format_info['phi']:
 	######
 	#	Loading PSD and initializing metric
 	######
-m = WF_metric(args.spin_format,
+m = cbc_metric(args.variable_format,
 			PSD = load_PSD(args.psd, args.asd, args.ifo),
 			approx = args.approximant,
-			f_min = args.f_min, f_high = args.f_high)
+			f_min = args.f_min, f_max = args.f_max)
 
-print("## Running: ", args.name)
-
-	#dealing with seed bank (only if masses are m1m2)
-if format_info['m_format'] == 'm1m2':
-	if args.seed_bank is None:
-		seed_bank = np.random.uniform(boundaries[0,:2],boundaries[1,:2], (args.seed_bank_rows,2))
-		ids_ = np.where(seed_bank[:,0]<seed_bank[:,1])[0]
-		seed_bank[ids_,0], seed_bank[ids_,1] = seed_bank[ids_,1], seed_bank[ids_,0]
-	else:
-		seed_bank = np.loadtxt(args.seed_bank, max_rows = args.seed_bank_rows)[:,:2]
+print("## Running: ", args.run_name)
 
 	######
 	#	Running and saving the output
 	######
-bank = GW_bank(spin_format = args.spin_format)
+bank = cbc_bank(args.variable_format)
 
-if format_info['m_format'] == 'Mq' or format_info['m_format'] == 'mceta':
+if format_info['mass_format'] == 'm1m2':
+	raise NotImplementedError("Currently no template placement is implemented for the mass format m1m2.")
+
+if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
 	
 	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
 		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, show = args.show)
 	
-	t_obj.save(args.out_dir+'tiling_{}.npy'.format(args.name)) #storing the tiling in the out_folder
+	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 
-	with open(args.out_dir+'tile_id_population_{}.pkl'.format(args.name), 'wb') as filehandler:
+	with open(args.run_dir+'tile_id_population_{}.pkl'.format(args.run_name), 'wb') as filehandler:
 		pickle.dump(tile_id_population, filehandler)
 
 if bank.templates is None:
@@ -234,8 +233,9 @@ if bank.templates is None:
 	quit()
 
 print("Generated bank with {} templates".format(len(bank.templates)))
-bank.save_bank(args.out_dir+'bank_{}.dat'.format(args.name))
-bank.save_bank(args.out_dir+'bank_{}.xml.gz'.format(args.name), args.ifo); title = ''
+print("Saving bank to {}".format(args.run_dir))
+bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
+bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); title = ''
 
 
 

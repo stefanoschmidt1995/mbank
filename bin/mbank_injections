@@ -17,6 +17,7 @@ import matplotlib.patches
 import sys
 import pickle
 import json
+import warnings
 
 from ligo.lw import utils as lw_utils
 from ligo.lw import ligolw
@@ -133,6 +134,7 @@ if args.N_neigh_templates_full is None: args.N_neigh_templates_full = args.N_nei
 if (args.bank_file is None) or (args.tiling_file is None) or (args.variable_format is None):
 	raise ValueError("The arguments bank-file, tiling-file and variable_format must be set!")
 
+	#FIXME: understand whether you want the default --run-dir to be './'
 if args.run_dir is None: args.run_dir = args.bank_file.replace(os.path.basename(args.bank_file), '')
 if args.run_dir =='': args.run_dir = './'
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
@@ -203,6 +205,8 @@ else:
 		#loading injections from file and projecting them on the bank manifold
 		#The injection fle can be either xml or json
 	if args.inj_file.endswith('xml') or args.inj_file.endswith('xml.gz'):
+		warnings.warn('Currently, when loading injections from an xml file, e and meanano are not supported')
+		
 		xmldoc = lw_utils.load_filename(args.inj_file, verbose = False, contenthandler = LIGOLWContentHandler)
 		sim_inspiral_table = lsctables.SimInspiralTable.get_table(xmldoc)
 
@@ -211,9 +215,13 @@ else:
 
 		for i, row in enumerate(sim_inspiral_table):
 			if i >= args.N_inj: break
-			injections.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, row.inclination, row.coa_phase])
+			injections.append([row.mass1, row.mass2,
+				row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z,
+				0.,0., row.inclination, row.coa_phase])
 				
 	elif args.inj_file.endswith('json'):
+		warnings.warn('Currently, when loading injections from a json file, e, meanano and reference phase are not supported')
+		
 		with open(args.inj_file) as f:
 			inj_json = json.load(f)
 		
@@ -222,8 +230,9 @@ else:
 		
 		for i, row in enumerate(inj_json['items']):
 			if i >= args.N_inj: break
-			injections.append([row['m1'], row['m2'], row['s_1x'], row['s_1y'], row['s_1z'], row['s_2x'], row['s_2y'], row['s_2z'], row['inclination'], 0.]) #You set phi arbitrarly!! Pay attention
-	
+			injections.append([row['m1'], row['m2'],
+					row['s_1x'], row['s_1y'], row['s_1z'], row['s_2x'], row['s_2y'], row['s_2z'],
+					0.,0., row['inclination'], 0.]) 
 		
 	else:
 		raise ValueError("Format for the input file for the injections must be either xml or json")

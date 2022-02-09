@@ -28,6 +28,9 @@ parser.add_argument(
 	'--ini-file', type=open, action=parse_from_file, required = False,
 	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
 parser.add_argument(
+	"--run-dir", default = None,
+	help="Run directory. Unless explicitly stated, every input file will be understood to be in this run-dir")
+parser.add_argument(
 	"--tiling-file", required = False, type=str,
 	help="A tiling file to draw the injections wihin the tiles. If not given, the injection will be read from the given --bank-file")
 parser.add_argument(
@@ -68,6 +71,15 @@ if  (args.inj_out_file is None) or (args.variable_format is None) or (args.GPS_s
 
 if not args.approximant.endswith('PN'):
 	warnings.warn("GstLAL wants the injection approximant name to end with a the required PN order, e.g. IMRPhenomPv2 -> IMRPhenomPv2threePointFivePN . Are you sure you want to omit it?")
+
+if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
+if not os.path.exists(args.run_dir):
+	raise ValueError("The given run directory --run-dir '{}' does not exist".format(args.run_dir))
+if args.tiling_file is not None:
+	if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
+if args.bank_file is not None:
+	if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
+if args.inj_out_file.find('/') <0: args.inj_out_file = args.run_dir+args.inj_out_file
 
 min_dist, max_dist = args.distance_range
 rng = np.random.default_rng()

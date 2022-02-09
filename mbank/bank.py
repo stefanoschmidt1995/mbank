@@ -129,7 +129,7 @@ class cbc_bank():
 			templates_to_add = np.loadtxt(filename)
 		if filename.endswith('.xml') or filename.endswith('.xml.gz'):
 
-			if not self.var_handler.format_info[self.variable_format]['e']: warnings.warn("Currently loading from an xml file does not support eccentricity")
+			if self.var_handler.format_info[self.variable_format]['e']: warnings.warn("Currently loading from an xml file does not support eccentricity")
 			
 				#for some reason this content handles is needed... Why??
 			@lsctables.use_in

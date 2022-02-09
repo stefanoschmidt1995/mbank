@@ -63,8 +63,8 @@ class variable_handler(object):
 			#hard coding valid formats for masses, spins, eccentricity and angles
 		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
 		self.s_formats = ['nonspinning', 's1z_s2z', 's1xz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
-		self.e_formats = ['','e', 'emeanano'] #eccentric layouts
-		self.angle_formats = ['','iota', 'iotaphi'] #angles layouts
+		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
+		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
 		
 			#hard coding dimensions for each format
 		D_spins = {'nonspinning':0, 's1z_s2z':2, 's1xz':2, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
@@ -92,6 +92,8 @@ class variable_handler(object):
 				'e': (e_.find('e')>-1), 'meanano': (e_.find('meanano')>-1),
 				'iota': (a_.find('iota')>-1) ,'phi': (a_.find('phi')>-1)}
 			
+		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
+		
 		return
 
 	def switch_BBH(self, theta, variable_format):
@@ -106,7 +108,7 @@ class variable_handler(object):
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
@@ -146,7 +148,7 @@ class variable_handler(object):
 		----------
 		
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -209,7 +211,7 @@ class variable_handler(object):
 		----------
 		
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -238,7 +240,7 @@ class variable_handler(object):
 		----------
 		
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -262,7 +264,7 @@ class variable_handler(object):
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -346,13 +348,14 @@ class variable_handler(object):
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
-			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi: 'np.ndarray'
-				Components of the BBH in the std parametrization.
-				Each has shape (N,)
+		
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: 'np.ndarray'
+			Components of the BBH in the std parametrization.
+			Each has shape (N,)
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
@@ -425,7 +428,7 @@ class variable_handler(object):
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -455,7 +458,7 @@ class variable_handler(object):
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -473,6 +476,167 @@ class variable_handler(object):
 
 		if squeeze: q = q[0]
 		return q
+	
+	def get_chiP(self, m1, m2, s1x, s1y, s1z, s2x, s2y):
+		"""
+		Computes the precessing spin parameter (one dimensional) as in https://arxiv.org/abs/1408.1810
+		Also described in https://arxiv.org/abs/2012.02209
+		
+		Parameters
+		----------
+		
+		m1, m2: 'np.ndarray' (N,)/()
+			Masses of the two BHs
+			It assumes m1>=m2
+
+		s1x, s1y: 'np.ndarray' (N,)/()
+			In-plane spins of the primary black hole
+		
+		s1z: 'np.ndarray' (N,)/()
+			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter
+		
+		s2x, s2y: 'np.ndarray' (N,)/()
+			In-plane spins of the secondary black hole
+		
+		Returns
+		-------
+		
+		chiP: 'np.ndarray' (N,2)/()
+			The precessing spin parameter
+		"""
+		m1, m2, s1x, s1y, s1z, s2x, s2y = np.asarray(m1), np.asarray(m2), \
+			np.asarray(s1x), np.asarray(s1y), np.asarray(s1z), \
+			np.asarray(s2x), np.asarray(s2y)
+		
+		q = m1/m2
+		assert np.all(q>=1), 'm1 should be greater or equal than m2' #assert q to be greater than 1
+		A1 = 2+1.5/q 
+		A2 = 2+1.5*q
+		s1_perp = np.sqrt(s1x**2+s1y**2) * m1**2 #(N,)/()
+		s2_perp = np.sqrt(s2x**2+s2y**2) * m2**2 #(N,)/()
+		sp = np.maximum(s1_perp*A1, s2_perp*A2) #(N,)/()
+		
+		chip = sp/(A1*m1**2) #(N,)/()
+		
+			#enforcing kerr limit
+		norm = np.sqrt(chip**2+s1z**2) #(N,)/()
+		ids_ = np.where(norm >=self.MAX_SPIN)[0]
+		if len(ids_)>0: chip[ids_] = np.sqrt(self.MAX_SPIN - s1z[ids_]**2 )
+
+		return chip
+
+	def get_chiP_2D(self, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z):
+		"""
+		Computes the two dimensional precessing spin parameter as in https://arxiv.org/abs/2012.02209
+		The approximantion assigns a two dimensional in-plane spin to one of the two BHs
+		
+		Parameters
+		----------
+		
+		m1, m2: 'np.ndarray' (N,)/()
+			Masses of the two BHs
+
+		s1x, s1y: 'np.ndarray' (N,)/()
+			In-plane spins of the primary black hole
+		
+		s1z: 'np.ndarray' (N,)/()
+			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
+		
+		s2x, s2y: 'np.ndarray' (N,)/()
+			In-plane spins of the secondary black hole
+
+		s2z: 'np.ndarray' (N,)/()
+			Aligned spin for the secondary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
+		
+		Returns
+		-------
+		
+		chiP_2D_1: 'np.ndarray' (N,2)/(2,)
+			In-plane (x and y) components of the two dimensional precessing spin parameter on the primary BH
+		
+		chiP_2D_2: 'np.ndarray' (N,2)/(2,)
+			In-plane (x and y) components of the two dimensional precessing spin parameter on the secondary BH
+		
+		"""
+		#TODO: check the accuracy of this function
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z = np.asarray(m1), np.asarray(m2), \
+			np.asarray(s1x), np.asarray(s1y), np.asarray(s1z), \
+			np.asarray(s2x), np.asarray(s2y),  np.asarray(s2z)
+		
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z = np.atleast_1d(m1, m2, s1x, s1y, s1z, s2x, s2y, s2z)
+
+		assert np.all(m1>=m2), 'm1 should be greater or equal than m2' #assert q to be greater than 1
+
+		S1_perp = (m1**2*np.column_stack([s1x, s1y]).T).T #(N,2)
+		S2_perp = (m2**2*np.column_stack([s2x, s2y]).T).T #(N,2)
+		
+		S_perp = S1_perp + S2_perp
+		
+		S1_perp_norm= np.linalg.norm(S1_perp, axis = 1) #(N,)
+		S2_perp_norm= np.linalg.norm(S2_perp, axis = 1) #(N,)
+		
+		where_1gtr2 = S1_perp_norm >= S2_perp_norm
+	
+			#computing effective spin parameters
+		chi_eff_1, chi_eff_2 = np.zeros(S1_perp.shape), np.zeros(S2_perp.shape) #(N,2)
+		
+		if np.any(where_1gtr2): chi_eff_1[where_1gtr2,:] = S_perp[where_1gtr2] / (m1[where_1gtr2]**2+ S2_perp_norm[where_1gtr2])
+		if np.any(~where_1gtr2): chi_eff_2[~where_1gtr2,:] = S_perp[~where_1gtr2] / (m2[~where_1gtr2]**2+ S1_perp_norm[~where_1gtr2])
+		
+			#enforcing Kerr limit
+		norm_1 = np.linalg.norm( np.column_stack([*chi_eff_1.T, s1z]), axis =1) #(N,)/()
+		norm_2 = np.linalg.norm( np.column_stack([*chi_eff_2.T, s2z]), axis =1) #(N,)/()
+		
+		ids_1 = np.where(norm_1 >self.MAX_SPIN)[0]
+		ids_2 = np.where(norm_2 >self.MAX_SPIN)[0]
+		
+			#self.MAX_SPIN is a upper bound for the spin
+		if len(ids_1)>0: chi_eff_1[ids_1] = (chi_eff_1[ids_1].T * np.sqrt(self.MAX_SPIN - s1z[ids_1]**2 ) / np.linalg.norm(chi_eff_1[ids_1], axis =1)).T
+		if len(ids_2)>0: chi_eff_2[ids_2] = (chi_eff_2[ids_2].T * np.sqrt(self.MAX_SPIN - s2z[ids_2]**2 ) / np.linalg.norm(chi_eff_2[ids_2], axis =1)).T
+		
+		return chi_eff_1, chi_eff_2
+	
+	def get_chiP_BBH_components(self, BBH_components, two_dim = False):
+		"""
+		Given a set of BBH components (in the output format of get_BBH_components) it returns the components of the same BBH in the precessing spin parameter approximation.
+		The one dimensional spin parameter performs the mapping described in eq (4.1) of https://arxiv.org/abs/1408.1810
+		The two dimensional spin parameter performs the mapping described in eq (10-11) of https://arxiv.org/abs/2012.02209
+		
+		Parameters
+		----------
+		
+		BBH_components: 'np.ndarray' (N,12)
+			Parameters of the BBHs.
+			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+		
+		two_dim: 'bool'
+			Whether to use the two dimensional spin parameter.
+			If False (default) the one dimensional spin parameter will be computed
+		
+		Returns
+		-------
+		
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: 'np.ndarray'
+			Components of the BBH in the std parametrization after the spin parameter mapping has been applied.
+			Each has shape (N,)
+		"""
+		#TODO: is this name right? get_BBH_components accepts theta, this accepts BBH_components. It may be confusing...
+		
+		BBH_components, squeeze = self._check_theta_and_format(BBH_components, None)
+		assert BBH_components.shape[1] == 12, "The number of BBH parameter is not enough. Expected 12 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi], given {}".format(BBH_components.shape[1])
+		chiP_BBH_components = np.array(BBH_components) #copying into a fresh new array
+		
+		if two_dim:
+			chiP_1, chiP_2 = self.get_chiP_2D(*chiP_BBH_components[:,:8].T)
+			chiP_BBH_components[:,2:4] = chiP_1
+			chiP_BBH_components[:,5:7] = chiP_2
+		else:
+			chiP = self.get_chiP(*chiP_BBH_components[:,:7].T)
+			chiP_BBH_components[:,2] = chiP
+			chiP_BBH_components[:,[3,5,6]] = 0.
+		
+		if squeeze: chiP_BBH_components = chiP_BBH_components[0,:]
+		return tuple(comp_ for comp_ in chiP_BBH_components.T)
 
 	def _check_theta_and_format(self, theta, variable_format):
 		"""
@@ -485,7 +649,7 @@ class variable_handler(object):
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: 'string'
-			How to handle the spin variables.
+			How to handle the BBH variables.
 		
 		Returns
 		-------
@@ -496,7 +660,8 @@ class variable_handler(object):
 				Whether the output array shall be squeezed
 		
 		"""
-		assert variable_format in self.valid_formats, "Wrong variable format given"
+		if isinstance(variable_format, str):
+			assert variable_format in self.valid_formats, "Wrong variable format given"
 		
 		theta = np.asarray(theta)
 		if theta.ndim == 1:

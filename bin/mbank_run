@@ -189,7 +189,7 @@ elif format_info['spin_format'] == 's1xyz_s2z':
 elif format_info['spin_format'] == 'fullspins':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min, s2_min, theta_min, phi_min,],[var1_max, var2_max, s1_max, theta_max, phi_max, s2_max, theta_max, phi_max]])
 else:
-	raise RuntimeError("Boundaries current not implemented for this format of spins: apologies :(")
+	raise RuntimeError("Boundaries current not implemented for the required format of spins {}: apologies :(".format(format_info['spin_format']))
 
 if format_info['e']:
 	boundaries = np.concatenate([boundaries, [[e_min], [e_max]]], axis =1)

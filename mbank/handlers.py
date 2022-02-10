@@ -2,8 +2,10 @@
 mbank.handlers
 ==============
 	Some handlers for mbank:
-		spin_handler -> takes care of the variables to use
-		tiling_handlers -> takes care of the tiling
+	
+	- spin_handler -> takes care of the variables to use
+	- tiling_handlers -> takes care of the tiling
+	
 	#TODO: write more here....
 """
 ####################################################################################################################
@@ -11,8 +13,6 @@ mbank.handlers
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches
-import pandas as pd
-import seaborn
 import warnings
 import itertools
 
@@ -40,16 +40,20 @@ class variable_handler(object):
 	"""
 	Class to handle a large number of variable layouts. Everything is specified by a string variable_format, available at each call.
 	Valid formats for spins are:
-		- 'nonspinning': no spins are considered (only two masses), D = 2
-		- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-		- 's1xz': spin components assigned to one BH, everythihng in polar coordinates, D = 4
-		- 's1xz_s2z': the two z components are assigned as well as s1x, spin1 in polar coordinates, D = 5
-		- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, spin1 in polar coordinates,  D = 6
-		- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+	
+	- 'nonspinning': no spins are considered (only two masses), D = 2
+	- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+	- 's1xz': spin components assigned to one BH, everythihng in polar coordinates, D = 4
+	- 's1xz_s2z': the two z components are assigned as well as s1x, spin1 in polar coordinates, D = 5
+	- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, spin1 in polar coordinates,  D = 6
+	- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+	
 	On top of those, one can specify the mass formats:
-		- 'Mq': Total mass and q
-		- 'mceta': chirp mass and eta
-		- 'm1m2': mass1 and mass2
+	
+	- 'Mq': Total mass and q
+	- 'mceta': chirp mass and eta
+	- 'm1m2': mass1 and mass2
+	
 	If 'iota' or 'iotaphi' is postponed to the format string, also the iota and phase are sampled.
 	One can also add support for eccentricity by adding 'e' (to sample eccentricity) and 'meanano' (to sample mean periastron anomaly).
 	
@@ -226,15 +230,15 @@ class variable_handler(object):
 		"""
 		Returns the a dict with some information about the format.
 		The dict has the following entries:
-			- mass_format : format for the masses
-			- spin_format : format for the spins
-			- eccentricity_format : format for the eccentricities
-			- angle_format : format for the angles
-			- D : dimensionality of the BBH space
-			- e : whether the variables include the eccentricity e
-			- meanano : whether the variables include the mean periastron anomaly meanano
-			- iota : whether the variables include the inclination iota
-			- phi : whether the variables include the reference phase phi
+		- mass_format : format for the masses
+		- spin_format : format for the spins
+		- eccentricity_format : format for the eccentricities
+		- angle_format : format for the angles
+		- D : dimensionality of the BBH space
+		- e : whether the variables include the eccentricity e
+		- meanano : whether the variables include the mean periastron anomaly meanano
+		- iota : whether the variables include the inclination iota
+		- phi : whether the variables include the reference phase phi
 		
 		Parameters
 		----------
@@ -525,10 +529,11 @@ class variable_handler(object):
 
 		return chip
 
-	def get_chiP_2D(self, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z):
+	def get_chiP_2D(self, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, only_spin1 = False):
 		"""
 		Computes the two dimensional precessing spin parameter as in https://arxiv.org/abs/2012.02209
-		The approximantion assigns a two dimensional in-plane spin to one of the two BHs
+		The approximantion assigns a two dimensional in-plane spin to one of the two BHs.
+		If the option only_spin1 is set, the in-plane spin will be always assigned to the primary BH (as in (7) in 2012.02209).
 		
 		Parameters
 		----------
@@ -547,6 +552,10 @@ class variable_handler(object):
 
 		s2z: 'np.ndarray' (N,)/()
 			Aligned spin for the secondary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
+		
+		only_spin1: 'bool'
+			Whether to assign the precessing spin only always to the primary BH.
+			The default is False, as 2012.02209 suggests.
 		
 		Returns
 		-------
@@ -575,13 +584,14 @@ class variable_handler(object):
 		S1_perp_norm= np.linalg.norm(S1_perp, axis = 1) #(N,)
 		S2_perp_norm= np.linalg.norm(S2_perp, axis = 1) #(N,)
 		
-		where_1gtr2 = S1_perp_norm >= S2_perp_norm
+		if only_spin1: BH1_gtr_BH2 = np.ones(S1_perp_norm.shape, dtype = bool) #only the primary BH will have the in-plane spin
+		else: BH1_gtr_BH2 = S1_perp_norm >= S2_perp_norm
 	
 			#computing effective spin parameters
 		chi_eff_1, chi_eff_2 = np.zeros(S1_perp.shape), np.zeros(S2_perp.shape) #(N,2)
 		
-		if np.any(where_1gtr2): chi_eff_1[where_1gtr2,:] = S_perp[where_1gtr2] / (m1[where_1gtr2]**2+ S2_perp_norm[where_1gtr2])
-		if np.any(~where_1gtr2): chi_eff_2[~where_1gtr2,:] = S_perp[~where_1gtr2] / (m2[~where_1gtr2]**2+ S1_perp_norm[~where_1gtr2])
+		if np.any(BH1_gtr_BH2): chi_eff_1[BH1_gtr_BH2,:] = S_perp[BH1_gtr_BH2] / (m1[BH1_gtr_BH2]**2+ S2_perp_norm[BH1_gtr_BH2])
+		if np.any(~BH1_gtr_BH2): chi_eff_2[~BH1_gtr_BH2,:] = S_perp[~BH1_gtr_BH2] / (m2[~BH1_gtr_BH2]**2+ S1_perp_norm[~BH1_gtr_BH2])
 		
 			#enforcing Kerr limit
 		norm_1 = np.linalg.norm( np.column_stack([*chi_eff_1.T, s1z]), axis =1) #(N,)/()
@@ -596,11 +606,14 @@ class variable_handler(object):
 		
 		return chi_eff_1, chi_eff_2
 	
-	def get_chiP_BBH_components(self, BBH_components, two_dim = False):
+	def get_chiP_BBH_components(self, BBH_components, chiP_type = 'chiP'):
 		"""
 		Given a set of BBH components (in the output format of get_BBH_components) it returns the components of the same BBH in the precessing spin parameter approximation.
-		The one dimensional spin parameter performs the mapping described in eq (4.1) of https://arxiv.org/abs/1408.1810
-		The two dimensional spin parameter performs the mapping described in eq (10-11) of https://arxiv.org/abs/2012.02209
+		This implements a mapping between the 4 dimensional in-plane spin parameter (s1x, s1y, s2x, s2y) onto a smaller space. Several options are available:
+		
+		- 'chiP': performs the mapping described in eq (4.1) of arxiv/1408.1810, where the only non-zero componennt is s1x
+		- 'chiP_2D': performs the mapping described in eq (10-11) of arxiv/2012.02209. It consist in assigning a two dimensional in-plane spin to the BH which exibit more precession
+		- 'chiP_2D_BH1': performs the mapping described in eq (7) of arxiv/2012.02209. The spin parameter is the same as above but it is always assigned to the primary BH
 		
 		Parameters
 		----------
@@ -609,9 +622,12 @@ class variable_handler(object):
 			Parameters of the BBHs.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 		
-		two_dim: 'bool'
-			Whether to use the two dimensional spin parameter.
-			If False (default) the one dimensional spin parameter will be computed
+		chiP_type: 'str'
+			A string to determine which precessing spin approximation to set
+			
+			- 'chiP': one dimensional spin parameter eq (5-6) of 2012.02209
+			- 'chiP_2D': two dimensional spin parameter eq (10-11) of 2012.02209
+			- 'chiP_2D_BH1': two dimensional spin parameter, always placed on BH1, as in eq (7) of 2012.02209
 		
 		Returns
 		-------
@@ -622,18 +638,20 @@ class variable_handler(object):
 		"""
 		#TODO: is this name right? get_BBH_components accepts theta, this accepts BBH_components. It may be confusing...
 		
+		assert chiP_type in ['chiP', 'chiP_2D', 'chiP_2D_BH1'], "Wrong format for the chiP_type: it should be one among ['chiP', 'chiP_2D', 'chiP_2D_BH1'], not {}".format(chiP_type)
+		
 		BBH_components, squeeze = self._check_theta_and_format(BBH_components, None)
 		assert BBH_components.shape[1] == 12, "The number of BBH parameter is not enough. Expected 12 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi], given {}".format(BBH_components.shape[1])
 		chiP_BBH_components = np.array(BBH_components) #copying into a fresh new array
 		
-		if two_dim:
-			chiP_1, chiP_2 = self.get_chiP_2D(*chiP_BBH_components[:,:8].T)
-			chiP_BBH_components[:,2:4] = chiP_1
-			chiP_BBH_components[:,5:7] = chiP_2
-		else:
+		if chiP_type == 'chiP':
 			chiP = self.get_chiP(*chiP_BBH_components[:,:7].T)
 			chiP_BBH_components[:,2] = chiP
 			chiP_BBH_components[:,[3,5,6]] = 0.
+		else:
+			chiP_1, chiP_2 = self.get_chiP_2D(*chiP_BBH_components[:,:8].T, only_spin1 = (chiP_type == 'chiP_2D_BH1') )
+			chiP_BBH_components[:,2:4] = chiP_1
+			chiP_BBH_components[:,5:7] = chiP_2
 		
 		if squeeze: chiP_BBH_components = chiP_BBH_components[0,:]
 		return tuple(comp_ for comp_ in chiP_BBH_components.T)
@@ -795,6 +813,7 @@ class tiling_handler(list):
 		return
 	
 	def load(self, filename):
+		"Loads the tiling"
 		try:
 			in_array = np.load(filename)
 		except FileNotFoundError:

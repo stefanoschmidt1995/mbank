@@ -42,7 +42,14 @@ except:
 ####################################################################################################################
 
 class cbc_metric(object):
-	"This class implements the metric on the space, defined for each point of the space. The metric is defined as M(theta)_ij = <d_i h | d_j h>"
+	"""
+	This class implements the metric on the space, defined for each point of the space.
+	The metric is defined as
+	.. math::
+	
+		M(theta)_ij = <d_i h | d_j h>
+
+	"""
 	
 	def __init__(self, variable_format, PSD, approx, f_min = 10., f_max = None):
 		"""
@@ -55,12 +62,13 @@ class cbc_metric(object):
 			How to handle the spin variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
 			Variable format can be changed with set_variable_format() and can be accessed under name cbc_metric.variable_format
 			Valid formats are:
-				- 'nonspinning': no spins are considered (only two masses), D = 2
-				- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-				- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
-				- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
-				- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
-				- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+			
+			- 'nonspinning': no spins are considered (only two masses), D = 2
+			- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+			- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
+			- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
+			- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+			- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
 
 		PSD: ('np.ndarray', 'np.ndarray')
 			PSD for computing the scalar product.
@@ -135,12 +143,13 @@ class cbc_metric(object):
 		### DO IT BETTER!!!!!
 		
 		Valid formats for spins are:
-			- 'nonspinning': no spins are considered (only two masses), D = 2
-			- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-			- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
-			- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
-			- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
-			- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+		
+		- 'nonspinning': no spins are considered (only two masses), D = 2
+		- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
+		- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
+		- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
+		- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
+		- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
 
 		where D is the dimensionality of the BBH space considered
 		
@@ -155,6 +164,8 @@ class cbc_metric(object):
 		assert variable_format in self.var_handler.valid_formats, "Wrong variable format '{}'. Available formats are: ".format(variable_format)+str(self.var_handler.valid_formats)
 		
 		self.variable_format = variable_format
+		
+		self.D = self.var_handler.format_D[variable_format]
 
 		return
 	
@@ -184,7 +195,10 @@ class cbc_metric(object):
 	def log_pdf(self, theta, boundaries = None):
 		"""
 		Returns the logarithm log(pdf) of the probability distribution function we want to sample from:
+		.. math::
+		
 			pdf = p(theta) ~ sqrt(|M(theta)|)
+
 		imposing the boundaries
 		
 		Parameters
@@ -647,8 +661,13 @@ class cbc_metric(object):
 		Computes the match line by line between elements in theta1 and elements in theta2
 		
 		If symphony is False, the match is the standard non-precessing one 
+		.. math::
+		
 			|<h1p|h2p>|^2
+			
 		If symphony is True, it returns the symphony match (as in arxiv.org/abs/1709.09181)
+		.. math::
+
 			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
 		
 		Parameters
@@ -701,10 +720,13 @@ class cbc_metric(object):
 
 		return match
 	
-	def metric_match(self, theta1, theta2, metric = None):
+	def metric_match(self, theta1, theta2, metric = None, overlap = False):
 		"""
 		Computes the metric match line by line between elements in theta1 and elements in theta2.
 		The match is approximated by the metric:
+		
+		.. math::
+		
 			match(theta1, theta2) = 1 + M_ij(theta1) (theta1 - theta2)_i (theta1 - theta2)_j
 		
 		Parameters
@@ -718,6 +740,10 @@ class cbc_metric(object):
 		
 		metric: 'np.ndarray' (D,D)
 			metric to use for the match (if None, it will be computed from scratch)
+		
+		overlap: 'bool'
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
 
 		Returns
 		-------
@@ -741,14 +767,15 @@ class cbc_metric(object):
 		delta_theta = theta2 - theta1  #(N,D)
 		
 		if metric is None:
-			metric = self.get_metric((theta1+theta2)/2.)
+			metric = self.get_metric((theta1+theta2)/2., overlap)
+			#metric = self.get_metric(theta1, overlap) #DEBUG
 			match = 1 + np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		else:
 			match = 1 + np.einsum('ij, jk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		
 		return match
 		
-	def metric_accuracy(self, theta1, theta2):
+	def metric_accuracy(self, theta1, theta2, overlap = False):
 		"""
 		Computes the metric accuracy at the given points of the parameter space.
 		The accuracy is the absolute value of the difference between true and metric mismatch (as computed by match and metric_match)
@@ -762,6 +789,10 @@ class cbc_metric(object):
 		theta2: 'np.ndarray' (N,D)
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 
+		overlap: 'bool'
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
+
 		Returns
 		-------
 		
@@ -769,13 +800,18 @@ class cbc_metric(object):
 			Array the accuracy of the metric approximation
 		
 		"""
-		accuracy = self.metric_match(theta1, theta2) - self.match(theta1, theta2) #(N,)
+		accuracy = self.metric_match(theta1, theta2, overlap = overlap) - self.match(theta1, theta2, overlap = overlap) #(N,)
 		return np.abs(accuracy)
 		
 	
-	def get_points_atdist(self, N_points, theta, dist):
+	def get_points_atmatch(self, N_points, theta, match, overlap = False):
 		"""
-		Given a central theta point, it computes N_points random point with a metric match equals to distance.
+		Given a central theta point, it computes N_points random point with a given metric match.
+		The match is related to the distance between templates in the metric as:
+		
+		.. math::
+		
+			dist = sqrt(1-match)
 		
 		Parameters
 		----------
@@ -787,7 +823,11 @@ class cbc_metric(object):
 			Parameters of the center. The dimensionality depends on self.variable_format
 
 		dist: float
-			Distance from the center theta
+			Distance from the center theta (1-M)
+		
+		overlap: 'bool'
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
 
 		Returns
 		-------
@@ -795,7 +835,8 @@ class cbc_metric(object):
 		points : 'np.ndarray' (N,D)
 			Points with distance dist from the center
 		"""
-		metric = -self.get_metric(theta)
+		dist = np.sqrt(1-match)
+		metric = -self.get_metric(theta, overlap)
 		
 		L = np.linalg.cholesky(metric).T
 		L_inv = np.linalg.inv(L)

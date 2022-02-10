@@ -14,7 +14,11 @@ from ligo.lw import ligolw
 from ligo.lw import lsctables
 from ligo.lw.utils import process as ligolw_process
 
-import poisson_disc #https://pypi.org/project/poisson-disc/
+try:
+	import poisson_disc #optional #https://pypi.org/project/poisson-disc/
+except ModuleNotFoundError:
+	warnings.warn("Couldn't import module 'poisson_disc': the placement method 'p_disc' will not be available")
+	pass
 
 from tqdm import tqdm
 
@@ -364,10 +368,10 @@ class cbc_bank():
 			Average match for the bank: it controls the distance between templates
 		
 		placing_method: 'str'
-			The placing method to set templates in each tile
-			It can be:	'p_disc' 	-> Poisson disc sampling
-						'uniform'	-> Uniform drawing in each hyper-rectangle
-						'geometric'	-> Geometric placement
+			The placing method to set templates in each tile. It can be:
+				- 'p_disc' 	-> Poisson disc sampling
+				- 'uniform'	-> Uniform drawing in each hyper-rectangle
+				- 'geometric'	-> Geometric placement
 		
 		verobse: 'bool'
 			Print output?
@@ -513,7 +517,7 @@ class cbc_bank():
 		
 		Parameters
 		----------
-
+		
 		metric_obj: cbc_metric
 			A cbc_metric object to compute the match with
 
@@ -531,10 +535,10 @@ class cbc_bank():
 			Maximum number of templates that each tile may contain
 
 		placing_method: 'str'
-			The placing method to set templates in each tile
-			It can be:	'p_disc' 	-> Poisson disc sampling
-						'uniform'	-> Uniform drawing in each hyper-rectangle
-						'geometric'	-> Geometric placement
+			The placing method to set templates in each tile. It can be:
+				- 'p_disc' 	-> Poisson disc sampling
+				- 'uniform'	-> Uniform drawing in each hyper-rectangle
+				- 'geometric'	-> Geometric placement
 
 		plot_folder: str
 			String with the folder to save the plots at.

@@ -1,7 +1,8 @@
 """
 mbank.bank
 ==========
-	Keeps the cbc_bank class which implements a cbc bank
+	Module to implement a bank of gravitational waves signals.
+	It implement the class ``cbc_bank`` which provides a large number of functionalities to generate a bank, perform I/O operations on files
 """
 
 import numpy as np
@@ -13,12 +14,6 @@ from ligo.lw import utils as lw_utils
 from ligo.lw import ligolw
 from ligo.lw import lsctables
 from ligo.lw.utils import process as ligolw_process
-
-try:
-	import poisson_disc #optional #https://pypi.org/project/poisson-disc/
-except ModuleNotFoundError:
-	warnings.warn("Couldn't import module 'poisson_disc': the placement method 'p_disc' will not be available")
-	pass
 
 from tqdm import tqdm
 
@@ -70,22 +65,22 @@ except:
 
 class cbc_bank():
 	"""
-	This implements a bank for compact binary coalescence signals (CBC). A bank is a collection of templates (saved as the numpy array bank.templates) that holds masses and spins of the templates.
-	A bank is generated from a tiling object (created internally): each template belongs to a tile. This can be useful to speed up the match computation
-	It can be generated with a MCMC and can be saved in txt or in the std ligo xml file.
-	The class implements some methods for computing the fitting factor with a number of injections.
+	The class implements a bank for compact binary coalescence signals (CBC). A bank is a collection of templates (saved as the numpy array ``bank.templates``). Each template is a row of the array; the columns are specified by a given variable format.
+	The available variable formats are listed in ``mbank.handlers.variable_handler``.
+	A bank is generated from a tiling object (created internally) that speeds up the template placing. However, the tiling file is not part of a bank and lives as an independent object ``tiling_handler``.
+	A bank can be saved in txt or in the std ligo xml file.
 	"""
 	def __init__(self, variable_format, filename = None):
 		"""
-		Initialize the bank
+		Initialize the bank with a given variable format. If a filename is given, the bank is loaded from file.
 		
 		Parameters
 		----------
-		variable_format: 'str'
+		variable_format: str
 			How to handle the spin variables.
 			See class variable_handler for more details
 			
-		filename: 'str'
+		filename: str
 			Optional filename to load the bank from (if None, the bank will be initialized empty)
 		
 		"""
@@ -103,15 +98,15 @@ class cbc_bank():
 	
 	def avg_dist(self, avg_match):
 		"""
-		Average distance between templates in the proper volume, s.t. they have a given average match between each other
+		The average distance between templates such that an injection have an average match ``cbc_bank.avg_match`` with the bank. This sets the spacing between templates.
 		
 		Parameters
 		----------
-			MM: 'float'
+			MM: float
 				Minimum match
 		Returns
 		-------
-			avg_dist: 'float'
+			avg_dist: float
 				Average distance between templates
 		"""
 		#return np.sqrt((1-avg_match)/self.D)
@@ -119,7 +114,7 @@ class cbc_bank():
 
 	def load(self, filename):
 		"""
-		Load a bunch of templates from file. They are added to existing templates (if any)
+		Load a template bank from file. They are added to the existing templates (if any).
 		
 		Parameters
 		----------
@@ -161,14 +156,14 @@ class cbc_bank():
 	def _save_xml(self, filename, ifo = 'L1'):
 		"""
 		Save the bank to an xml file suitable for LVK applications
-		
+
 		Parameters
 		----------
 			
-		filename: 'str'
+		filename: str
 			Filename to save the bank at
 		
-		ifo: 'str'
+		ifo: str
 			Name of the interferometer the bank refers to 
 		
 		"""
@@ -189,7 +184,7 @@ class cbc_bank():
 			xmldoc,
 			program="mbank",
 			paramdict={},#process_params, #what should I enter here?
-			comment="A bank of (possibly precessing) BBH, generated using a metric approach")
+			comment="A bank of BBH, generated using a metric approach")
 		
 			#here we add the rows one by one
 		for i in range(m1.shape[0]):
@@ -236,13 +231,15 @@ class cbc_bank():
 		"""
 		Save the bank to file
 		
+		``WARNING: xml file format currently does not support eccentricity``
+		
 		Parameters
 		----------
 			
 		filename: str
 			Filename to save the bank at
 		
-		ifo: 'str'
+		ifo: str
 			Name of the interferometer the bank refers to (only applies to xml files)
 		
 		"""
@@ -262,13 +259,13 @@ class cbc_bank():
 
 	def add_templates(self, new_templates):
 		"""
-		Adds a bunch of templates to the bank.
-		They will be saved in the format set by variable_format
+		Adds a bunch of templates to the bank. They must be of a shape suitable for the variable format
 		
 		Parameters
 		----------
 		
 		new_templates: np.ndarray
+			shape: (N,D)/(D,)
 			New templates to add.
 			They need to be stored in an array of shape (N,D) or (D,), where D is the dimensionality of the bank
 		"""
@@ -289,11 +286,10 @@ class cbc_bank():
 			self.templates = np.concatenate([self.templates, new_templates], axis = 0) #(N,4)
 		
 		return
+		
 	def get_templates(self, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = True):
-		"""
-		Place the templates on a sub-tile.
-		"""
-		#TODO:create a proper docstring for that
+		#TODO: this function is garbage... Understand whether you can remove it
+		
 		center_1d = (upper_boxes+lower_boxes)/2.
 		new_templates = [] #to store the newly added templates
 		metric_values = [] #to store the metric evaluation on the centroids
@@ -356,34 +352,37 @@ class cbc_bank():
 	
 	def place_templates(self, t_obj, avg_match, placing_method, verbose = True):
 		"""
-		Given a tiling, it places the templates and adds them to the bank
+		Given a tiling, it places the templates according to the given method and adds them to the bank
 		
 		Parameters
 		----------
 
-		t_obj: 'tiling_handler'
+		t_obj: tiling_handler
 			A tiling handler with a non-empty tiling
 		
-		avg_match: 'float'
-			Average match for the bank: it controls the distance between templates
+		avg_match: float
+			Average match for the bank: it controls the distance between templates as in ``cbc_bank.avg_dist()``
 		
-		placing_method: 'str'
+		placing_method: str
 			The placing method to set templates in each tile. It can be:
-				- 'p_disc' 	-> Poisson disc sampling
-				- 'uniform'	-> Uniform drawing in each hyper-rectangle
-				- 'geometric'	-> Geometric placement
+			
+			- `uniform`	-> Uniform drawing in each hyper-rectangle
+			- `geometric` -> Geometric placement
+			- `iterative` -> Each tile is split iteratively until the number of templates in each subtile is equal to one
+			- `stochastic` -> Geometric placement + stochastic placement
+			- `pure_stochastic` -> Stochastic placement
 		
-		verobse: 'bool'
-			Print output?
+		verbose: bool
+			Whether to print the output
 		
 		Returns
 		-------
 					
-		tile_id_population: 'list' 
-			A list of list. 
-			tile_id_population[i] keeps the ids of the templates inside tile i
+		tile_id_population: list 
+			A list of list, where each element of index i ``tile_id_population[i]`` keeps the ids of the templates inside tile i
+
 		"""
-		assert placing_method in ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'], ValueError("Wrong placing method selected")
+		assert placing_method in ['uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'], ValueError("Wrong placing method selected")
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling
@@ -412,14 +411,7 @@ class cbc_bank():
 				
 			volume_factor = np.sqrt(abs_det)
 			
-			if placing_method == 'p_disc':
-					#radius controls the relative distance between templates (not the radius of the circle!)
-				radius = 0.5* avg_dist/np.power(volume_factor, 1/self.D)
-				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
-				
-				#print(new_templates_.shape[0], len(create_mesh(avg_dist, t )))
-				
-			elif placing_method == 'uniform':
+			if placing_method == 'uniform':
 					#N_templates is computed with a mesh, more realistic...
 				N_templates = int(t_obj.N_templates(*t, avg_dist)+1) #Computed by tiling_handler
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
@@ -447,7 +439,7 @@ class cbc_bank():
 
 		if placing_method == 'pure_stochastic' or placing_method == 'stochastic':
 			if len(new_templates) == 0: new_templates = None #pure stochastic
-			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, first_guess = new_templates) #this is if I have a first guess
+			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, seed_bank = new_templates) #this is if I have a first guess
 			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
 				dist_t = t[0].min_distance_point(new_templates)
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
@@ -456,10 +448,6 @@ class cbc_bank():
 		self.add_templates(new_templates)
 		return tile_id_population #shall I save it somewhere??	
 
-	def create_grid_tiling(self):
-		"This would be equivalent to the old version of the code"
-		return
-	
 	def _generate_tiling(self, metric_obj, coarse_boundaries, avg_dist, N_temp, use_ray = False ):
 		"""
 		Creates a tiling of the space, starting from a coarse tile.
@@ -467,26 +455,26 @@ class cbc_bank():
 		Parameters
 		----------
 		
-		metric_obj: 'cbc_metric'
-			A cbc_metric object to compute the match with
+		metric_obj: cbc_metric
+			A ``cbc_metric`` object to compute the match with
 
-		N_temp: 'int'
+		N_temp: int
 			Maximum number of templates that each tile may contain
 
-		avg_dist: 'float'
+		avg_dist: float
 			Average distance (in the metric space) between templates
 		
-		coarse_boundaries: 'list'
+		coarse_boundaries: list
 			A list of boundaries for a coarse tiling. Each box will have its own independent hierarchical tiling
 			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube
 		
-		use_ray: 'bool'
+		use_ray: bool
 			Whether to use ray to parallelize
 		
 		Returns
 		-------
 					
-		tiling: 'tiling_handler' 
+		tiling: tiling_handler 
 			A list of tiles ready to be used for the bank generation
 		"""
 		t_obj = tiling_handler() #empty tiling handler
@@ -513,7 +501,10 @@ class cbc_bank():
 	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp = 200, placing_method = 'geometric', plot_folder = None, use_ray = False, show = True):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
-		It works only if variable format includes M and q
+		The bank generation consists in two steps:
+		
+		1. Tiling generation by iterative splitting of the parameter space
+		2. Template placing in each tile, according to the method given in ``placing_method``
 		
 		Parameters
 		----------
@@ -524,19 +515,19 @@ class cbc_bank():
 		avg_match: float
 			Average match between templates
 		
-		boundaries: 'np.ndarray' (2,D)
+		boundaries: np.ndarray
+			shape: (2,D) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		
-		grid_list: 'list'
+		grid_list: list
 			A list of ints, each representing the number of coarse division of the space.
 			If use ray option is set, the subtiling of each coarse division will run in parallel
 		
-		N_temp: 'int'
+		N_temp: int
 			Maximum number of templates that each tile may contain
 
-		placing_method: 'str'
+		placing_method: str
 			The placing method to set templates in each tile. It can be:
-				- 'p_disc' 	-> Poisson disc sampling
 				- 'uniform'	-> Uniform drawing in each hyper-rectangle
 				- 'geometric'	-> Geometric placement
 
@@ -553,12 +544,12 @@ class cbc_bank():
 		Returns
 		-------
 		
-		tiling: 'tiling_handler' 
+		tiling: tiling_handler 
 			A list of tiles used for the bank generation
 		
-		tile_id_population: 'list' 
+		tile_id_population: list 
 			A list of list. 
-			tile_id_population[i] keeps the ids of the templates inside tile i
+			``tile_id_population[i]`` keeps the ids of the templates inside tile i
 			
 		"""
 		#TODO: add an option to avoid the hierarchical tiling??
@@ -614,12 +605,13 @@ class cbc_bank():
 				
 	def enforce_boundaries(self, boundaries):
 		"""
-		Remove from the bank the templates that do not lie within the boundaries
+		Remove from the bank the templates that do not lie within the given boundaries
 		
 		Parameters
 		----------
 
-		boundaries: 'np.ndarray' (2,4)/(2,2)
+		boundaries: np.ndarray
+			shape: (2,4)/(2,2) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		"""	
 		if self.templates is None: return
@@ -650,7 +642,7 @@ class cbc_bank():
 		"""
 		Fills the bank with a MCMC (uses emcee package).
 		
-		### This function is not up to date!!
+		``This function is not up to date!!``
 		
 		Parameters
 		----------
@@ -662,9 +654,10 @@ class cbc_bank():
 			Number of new templates to add.
 			If fitting_factor is specified, this option has no effect and an indefinite number of new templates will be added
 		
-		boundaries: 'np.ndarray' (2,4)/(2,2)
+		boundaries: np.ndarray
+			shape: (2,4)/(2,2) -
 			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
-			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``.
 			If None, no boundaries are implemented
 			
 		fitting_factor: (float, int)
@@ -688,7 +681,7 @@ class cbc_bank():
 			If not None, it saves the path in which to save the status of the sampler.
 			The file saved is ready to be given to load chain
 		
-		verbose: 'bool'
+		verbose: bool
 			whether to print to screen the output
 		"""
 		ndim = np.array([2,4])[[self.nonspinning, not self.nonspinning]][0]

@@ -1,13 +1,23 @@
 #!/usr/bin/env python
 """
-A script to create an xml file with random injections.
-If a bank is given, they will be randomly chosen among the templates. If a tiling obj is given, they will be randomly drawn within the tile.
+mbank_injfile
+-------------
 
------
-To run the bank:
+A script to create an xml file with random injections.
+If a bank is given, they will be randomly chosen among the templates.
+If a tiling obj is given, they will be randomly drawn within each tile.
+
+To perform injections:
+
 	mbank_injfile --options-you-like
-Make sure that the mbank is installed. In future versions, a cleaner way of doing this will be implemented
+
+You can also load (some) options from an ini-file:
+
+	mbank_injfile --some-options other_options.ini
+
+Make sure that the mbank is properly installed.
 To know which options are available:
+
 	mbank_injfile --help
 """
 import numpy as np
@@ -16,17 +26,14 @@ import sys
 import warnings
 
 from mbank import cbc_bank, variable_handler, tiling_handler
-from mbank.utils import  parse_from_file, save_injs
+from mbank.utils import  save_injs
+from mbank.utils import updates_args_from_ini
 
 import argparse
 import os
 
 ##### Creating parser
-var_handler = variable_handler()
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument(
-	'--ini-file', type=open, action=parse_from_file, required = False,
-	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
 parser.add_argument(
 	"--run-dir", default = None,
 	help="Run directory. Unless explicitly stated, every input file will be understood to be in this run-dir")
@@ -40,13 +47,13 @@ parser.add_argument(
 	"--inj-out-file", required = False, type=str,
 	help="Injection file (in xml format) in wich the injections are saved")
 parser.add_argument(
-	"--variable-format", choices= var_handler.valid_formats, required = False,
-	help="Choose which spin variables the bank is generated with")
+	"--variable-format", required = False,
+	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
 parser.add_argument(
-	"--GPS-start",  required = False, type=int,
+	"--gps-start",  required = False, type=int,
 	help="Start GPS time for the injections")
 parser.add_argument(
-	"--GPS-end",  required = False, type=int,
+	"--gps-end",  required = False, type=int,
 	help="End GPS time for the injections")
 parser.add_argument(
 	"--time-step",  required = False, type=float,
@@ -61,13 +68,19 @@ parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2threePointFivePN',
 	help="LAL approximant for the injection generation")
 
-args, _ = parser.parse_known_args()
+args, filenames = parser.parse_known_args()
+
+	#updating from the ini file(s), if it's the case
+for f in filenames:
+	args = updates_args_from_ini(f, args, parser)
 
 ####################
 #Interpreting the parser and calling the function
 
-if  (args.inj_out_file is None) or (args.variable_format is None) or (args.GPS_start is None) or (args.GPS_end is None) or (args.time_step is None):
-	raise ValueError("The arguments inj-out-file, spin-format, GPS-start, GPS-end and time-step must be set!")
+if  (args.inj_out_file is None) or (args.variable_format is None) or (args.gps_start is None) or (args.gps_end is None) or (args.time_step is None):
+	raise ValueError("The arguments inj-out-file, variable-format, gps-start, gps-end and time-step must be set!")
+
+assert args.variable_format in variable_handler().valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
 
 if not args.approximant.endswith('PN'):
 	warnings.warn("GstLAL wants the injection approximant name to end with a the required PN order, e.g. IMRPhenomPv2 -> IMRPhenomPv2threePointFivePN . Are you sure you want to omit it?")
@@ -90,7 +103,7 @@ if args.tiling_file is not None:
 	#t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
 
 	injs = []
-	for _ in np.arange(args.GPS_start, args.GPS_end, args.time_step):
+	for _ in np.arange(args.gps_start, args.gps_end, args.time_step):
 		id_ = rng.integers(0, len(t_obj)) #random tile for the inj
 
 		min_, max_ = t_obj[id_][0].mins, t_obj[id_][0].maxes
@@ -107,7 +120,7 @@ elif args.bank_file is not None:
 		#shuffling the bank
 	np.random.shuffle(bank.templates)
 
-	N_templates = int((args.GPS_end-args.GPS_start)/args.time_step)
+	N_templates = int((args.gps_end-args.gps_start)/args.time_step)
 	ids_ = rng.choice(bank.templates.shape[0], N_templates)
 	
 	injs = bank.templates[ids_, :] #(N_templates, D)
@@ -115,10 +128,10 @@ elif args.bank_file is not None:
 else:
 	raise ValueError("Either --tiling-file or --bank-file options must be non empty")
 
-s_handler = variable_handler()
-injs = np.array(s_handler.get_BBH_components(injs, args.variable_format)).T
+var_handler = variable_handler()
+injs = np.array(var_handler.get_BBH_components(injs, args.variable_format)).T
 
-save_injs(args.inj_out_file, injs, args.GPS_start, args.GPS_end, args.time_step, args.approximant,
+save_injs(args.inj_out_file, injs, args.gps_start, args.gps_end, args.time_step, args.approximant,
 	luminosity_distance = (min_dist, max_dist), f_min = args.f_min)
 
 

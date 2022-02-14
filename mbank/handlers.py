@@ -1,12 +1,12 @@
 """
 mbank.handlers
 ==============
-	Some handlers for mbank:
+	Two two important handlers class for ``mbank``:
 	
-	- spin_handler -> takes care of the variables to use
-	- tiling_handlers -> takes care of the tiling
+	- ``spin_handler``: takes care of the BBH parametrization
+	- ``tiling_handlers``: takes care of the tiling of the space
 	
-	#TODO: write more here....
+	The handlers are used extensively throughout the package
 """
 ####################################################################################################################
 
@@ -38,27 +38,65 @@ import scipy.spatial
 ###
 class variable_handler(object):
 	"""
-	Class to handle a large number of variable layouts. Everything is specified by a string variable_format, available at each call.
+	Class to handle a large number of variable layouts.
+	The full BBH space is characterized by the following variables
+	
+	::
+	
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+	
+	
+	These are standard quantities in gravitational waves and the ligo waveform infrastructure can accept all these paramters.
+
+	A *variable layout* is a set of variables that parametrize a subspace of such 12 dimensional BBH parameter space.
+	The conversion between a the full space and the chosen subspace is made by means of a projection, where any variable not used in the paramterization is set to a default value of 0.
+	For instance, ``(m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi)`` can be mapped to ``(m1, m2, s1x, 0, s1z, 0, 0, s2z, iota, 0, e, 0)`` with a suitable variable format.
+	The variable parametrizing the projected BBH will alway be labeled as ``theta`` and has a variable dimension ``D``, depending on the chosen variable format.
+	
+	The variable layout is specified by a string ``variable_format``, that can be passed to any function of this class.
+	
+	The general variable format can be built as any of the follwing:
+	
+	::
+	
+		MassFormat_SpinFormat
+		MassFormat_SpinFormat_AnglesFormat	
+		MassFormat_SpinFormat_EccentricityFormat
+		MassFormat_SpinFormat_EccentricityFormat_AnglesFormat
+	
+	Valid format for the two masses are:
+	
+	- ``Mq``: Total mass and q
+	- ``mceta``: chirp mass and eta
+	- ``m1m2``: mass1 and mass2
+	
 	Valid formats for spins are:
 	
-	- 'nonspinning': no spins are considered (only two masses), D = 2
-	- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-	- 's1xz': spin components assigned to one BH, everythihng in polar coordinates, D = 4
-	- 's1xz_s2z': the two z components are assigned as well as s1x, spin1 in polar coordinates, D = 5
-	- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, spin1 in polar coordinates,  D = 6
-	- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+	- ``nonspinning``: no spins are considered (only two masses), D = 0
+	- ``s1z_s2z``: only the z components of the spins are considered (no precession), D = 2
+	- ``s1xz``: spin components assigned to one BH in plane xz, D = 2
+	- ``s1xyz``: spin components assigned to one BH, D = 3
+	- ``s1xz_s2z``: the two z components are assigned as well as s1x, D = 3
+	- ``s1xyz_s2z``: the two z components are assigned as well as s1x, s1y,  D = 4
+	- ``fullspins``: all the 6 dimensional spin parameter is assigned,  D = 6
 	
-	On top of those, one can specify the mass formats:
+	Whenever a precessing spin is assigned to a BH, the spin is *always* expressed in sperical coordinates s1, theta1, phi1.
+
+	On top of this, the user can *optionally* specify a format for Angles and for the Eccentricity
 	
-	- 'Mq': Total mass and q
-	- 'mceta': chirp mass and eta
-	- 'm1m2': mass1 and mass2
+	Valid formats for the angles are:
 	
-	If 'iota' or 'iotaphi' is postponed to the format string, also the iota and phase are sampled.
-	One can also add support for eccentricity by adding 'e' (to sample eccentricity) and 'meanano' (to sample mean periastron anomaly).
+	- ``iota``: the inclination angle is included
+	- ``iotaphi``: the inclination angle and reference phase are included
+
+	Valid formats for the eccentricity are:
 	
-	The format shall be provided as 'massformat_spinformat_eccentricityformat_angles', 'massformat_spinformat_angles' or as 'massformat_spinformat'.
-	For example, valid formats are: 'mceta_s1xz_s2z_e_iotaphi', m1m2_nonspinning_e, 'Mq_s1xz_s2z_iotaphi', 'm1m2_s1z_s2z'
+	- ``e``: to include the orbital eccentricity
+	- ``emeanano``: to include the orbital eccentricity and mean periastron anomaly
+
+	Note that some waveform approximants do not support all these paramters. Using a format that sets them to be non zero will likely fail. 
+	
+	For example, valid formats are: ``mceta_s1xz_s2z_e_iotaphi``, ``m1m2_nonspinning_e``, ``Mq_s1xz_s2z_iotaphi``, ``m1m2_s1z_s2z``
 	"""
 
 	def __init__(self):
@@ -66,12 +104,12 @@ class variable_handler(object):
 		
 			#hard coding valid formats for masses, spins, eccentricity and angles
 		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
-		self.s_formats = ['nonspinning', 's1z_s2z', 's1xz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
+		self.s_formats = ['nonspinning', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
 		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
 		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
 		
 			#hard coding dimensions for each format
-		D_spins = {'nonspinning':0, 's1z_s2z':2, 's1xz':2, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
+		D_spins = {'nonspinning':0, 's1z_s2z':2, 's1xz':2, 's1xyz':3, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
 		D_ecc = {'':0, 'e':1, 'emeanano':2} #dimension of each eccentric format
 		D_angles = {'':0, 'iota':1, 'iotaphi':2} #dimension of each angle format
 
@@ -103,15 +141,16 @@ class variable_handler(object):
 	def switch_BBH(self, theta, variable_format):
 		"""
 		Given theta, it returns the theta components of the system with switched BBH masses (so that m1>m2)
-		Any collective spin (chiP/chi_eff) is attributed to the heavier BH
+		If only BH1 has an in-plane component, only the z components of the spins will be switched: this is equivalent to assume that the in-plane spin of BH1 is a collective spin.
 		
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -133,6 +172,8 @@ class variable_handler(object):
 			theta[ids,2], theta[ids,3] = theta[ids,3], theta[ids,2] #switching spins
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
 			pass #chiP is always intended to be on the largest BH (pay attention to this)
+		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
+			pass #chiP is always intended to be on the largest BH (pay attention to this)
 		elif self.format_info[variable_format]['spin_format'] == 's1xz_s2z':
 			theta[ids,3], theta[ids,4] = theta[ids,4], theta[ids,3] #switching spins
 		elif self.format_info[variable_format]['spin_format'] == 's1xyz_s2z':
@@ -151,13 +192,13 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
 		
-		labels: 'list'
+		labels: list
 			List of labels for the parmams in the BBH (each a str)
 		
 		latex: bool
@@ -183,6 +224,9 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
 			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$'])
 			else: labels.extend(['s1', 'theta1'])
+		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
+			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$\phi_1$'])
+			else: labels.extend(['s1', 'theta1', 'phi1'])
 		elif self.format_info[variable_format]['spin_format'] == 's1xz_s2z':
 			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$s_{2z}$'])
 			else: labels.extend(['s1', 'theta1', 's2z'])
@@ -214,13 +258,13 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
 		
-		D: 'int'
+		D: int
 			Dimensionality of the BBH parameter vector			
 		"""
 		assert variable_format in self.valid_formats, "Wrong variable format given"
@@ -230,26 +274,27 @@ class variable_handler(object):
 		"""
 		Returns the a dict with some information about the format.
 		The dict has the following entries:
-		- mass_format : format for the masses
-		- spin_format : format for the spins
-		- eccentricity_format : format for the eccentricities
-		- angle_format : format for the angles
-		- D : dimensionality of the BBH space
-		- e : whether the variables include the eccentricity e
-		- meanano : whether the variables include the mean periastron anomaly meanano
-		- iota : whether the variables include the inclination iota
-		- phi : whether the variables include the reference phase phi
+		
+		- ``mass_format`` : format for the masses
+		- ``spin_format`` : format for the spins
+		- ``eccentricity_format`` : format for the eccentricities
+		- ``angle_format`` : format for the angles
+		- ``D`` : dimensionality of the BBH space
+		- ``e`` : whether the variables include the eccentricity e
+		- ``meanano`` : whether the variables include the mean periastron anomaly meanano
+		- ``iota`` : whether the variables include the inclination iota
+		- ``phi`` : whether the variables include the reference phase phi
 		
 		Parameters
 		----------
 		
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
 		
-		format_info: 'int'
+		format_info: int
 			Dictionary with the info for the format
 		"""
 		assert variable_format in self.valid_formats, "Wrong variable format given"
@@ -257,22 +302,23 @@ class variable_handler(object):
 
 	def get_theta(self, BBH_components, variable_format):
 		"""
-		Given the BBH components, it returns the components suitable for the bank.
-		This function inverts get_BBH_components
+		Given the ``BBH components``, it returns the components suitable for the bank.
 		
 		Parameters
 		----------
 		
-		BBH_components: 'np.ndarray' (N,12)
+		BBH_components: np.ndarray
+			shape: (N,12)/(12,) -
 			Parameters of the BBHs.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
-			theta: 'np.ndarray' (N,D)
+			theta: np.ndarray
+				shape: (N,D)/(D,) -
 				Components of the BBH in the format suitable for the bank.
 				The dimensionality depends on variable_format
 		"""
@@ -298,8 +344,12 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
-			theta.append(s1)
-			theta.append(theta1)
+			theta.extend([s1, theta1])
+		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
+			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
+			theta1 = np.arccos(BBH_components[:,4]/s1)
+			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
+			theta.extend([s1, theta1, phi1])
 		elif self.format_info[variable_format]['spin_format'] == 's1xz_s2z':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
 			theta1 = np.arccos(BBH_components[:,4]/s1)
@@ -343,21 +393,21 @@ class variable_handler(object):
 
 	def get_BBH_components(self, theta, variable_format):
 		"""
-		Given theta, it returns the components suitable for lal
+		Given ``theta``, it returns the components suitable for lal
 		
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray (N,D)
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
 		
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: 'np.ndarray'
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: np.ndarray
 			Components of the BBH in the std parametrization.
 			Each has shape (N,)
 		"""
@@ -391,6 +441,8 @@ class variable_handler(object):
 			s1z, s2z = theta[:,2], theta[:,3]
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
 			s1x, s1z = theta[:,2]*np.sin(theta[:,3]), theta[:,2]*np.cos(theta[:,3])
+		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
+			s1x, s1y, s1z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3])
 		elif self.format_info[variable_format]['spin_format'] == 's1xz_s2z':
 			s1x, s1z, s2z = theta[:,2]*np.sin(theta[:,3]), theta[:,2]*np.cos(theta[:,3]), theta[:,4]
 		elif self.format_info[variable_format]['spin_format'] == 's1xyz_s2z':
@@ -428,15 +480,16 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
-			mchirp: 'np.ndarray'
+			mchirp: np.ndarray
 				Chirp mass of each BBH
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -458,15 +511,16 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
-			q: 'np.ndarray'
+			q: np.ndarray
 				Chirp mass of each BBH
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -483,29 +537,34 @@ class variable_handler(object):
 	
 	def get_chiP(self, m1, m2, s1x, s1y, s1z, s2x, s2y):
 		"""
-		Computes the precessing spin parameter (one dimensional) as in https://arxiv.org/abs/1408.1810
-		Also described in https://arxiv.org/abs/2012.02209
+		Computes the precessing spin parameter (one dimensional) as in `1408.1810 <https://arxiv.org/abs/1408.1810>`_
+		Also described in `2012.02209 <https://arxiv.org/abs/2012.02209>`_
 		
 		Parameters
 		----------
 		
-		m1, m2: 'np.ndarray' (N,)/()
+		m1, m2: np.ndarray
+			shape: (N,)/() -
 			Masses of the two BHs
 			It assumes m1>=m2
 
-		s1x, s1y: 'np.ndarray' (N,)/()
+		s1x, s1y: np.ndarray
+			shape: (N,)/() -
 			In-plane spins of the primary black hole
 		
-		s1z: 'np.ndarray' (N,)/()
+		s1z: np.ndarray
+			shape: (N,)/() -
 			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter
 		
-		s2x, s2y: 'np.ndarray' (N,)/()
+		s2x, s2y: np.ndarray
+			shape: (N,)/() -
 			In-plane spins of the secondary black hole
 		
 		Returns
 		-------
 		
-		chiP: 'np.ndarray' (N,2)/()
+		chiP: np.ndarray
+			shape: (N,)/() -
 			The precessing spin parameter
 		"""
 		m1, m2, s1x, s1y, s1z, s2x, s2y = np.asarray(m1), np.asarray(m2), \
@@ -531,39 +590,46 @@ class variable_handler(object):
 
 	def get_chiP_2D(self, m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, only_spin1 = False):
 		"""
-		Computes the two dimensional precessing spin parameter as in https://arxiv.org/abs/2012.02209
+		Computes the two dimensional precessing spin parameter as in `2012.02209 <https://arxiv.org/abs/2012.02209>`_
 		The approximantion assigns a two dimensional in-plane spin to one of the two BHs.
-		If the option only_spin1 is set, the in-plane spin will be always assigned to the primary BH (as in (7) in 2012.02209).
+		If the option only_spin1 is set, the in-plane spin will be always assigned to the primary BH (as in (7) in `2012.02209 <https://arxiv.org/abs/2012.02209>`_).
 		
 		Parameters
 		----------
 		
-		m1, m2: 'np.ndarray' (N,)/()
+		m1, m2: np.ndarray
+			shape: (N,)/() -
 			Masses of the two BHs
 
-		s1x, s1y: 'np.ndarray' (N,)/()
+		s1x, s1y: np.ndarray
+			shape: (N,)/() -
 			In-plane spins of the primary black hole
 		
-		s1z: 'np.ndarray' (N,)/()
+		s1z: np.ndarray
+			shape: (N,)/() -
 			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
 		
-		s2x, s2y: 'np.ndarray' (N,)/()
+		s2x, s2y: np.ndarray
+			shape: (N,)/() -
 			In-plane spins of the secondary black hole
 
-		s2z: 'np.ndarray' (N,)/()
+		s2z: np.ndarray
+			shape: (N,)/() -
 			Aligned spin for the secondary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
 		
-		only_spin1: 'bool'
+		only_spin1: bool
 			Whether to assign the precessing spin only always to the primary BH.
 			The default is False, as 2012.02209 suggests.
 		
 		Returns
 		-------
 		
-		chiP_2D_1: 'np.ndarray' (N,2)/(2,)
+		chiP_2D_1: np.ndarray
+			shape: (N,2)/(2,) -
 			In-plane (x and y) components of the two dimensional precessing spin parameter on the primary BH
 		
-		chiP_2D_2: 'np.ndarray' (N,2)/(2,)
+		chiP_2D_2: np.ndarray
+			shape: (N,2)/(2,) -
 			In-plane (x and y) components of the two dimensional precessing spin parameter on the secondary BH
 		
 		"""
@@ -608,31 +674,32 @@ class variable_handler(object):
 	
 	def get_chiP_BBH_components(self, BBH_components, chiP_type = 'chiP'):
 		"""
-		Given a set of BBH components (in the output format of get_BBH_components) it returns the components of the same BBH in the precessing spin parameter approximation.
+		Given a set of BBH components (in the output format of ``get_BBH_components``) it returns the components of the same BBH in the precessing spin parameter approximation.
 		This implements a mapping between the 4 dimensional in-plane spin parameter (s1x, s1y, s2x, s2y) onto a smaller space. Several options are available:
 		
-		- 'chiP': performs the mapping described in eq (4.1) of arxiv/1408.1810, where the only non-zero componennt is s1x
-		- 'chiP_2D': performs the mapping described in eq (10-11) of arxiv/2012.02209. It consist in assigning a two dimensional in-plane spin to the BH which exibit more precession
-		- 'chiP_2D_BH1': performs the mapping described in eq (7) of arxiv/2012.02209. The spin parameter is the same as above but it is always assigned to the primary BH
+		- ``chiP``: performs the mapping described in eq (4.1) of arxiv/1408.1810, where the only non-zero componennt is s1x
+		- ``chiP_2D``: performs the mapping described in eq (10-11) of arxiv/2012.02209. It consist in assigning a two dimensional in-plane spin to the BH which exibit more precession
+		- ``chiP_2D_BH1``: performs the mapping described in eq (7) of arxiv/2012.02209. The spin parameter is the same as above but it is always assigned to the primary BH
 		
 		Parameters
 		----------
 		
-		BBH_components: 'np.ndarray' (N,12)
+		BBH_components: np.ndarray
+			shape: (N,12) -
 			Parameters of the BBHs.
-			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+			Each row should keep: ``m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi``
 		
-		chiP_type: 'str'
+		chiP_type: str
 			A string to determine which precessing spin approximation to set
 			
-			- 'chiP': one dimensional spin parameter eq (5-6) of 2012.02209
-			- 'chiP_2D': two dimensional spin parameter eq (10-11) of 2012.02209
-			- 'chiP_2D_BH1': two dimensional spin parameter, always placed on BH1, as in eq (7) of 2012.02209
+			- ``chiP``: one dimensional spin parameter eq (5-6) of 2012.02209
+			- ``chiP_2D``: two dimensional spin parameter eq (10-11) of 2012.02209
+			- ``chiP_2D_BH1``: two dimensional spin parameter, always placed on BH1, as in eq (7) of 2012.02209
 		
 		Returns
 		-------
 		
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: 'np.ndarray'
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: np.ndarray
 			Components of the BBH in the std parametrization after the spin parameter mapping has been applied.
 			Each has shape (N,)
 		"""
@@ -663,18 +730,19 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)/(D,)
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: 'string'
+		variable_format: string
 			How to handle the BBH variables.
 		
 		Returns
 		-------
-			theta: 'np.ndarray'
-				Theta in 2D
+			theta: np.ndarray
+				Theta with two dimensions (N,D)
 			
-			squeeze: 'bool'
+			squeeze: bool
 				Whether the output array shall be squeezed
 		
 		"""
@@ -693,24 +761,76 @@ class variable_handler(object):
 ####################################################################################################################
 
 class tiling_handler(list):
-	"Class for a tiling with I/O helpers"
+	"""
+	Class for a tiling with I/O helpers.
+	A tiling is a list of tiles that cover a larger space.
+	Each tile, consists in:
+	
+	- an hypercubes (``scipy.spatial.Rectangle`` object) that defines its boundaries
+	- a metric that it's used to compute distances between points of the tile. It is represented by a DxD matrix (``np.ndarray`` object), where D is the dimensionality of the space.
+	
+	Overall a tiling handler looks like:
+	
+	::
+	
+		[(rect_1, metric_1), (rect_2, metric_2), ..., (rect_N, metric_N)]
+	"""
 	
 	def __init__(self, filename = None):
-		"Creates a tile class"
+		"""
+		Initializes the tilin handler.
+		
+		Parameters
+		----------
+			filename: str
+				Optional filename. If it is given, the tiling handler is loaded from it.
+				The file shall be the same format as produced by ``tiling_handler.save()``
+		"""
 		super().__init__()
 		if isinstance(filename, str): self.load(filename)
 		return
 	
 	def N_templates(self, rect, metric, avg_dist):
-		"Computes the number of templates given metric, rect and avg_dist"
-		#return rect.volume() * np.sqrt(np.abs(np.prod(np.diag(metric)))) / np.power(avg_dist, metric.shape[0])
+		"""
+		Computes the approximate number of templates given metric, rect and avg_dist
+
+		N_templates is compute as:
+		
+		::
+		
+			N_templates = rect.volume() * sqrt(abs(det(metric))) / D
+		
+
+		Parameters
+		----------
+			rect: scipy.spatial.Rectangle
+				Rectangle object defining the boundaries of the tile
+
+			metric: np.ndarray
+				shape: (D,D)
+				Metric to use within the tile
+			
+			avg_dist: float
+				Desidered average distance between templates
+		
+		"""
 		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
+		#return rect.volume() * np.sqrt(np.abs(np.prod(np.diag(metric)))) / np.power(avg_dist, metric.shape[0])
 		#print(create_mesh(avg_dist, (rect, metric) ).shape[0], rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0]))
 		#return create_mesh(avg_dist, (rect, metric) ).shape[0]
 		
 	
 	def get_centers(self):
-		"Returns an array with the centers of the tiling"
+		"""
+		Returns an array with the centers of the tiling
+		
+		Returns
+		-------
+			centers: np.ndarray
+				shape (N,D) -
+				All the centers of the tiles
+			
+		"""
 		centers = np.stack( [(t[0].maxes+t[0].mins)/2. for t in self.__iter__()], axis =0)
 		return centers
 	
@@ -719,7 +839,44 @@ class tiling_handler(list):
 		return self.create_tiling(boundaries, N_temp, metric_func, avg_dist, verbose, worker_id)
 	
 	def create_tiling(self, boundaries, N_temp, metric_func, avg_dist, verbose = True, worker_id = None):
-		"Creates a tile list"
+		"""
+		Create a tiling within the boundaries by a hierarchical iterative splitting
+		
+		Parameters
+		----------
+		
+		boundaries: np.ndarray
+			shape: (2,D) -
+			Boundaries of the space to tile.
+			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
+
+		N_temp: int
+			Maximum number of templates that shall lie within the tile. The number of templates in each tile will be always smaller than ``N_temp``
+			
+		metric_func: function
+			A function that accepts theta and returns the metric.
+			A common usage would be:
+			
+			::
+			
+				metric_obj = mbank.metric.cbc_metric(**args)
+				metric_func = metric_obj.get_metric
+		
+		avg_dist: float
+				Desidered average distance between templates. To compute the number of templates in each tile via ``tiling_handler.N_templates()``
+			
+		verbose: bool
+			Whether to print the progress of the computation
+		
+		worker_id: int
+			If given, it will print the worker id in the progress bar.
+		
+		Returns
+		-------
+			self: tiling_handler
+				Return this object filled with the desired tiling
+		
+		"""
 		#boundaries is a tuple (max, min)
 		boundaries = tuple([np.array(b) for b in boundaries])
 		D = boundaries[0].shape[0]
@@ -801,7 +958,16 @@ class tiling_handler(list):
 		return self
 	
 	def save(self, filename):
-		"Save a tiling to file"
+		"""
+		Save the tiling to a file in npy format
+		
+		Parameters
+		----------
+		
+		filename: str
+			File to save the tiling to (in npy format)
+			
+		"""
 		#The tiling is saved as a np.array: (N, 2+D, D)
 		out_array = []
 		for t in self.__iter__():
@@ -813,7 +979,16 @@ class tiling_handler(list):
 		return
 	
 	def load(self, filename):
-		"Loads the tiling"
+		"""
+		Loads the tiling from a file in npy format.
+		The file should be the same layout as produced by ``tiling_handler.load()``
+		
+		Parameters
+		----------
+		
+		filename: str
+			File to load the tiling from (in npy format)
+		"""
 		try:
 			in_array = np.load(filename)
 		except FileNotFoundError:

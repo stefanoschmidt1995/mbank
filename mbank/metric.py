@@ -1,8 +1,14 @@
 """
 mbank.metric
 ============
-	This module implements the metric computation for cbc signals.
-	#TODO: write more here....
+	This module implements the metric computation for cbc signals. It provides a class ``cbc_metric`` that, besides the metric computations, offers some functions to compute waveforms and the match between them.
+	
+	The metric is a D dimensional square matrix that approximates the match between two waveforms. The metric M is defined such that:
+	
+	:math: `<h(theta) | h(theta + Deltatheta) > = 1 - M(theta)_{ij} Deltatheta_i Deltatheta_j`
+	
+	The metric is a useful local approximation of the match and it is the physical input for the bank generation.
+	The explicit expression for the metric is a complicated expression of the gradients of the waveform and it is a function of theta.
 """
 
 import numpy as np
@@ -44,11 +50,8 @@ except:
 class cbc_metric(object):
 	"""
 	This class implements the metric on the space, defined for each point of the space.
-	The metric is defined as
-	.. math::
-	
-		M(theta)_ij = <d_i h | d_j h>
-
+	The metric corresponds to the hessian of the match function, when evaluated around a point.
+	Besides the metric computation, this class allows for waveform (WF) generation and for match computation, both with and without metric. 
 	"""
 	
 	def __init__(self, variable_format, PSD, approx, f_min = 10., f_max = None):
@@ -58,32 +61,24 @@ class cbc_metric(object):
 		Parameters
 		----------
 			
-		variable_format: 'string'
+		variable_format: string
 			How to handle the spin variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
-			Variable format can be changed with set_variable_format() and can be accessed under name cbc_metric.variable_format
-			Valid formats are:
-			
-			- 'nonspinning': no spins are considered (only two masses), D = 2
-			- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-			- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
-			- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
-			- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
-			- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
+			Variable format can be changed with ``set_variable_format()`` and can be accessed under name ``cbc_metric.variable_format``. See ``mbank.handlers.variable_handler`` for more details.
 
-		PSD: ('np.ndarray', 'np.ndarray')
+		PSD: tuple
 			PSD for computing the scalar product.
-			It is a tuple with a frequency grid array and a PSD array
+			It is a tuple with a frequency grid array and a PSD array (both one dimensional and with the same size).
 			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies (starting from f0 =0 Hz).
 			If None, the PSD is assumed to be flat
 
-		approx: 'string'
+		approx: string
 			Which approximant to use. It can be any lal approx.
 			The approximant can be changed with set_approximant() and can be accessed under name cbc_metric.approx
 		
-		f_min: 'float'
+		f_min: float
 			Minimum frequency at which the scalar product is computed (and the WF is generated from)
 		
-		f_max: `float`
+		f_max: float
 			Cutoff for the high frequencies in the PSD. If not None, frequencies up to f_max will be removed from the computation
 			If None, no cutoff is applied
 		
@@ -118,12 +113,12 @@ class cbc_metric(object):
 	
 	def set_approximant(self, approx):
 		"""
-		Change the WF approximant used
+		Change the lal approximant used to compute the WF
 		
 		Parameters
 		----------
 		
-		approx: 'string'
+		approx: string
 			Which approximant to use. It can be any lal FD approximant.
 		"""
 		self.approx = approx
@@ -139,26 +134,20 @@ class cbc_metric(object):
 	def set_variable_format(self, variable_format):
 		"""
 		Set the variable_format to be used.
-
-		### DO IT BETTER!!!!!
+		See ``mbank.handlers.variable_handler`` for more information.
 		
-		Valid formats for spins are:
+		The following snippet prints the allowed variable formats and to display some information about a given format.
+		::
 		
-		- 'nonspinning': no spins are considered (only two masses), D = 2
-		- 's1z_s2z': only the z components of the spins are considered (no precession), D = 4
-		- 's1xz': spin components assigned to one BH, s1x = chiP, s1z = chieff, D = 4
-		- 's1xz_s2z': the two z components are assigned as well as s1x, D = 5
-		- 's1xyz_s2z': the two z components are assigned as well as s1x, s1y, D = 6
-		- 'fullspins': all the 6 dimensional spin parameter is assigned,  D = 8
-
-		where D is the dimensionality of the BBH space considered
-		
-		The
+			from mbank import handlers
+			vh = handlers.variable_handler()
+			print(vh.valid_formats)
+			print(vh.format_info['Mq_s1xz_s2z_iota'])
 		
 		Parameters
 		----------
 		
-		variable_format: 'string'
+		variable_format: string
 			An string to specify the variable format
 		"""
 		assert variable_format in self.var_handler.valid_formats, "Wrong variable format '{}'. Available formats are: ".format(variable_format)+str(self.var_handler.valid_formats)
@@ -176,21 +165,19 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
-			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
+		theta: np.ndarray
+			shape: (N,D) -
+			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 
 		Returns
 		-------
 		
-		det : 'np.ndarray' (N,)
+		det : np.ndarray
+			shape: (N,) -
 			Determinant of the metric for the given input
 			
 		"""
 		return np.linalg.det(self.get_metric(theta)) #(N,)
-
-	def log_pdf_gauss(self, theta, boundaries = None):
-		"Gaussian PDF, for the purpose of debugging and testing the MCMC..."
-		return -0.5*np.sum(np.square(theta+10.), axis =1) #DEBUG!!!!!
 
 	def log_pdf(self, theta, boundaries = None):
 		"""
@@ -204,10 +191,12 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D) -
 			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
-		boundaries: 'np.ndarray' (2,D)
+		boundaries: np.ndarray
+			shape: (2,D)
 			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
 			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 			If None, no boundaries are implemented
@@ -215,7 +204,8 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		log_pdf : 'np.ndarray' (N,)
+		log_pdf : np.ndarray
+			shape: (N,) -
 			Logarithm of the pdf, ready to use for sampling
 		"""
 		theta = np.array(theta)
@@ -251,23 +241,25 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D) -
 			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 	
-		approx: 'string'
+		approx: string
 			Which approximant to use. It can be any lal FD approximant
 		
-		order: 'int'
+		order: int
 			Order of the finite difference scheme for the gradient computation.
 			If None, some defaults values will be set, depending on the total mass.
 		
-		epsilon: 'float'
+		epsilon: float
 			Size of the jump for the finite difference scheme
 
 		Returns
 		-------
 		
-		h : 'np.ndarray' (N,D, 4)
+		h : np.ndarray
+			shape: (N, K, D) -
 			Complex array holding the gradient of the WFs evaluated on the default frequency/time grid
 		"""
 		#Take home message, to get a really nice metric:
@@ -357,26 +349,28 @@ class cbc_metric(object):
 	
 	def get_WF_lal(self, theta, approx = None, df = None):
 		"""
-		Returns the lal WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid set by lal
+		Returns the lal WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid set by ``lal``
 		
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (D, )
+		theta: np.ndarray
+			shape: (D, ) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
-		approx: 'string'
+		approx: string
 			Which approximant to use. It can be FD lal approx
 			If None, the default approximant will be used
 		
-		df: 'float'
+		df: float
 			The frequency step used for the WF generation.
 			If None, the default, given by the PSD will be used
 
 		Returns
 		-------
 		
-		hp, hc : 'np.ndarray' (N,D)
+		hp, hc : np.ndarray
+			shape: (N,K) -
 			lal frequency series holding the polarizations
 		"""
 		if approx is None: approx = self.approx
@@ -417,26 +411,28 @@ class cbc_metric(object):
 	
 	def get_WF(self, theta, approx = None, plus_cross = False):
 		"""
-		Computes the WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid on which the PSD is evauated (self.f_grid)
+		Computes the WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid on which the PSD is evauated (``self.f_grid``)
 		An any lal FD approximant.
 		
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
-		approx: 'string'
+		approx: string
 			Which approximant to use. It can be FD lal approx
 			If None, the default approximant will be used
 		
-		plus_cross: 'bool'
+		plus_cross: bool
 			Whether to return both polarizations. If False, only the plus polarization will be returned
 
 		Returns
 		-------
 		
-		h : 'np.ndarray' (N,D)
+		h : np.ndarray
+			shape: (N,K) -
 			Complex array holding the WFs evaluated on the default frequency/time grid
 		"""
 		if approx is None: approx = self.approx
@@ -474,17 +470,19 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: 'np.ndarray' (N,D)
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the metric based on the local expansion of the overlap rather than of the match
 			In this context the match is the overlap maximized over time
 
 		Returns
 		-------
 		
-		metric : 'np.ndarray' (N,4,4)/(N,2,2)
+		metric : np.ndarray
+			shape: (N,D,D) -
 			Array containing the metric in the given parameters
 			
 		"""
@@ -549,25 +547,28 @@ class cbc_metric(object):
 		"""
 		Computes the symphony match line by line between two WFs. The WFs shall be evaluated on the custom grid 
 		No checks will be done on the input
-		The symphony match is defined in: arxiv.org/abs/1709.09181
+		The symphony match is defined in eq (13) of `1709.09181 <https://arxiv.org/abs/1709.09181>`_
 		
 		Parameters
 		----------
 		
-		h1: ('np.ndarray','np.ndarray') (N,D)
+		h1: tuple
+			(np.ndarray,np.ndarray) (N,K) -
 			First WF: tuple (hp, hc)
 
-		h1: ('np.ndarray','np.ndarray') (N,D)
+		h1: tuple
+			(np.ndarray,np.ndarray) (N,K) -
 			Second WF: tuple (hp, hc)
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 		
 		Returns
 		-------
 		
-		sym_match : 'np.ndarray' (N,)
+		sym_match : np.ndarray
+			shape: (N,) -
 			Array containing the symphony match of the given WFs
 			
 		"""
@@ -613,23 +614,27 @@ class cbc_metric(object):
 		Computes the match line by line between two WFs. The WFs shall be evaluated on the custom grid 
 		No checks will be done on the input
 		
+		The
+		
 		Parameters
 		----------
 		
-		h1: 'np.ndarray' (N,D)
-			First WF
+		h1: np.ndarray
+			shape: (N,K) -
+			First WF frequency series
 
-		h2: 'np.ndarray' (N,D)/(D,)
-			Second WF
+		h2: np.ndarray
+			shape: (N,K)/(K,) -
+			Second WF frequency series
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 		
 		Returns
 		-------
 		
-		match : 'np.ndarray' (N,)
+		match : np.ndarray (N,)
 			Array containing the match of the given WFs
 			
 		"""
@@ -665,7 +670,7 @@ class cbc_metric(object):
 		
 			|<h1p|h2p>|^2
 			
-		If symphony is True, it returns the symphony match (as in arxiv.org/abs/1709.09181)
+		If symphony is True, it returns the symphony match (as in `1709.09181 <https://arxiv.org/abs/1709.09181>`_)
 		.. math::
 
 			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
@@ -673,23 +678,26 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: 'np.ndarray' (N,D)
+		theta1: np.ndarray
+			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: 'np.ndarray' (N,D) /(D,)
+		theta2: np.ndarray
+			shape: (N,D) /(D,) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
-		
-		symphony: 'bool'
+	
+		symphony: bool
 			Whether to compute the symphony match (default False)
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 		
 		Returns
 		-------
 		
-		match : 'np.ndarray' (N,)
+		match : np.ndarray
+			shape: (N,) -
 			Array containing the match of the given WFs
 			
 		"""
@@ -732,23 +740,27 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: 'np.ndarray' (N,D)
+		theta1: np.ndarray
+			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: 'np.ndarray' (N,D)
+		theta2: np.ndarray
+			shape: (N,D) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 		
-		metric: 'np.ndarray' (D,D)
+		metric: np.ndarray
+			shape: (D,D) -
 			metric to use for the match (if None, it will be computed from scratch)
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 
 		Returns
 		-------
 		
-		match : 'np.ndarray' (N,)
+		match : np.ndarray
+			shape: (N,) -
 			Array containing the metric approximated match of the given WFs
 			
 		"""
@@ -783,20 +795,23 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: 'np.ndarray' (N,D)
+		theta1: np.ndarray
+			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: 'np.ndarray' (N,D)
+		theta2: np.ndarray
+			shape: (N,D) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 
 		Returns
 		-------
 		
-		accuracy : 'np.ndarray' (N,)
+		accuracy : np.ndarray
+			shape: (N,) -
 			Array the accuracy of the metric approximation
 		
 		"""
@@ -806,7 +821,7 @@ class cbc_metric(object):
 	
 	def get_points_atmatch(self, N_points, theta, match, overlap = False):
 		"""
-		Given a central theta point, it computes N_points random point with a given metric match.
+		Given a central theta point, it computes ``N_points`` random point with a given metric match.
 		The match is related to the distance between templates in the metric as:
 		
 		.. math::
@@ -819,20 +834,23 @@ class cbc_metric(object):
 		N_points: int
 			Number of random points to be drawn
 		
-		theta: 'np.ndarray' (D,)
-			Parameters of the center. The dimensionality depends on self.variable_format
+		theta: np.ndarray
+			shape: (D,) -
+			Parameters of the central point. The dimensionality depends on ``self.variable_format``
 
-		dist: float
-			Distance from the center theta (1-M)
+		match: float
+			Match between the randomly drawn points and the central point ``theta``.
+			The metric distance between such points and the center is ``d = sqrt(1-M)``
 		
-		overlap: 'bool'
+		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 
 		Returns
 		-------
 		
-		points : 'np.ndarray' (N,D)
+		points : np.ndarray
+			shape: (N,D) -
 			Points with distance dist from the center
 		"""
 		dist = np.sqrt(1-match)

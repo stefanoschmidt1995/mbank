@@ -1,8 +1,8 @@
 """
 mbank.utils
 ===========
-	Some utilities for mbank, for plotting purposes, for template placing and for match computation
-	#TODO: write more here....
+	Some utilities for ``mbank``.
+	It keeps function for plotting, for template placing and for match computation.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +11,9 @@ import warnings
 from itertools import combinations, permutations
 import argparse
 import lal.series
+import configparser
+import os
+import ast
 
 	#ligo.lw imports for xml files: pip install python-ligo-lw
 from ligo.lw import utils as lw_utils
@@ -31,9 +34,8 @@ from .handlers import variable_handler
 
 class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
 	"""
-	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
-	This is a copy of SnglInspiralTable with implmented defaults.
-	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
+	This is a copy of ``ligo.lw.lsctables.SnglInspiralTable`` with implemented defaults.
+	Implemented as `here <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
 	"""
 	def __init__(self, *args, **kwargs):
 		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
@@ -53,9 +55,8 @@ class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
 
 class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 	"""
-	#NOT VERY ELEGANT... FIND A BETTER WAY OF DOING THINGS
-	This is a copy of SnglInspiralTable with implmented defaults.
-	Implemented as here: https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39
+	This is a copy of ``ligo.lw.lsctables.SimInspiralTable`` with implemented defaults.
+	Implemented as `here <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
 	"""
 	def __init__(self, *args, **kwargs):
 		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
@@ -74,9 +75,15 @@ class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 				raise ValueError
 
 ####################################################################################################################
+#Parser stuff
+
+def int_tuple_type(strings): #type for the grid-size parser argument
+	strings = strings.replace("(", "").replace(")", "")
+	mapped_int = map(int, strings.split(","))
+	return tuple(mapped_int)
 
 class parse_from_file(argparse.Action):
-	"Convenience class to read th arguments from a config file"	
+	"Convenience class to read the parser arguments from a config file \n\n ``DEPRECATED``"	
 	#https://stackoverflow.com/questions/27433316/how-to-get-argparse-to-read-arguments-from-a-file-with-an-option-rather-than-pre
 	def __call__ (self, parser, namespace, values, option_string=None):
 		with values as f:
@@ -89,6 +96,56 @@ class parse_from_file(argparse.Action):
 			if getattr(namespace, k, None) == parser.get_default(k):
 				setattr(namespace, k, v)
 
+
+def updates_args_from_ini(ini_file, args, parser):
+	"""
+	Updates the arguments of Namespace args according to the 
+
+	Parameters
+	----------
+		ini_file: str
+			Filename of the ini file to load. It must readable by `configparser.ConfigParser()`
+		args: argparse.Namespace
+			A parser namespace object to be updated
+		parser: argparse.ArgumentParser
+			A parser object (compatibile with the given namespace)
+
+	Returns
+	-------
+		args: argparse.Namespace
+			Updated parser namespace object
+	"""
+	if not os.path.exists(ini_file):
+		raise FileNotFoundError("The given ini file '{}' doesn't exist".format(ini_file))
+		
+		#reading the ini file
+	config = configparser.ConfigParser()
+	config.read(ini_file)
+	assert len(config.sections()) ==1, "The ini file must have only one section"
+	
+		#casting to a dict and adding name entry
+		#in principle this is not required, but makes things more handy
+	ini_info = dict(config[config.sections()[0]])
+	ini_info['run-name'] = config.sections()[0]
+
+		#formatting the ini-file args
+	args_to_read = []
+	for k, v in ini_info.items():
+		if v.lower() != 'false': #if it's a bool var, it is always store action
+			args_to_read.extend('--{} {}'.format(k,v).split(' '))
+
+	#args, _ = parser.parse_known_args(args_to_read, namespace = args) #this will update the existing namespace with the new values...
+	
+		#adding the new args to the namespace (if the values are not the default)
+	new_data, _ = parser.parse_known_args(args_to_read, namespace = None)
+	for k, v in vars(new_data).items():
+		# set arguments in the args if they haven’t been set yet (i.e. they are not their default value)
+		if getattr(args, k, None) == parser.get_default(k):
+			setattr(args, k, v)
+	return args
+
+
+
 ####################################################################################################################
 
 def load_PSD(filename, asd = False, ifo = 'H1'):
@@ -97,21 +154,21 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 	
 	Parameters
 	----------
-		filename: 'str'
+		filename: str
 			Name of the file to load the PSD from (can be a txt file or an xml file)
 
-		asd: 'bool'
+		asd: bool
 			Whether the file contains an ASD rather than a PSD
 		
-		ifo: 'str'
+		ifo: str
 			Interferometer which the PSD refers to. Only for loading a PSD from xml
 	
 	Returns
 	-------
-		f: 'np.ndarray'
+		f: np.ndarray
 			Frequency grid
 
-		PSD: 'np.ndarray'
+		PSD: np.ndarray
 			PSD evaluated on the frequency grid
 	"""
 	
@@ -136,21 +193,23 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 ####################################################################################################################
 def compute_avg_dist(bank, tiling, metric_obj, metric_approx = True):
 	"""
-	Given a tiling and a bank, it computes the distance of the NN for each template
+	Given a tiling and a bank, it computes the distance of the nearest neighbour for each template.
+	
+	
 	
 	Parameters
 	----------
 		
-		bank: 'WF_bank'
-			WF_bank object
+		bank: cbc_bank
+			``cbc_bank`` object holding an initialized bank
 
-		tiling: 'tiling_handler'
-			A tiling
+		tiling: tiling_handler
+			``tiling_handler`` object with a valid tiling
 			
-		metric_obj: 'cbc_metric'
-			A cbc_metric object to compute the match with
+		metric_obj: cbc_metric
+			A ``cbc_metric`` object to compute the match with
 		
-		metric_approx: 'bool'
+		metric_approx: bool
 			Whether to use the metric to approximate the match
 		
 	Returns
@@ -160,9 +219,7 @@ def compute_avg_dist(bank, tiling, metric_obj, metric_approx = True):
 			A list of dict.
 			For each tile it is recorded a dict with {'theta_inj': (N_inj,D), 'match': (N_inj,), 'id_match': (N_inj,)}
 	"""
-	
-		#FIXME: the avg distance between templates is far the one we set by hand
-		#	On the other hand, the mismatch looks good and most important the templates looks nicely spread
+		#TODO: check this function makes sense
 	out_list = []
 	id_tile = -1
 	for t in tqdm(tiling[:10]):
@@ -215,28 +272,28 @@ def compute_avg_dist(bank, tiling, metric_obj, metric_approx = True):
 
 def ray_compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates = 10, symphony_match = False, cache = True):
 	"""
-	Given an injection dictionary, generated by `compute_metric_injections_match` it computes the actual match (not the metric approximation) between injections and templates.
+	Wrapper to ``compute_injections_match()`` to allow for parallel execution. It calls ``_compute_injections_match_ray()``
+	Given an injection dictionary, generated by ``compute_metric_injections_match()`` it computes the actual match (without the metric approximation) between injections and templates. It updates ``inj_dict`` with the new computed results.
 	The injections are generic (not necessarly projected on the bank submanifold).
-	It make use of ray package to parallelize the execution.
 	
 	Parameters
 	----------
-		inj_dict: 'dict'
+		inj_dict: dict
 			A dictionary with the data injection as computed by `compute_metric_injections_match`.
 		
-		templates: 'np.ndarray'
+		templates: np.ndarray
 			An array with the templates. They should have the same layout as lal (given by get_BBH_components)
 
-		metric_obj: 'cbc_metric'
+		metric_obj: cbc_metric
 			A cbc_metric object to compute the match with.
 
 		N_neigh_templates: 'int'
 			The number of neighbouring templates to consider for each injection
 						
-		cache: 'bool'
+		cache: bool
 			Whether to cache the WFs
 			
-		symphony_match: 'bool'
+		symphony_match: bool
 			Whether to use the symphony match
 		
 	Returns
@@ -273,26 +330,26 @@ def ray_compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templa
 @ray.remote
 def _compute_injections_match_ray(start_id, end_id, inj_dict, templates, metric_obj, N_neigh_templates = 10, symphony_match = False, cache = True, worker_id = None):
 	"""
-	Wrapper to compute_injections_match to allow for parallelization with ray.
+	Wrapper to ``compute_injections_match`` to allow for parallelization with ray.
 
 	Parameters
 	----------
-		inj_dict: 'dict'
+		inj_dict: dict
 			A dictionary with the data injection as computed by `compute_metric_injections_match`.
 		
-		templates: 'np.ndarray'
+		templates: np.ndarray
 			An array with the templates. They should have the same layout as lal (given by get_BBH_components)
 
-		metric_obj: 'cbc_metric'
-			A cbc_metric object to compute the match with.
+		metric_obj: cbc_metric
+			A ``cbc_metric`` object to compute the match with.
 
 		N_neigh_templates: 'int'
 			The number of neighbouring templates to consider for each injection
 		
-		symphony_match: 'bool'
+		symphony_match: bool
 			Whether to use the symphony match
 				
-		cache: 'bool'
+		cache: bool
 			Whether to cache the WFs
 			
 		worker_id: 'int'
@@ -300,7 +357,7 @@ def _compute_injections_match_ray(start_id, end_id, inj_dict, templates, metric_
 		
 	Returns
 	-------
-		out_dict: 'dict'
+		out_dict: dict
 			The output dictionary with the updated matches
 	"""
 	local_dict = {} #ray wants a local dict for some reason...
@@ -314,7 +371,7 @@ def _compute_injections_match_ray(start_id, end_id, inj_dict, templates, metric_
 
 def compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates = 10, symphony_match = False, cache = True, worker_id = None):
 	"""
-	Given an injection dictionary, generated by `compute_metric_injections_match` it computes the actual match (not the metric approximation) between injections and templates.
+	Given an injection dictionary, generated by ``compute_metric_injections_match`` it computes the actual match (not the metric approximation) between injections and templates. It updates ``inj_dict`` with the new computed results.
 	The injections are generic (not necessarly projected on the bank submanifold).
 	
 	Parameters
@@ -322,19 +379,19 @@ def compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates 
 		inj_dict: 'dict'
 			A dictionary with the data injection as computed by `compute_metric_injections_match`.
 		
-		templates: 'np.ndarray'
+		templates: np.ndarray
 			An array with the templates. They should have the same layout as lal (given by get_BBH_components)
 
-		metric_obj: 'cbc_metric'
+		metric_obj: cbc_metric
 			A cbc_metric object to compute the match with.
 
-		N_neigh_templates: 'int'
+		N_neigh_templates: int
 			The number of neighbouring templates to consider for each injection
 		
-		symphony_match: 'bool'
+		symphony_match: bool
 			Whether to use the symphony match
 		
-		cache: 'bool'
+		cache: bool
 			Whether to cache the WFs
 		
 		worker_id: 'int'
@@ -414,7 +471,42 @@ def compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates 
 
 ####################################################################################################################	
 def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templates = 10):
-	"Brute force match computation"
+	"""
+	Computes the match of the injection with the bank by using the metric approximation.
+	It makes use of a brute force approach where each injection is checked against each template of the bank. The metric used is the one of the tile each injection belongs to
+	
+	Parameters
+	----------
+		injs: np.ndarray
+			shape: (N,12) -
+			A set of injections in the full format of the ``mbank.metric.cbc_metric.get_BBH_components()``.
+			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+		
+		bank: cbc_bank
+			A ``cbc_bank`` object
+
+		metric_obj: cbc_metric
+			A ``cbc_metric`` object to compute the match with.
+		
+		N_neigh_templates: int
+			Number of nearest neigbour to report in the output
+		
+	Returns
+	-------
+		out_dict: dict
+			A dictionary with the output. It has the entries:
+			
+			- ``theta_inj``: the parameters of the injections
+			- ``id_tile``: index of the tile the injections belongs to (in the tiling)
+			- ``id_tile_neig``: index of the ``N_neigh_templates`` closest tiles
+			- ``match``: match of the closest template
+			- ``id_match``: index of the closest template
+			- ``match_neig``: match for the ``N_neigh_templates`` nearest neighbours
+			- ``id_match_neig``: index of the ``N_neigh_templates`` nearest neighbours
+		
+			each entry is ``np.ndarray`` where each row is an injection.
+	
+	"""
 	if N_neigh_templates > bank.templates.shape[0]:
 		N_neigh_templates = bank.templates.shape[0]
 
@@ -471,33 +563,44 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 10, 
 	
 	Parameters
 	----------
-		injs: 'np.ndarray' (N_injs, 10)
-			An array with the injections. They should be have format (N, 10), as output by var_handler.get_BBH_components
+		injs: np.ndarray
+			shape: (N,12) -
+			A set of injections in the full format of the ``mbank.metric.cbc_metric.get_BBH_components()``.
+			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 		
-		bank: 'WF_bank'
-			WF_bank object
+		bank: cbc_bank
+			A ``cbc_bank`` object
 
-		tiling: 'tiling_handler'
-			A tiling object
+		metric_obj: cbc_metric
+			A ``cbc_metric`` object to compute the match with.
 		
-		N_neigh_templates: 'int'
-			The number of neighbouring templates to consider for each injection
+		N_neigh_templates: int
+			Number of nearest neigbour to report in the output
 		
-		N_neigh_tiles: 'int'
+		N_neigh_tiles: int
 			The number of neighbouring tiles to consider for each injection
 		
-		tile_id_population: 'list'
+		tile_id_population: list
 			A list of list. 
-			tile_id_population[i] keeps the ids of the templates inside tile i
+			``tile_id_population[i]`` keeps the ids of the templates inside tile i
 			If None, this object will be created. However, this is time consuming for large banks and might be better to load it from file
 		
 	Returns
 	-------
-		out_dict: 'dict'
-			A dictionary with the resulting data. Each entry has an array with N_injs rows. The entry are as follow:
-				theta_inj	match	id_match	tile_id	id_tile_neig		match_neig				id_match_neig
-				(N,D)		(N,)	(N,)		(N,)	(N, N_neigh_tiles)	(N,N_neigh_templates)	(N,N_neigh_templates)
+		out_dict: dict
+			A dictionary with the output. It has the entries:
+			
+			- ``theta_inj``: the parameters of the injections
+			- ``id_tile``: index of the tile the injections belongs to (in the tiling)
+			- ``id_tile_neig``: index of the ``N_neigh_templates`` closest tiles
+			- ``match``: match of the closest template
+			- ``id_match``: index of the closest template
+			- ``match_neig``: match for the ``N_neigh_templates`` nearest neighbours
+			- ``id_match_neig``: index of the ``N_neigh_templates`` nearest neighbours
+		
+			each entry is ``np.ndarray`` where each row is an injection.
 	"""
+	#TODO: does this function still work?
 	###
 		#Creating the output structure
 		#This is empty expect for the theta values.
@@ -593,11 +696,34 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 10, 
 ####################################################################################################################
 
 def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = False):
+	"""
+	Make some plots of the templates and the tiling.
+		
+	Parameters
+	----------
+		t_obj: tiling_handler
+			Tiling handler that tiles the parameter space
+		
+		templates: np.ndarray
+			shape: (N,D) -
+			The templates to plot, as stored in ``cbc_bank.templates``
+		
+		variable_format: str
+			How to handle the BBH variables.	
+		
+		save_folder: str
+			Folder where to save the plots
+		
+		show: bool
+			Wheter to show the plots
+
+	"""
 		###
 		#Plotting templates
 		###
 	var_handler = variable_handler()
 	if not save_folder.endswith('/'): save_folder.out_dir = save_folder.out_dir+'/'
+	fs = 15 #font size
 	
 		###
 		#Plotting templates & tiles
@@ -608,7 +734,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 	size_template = [20 if templates.shape[0] < 10000 else 2][0]
 	centers = np.array([ (t[0].maxes + t[0].mins)/2. for t in t_obj])
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (15,15))
-	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]))
+	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	if templates.shape[1]-1 == 1:
 		axes = np.array([[axes]])
 	for i,j in permutations(range(templates.shape[1]-1), 2):
@@ -621,18 +747,20 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 		
 		currentAxis.scatter(templates[ids_,ax_[0]], templates[ids_,ax_[1]], s = size_template, marker = 'o', c= 'b', alpha = 0.3)
 		if ax_[0] == 0:
-			currentAxis.set_ylabel(var_handler.labels(variable_format, latex = True)[ax_[1]])
+			currentAxis.set_ylabel(var_handler.labels(variable_format, latex = True)[ax_[1]], fontsize = fs)
 		else:
 			currentAxis.set_yticks([])
 		if ax_[1] == templates.shape[1]-1:
-			currentAxis.set_xlabel(var_handler.labels(variable_format, latex = True)[ax_[0]])
+			currentAxis.set_xlabel(var_handler.labels(variable_format, latex = True)[ax_[0]], fontsize = fs)
 		else:
 			currentAxis.set_xticks([])
+		currentAxis.tick_params(axis='x', labelsize=fs)
+		currentAxis.tick_params(axis='y', labelsize=fs)
 
 	plt.savefig(save_folder+'bank.png', transparent = False)
 
 		#Plot the tiling
-	plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]))
+	plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	for ax_ in combinations(range(templates.shape[1]), 2):
 		currentAxis = axes[ax_[1]-1, ax_[0]]
 		ax_ = list(ax_)
@@ -646,15 +774,17 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder, show = 
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
-	plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]))
-	hist_kwargs = {'bins': min(50, int(len(ids_)/50) ), 'histtype':'step', 'color':'orange'}
+	plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+	hist_kwargs = {'bins': min(50, int(len(ids_)/50 +1)), 'histtype':'step', 'color':'orange'}
 	for i, ax_ in enumerate(axes):
 		ax_.hist(templates[ids_,i], **hist_kwargs)
-		if i==0: ax_.set_ylabel("# templates")
-		ax_.set_xlabel(var_handler.labels(variable_format, latex = True)[i])
+		if i==0: ax_.set_ylabel("# templates", fontsize = fs)
+		ax_.set_xlabel(var_handler.labels(variable_format, latex = True)[i], fontsize = fs)
 		min_, max_ = np.min(templates[:,i]), np.max(templates[:,i])
 		d_ = 0.1*(max_-min_)
 		ax_.set_xlim((min_-d_, max_+d_ ))
+		ax_.tick_params(axis='x', labelsize=fs)
+		ax_.tick_params(axis='y', labelsize=fs)
 	plt.savefig(save_folder+'hist.png', transparent = False)
 	
 	if show: plt.show()
@@ -677,18 +807,52 @@ def plot_tiles(tiles_list, boundaries):
 
 @ray.remote
 def get_templates_ray(bank_obj, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = False):
+	#TODO: this function is garbage!! Shall I keep it?
 	return bank_obj.get_templates(metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose)
-	#return test_get_templates()
 
 def get_cube_corners(boundaries):
-	"Given the extrema of a cube, it computes the corner of the cube"
-	mesh = np.meshgrid(*boundaries.T)
-	mesh = [g.flatten() for g in mesh]
-	mesh = np.column_stack(mesh)
-	return mesh
+	"""
+	Given the boundaries of an hyper-rectangle, it computes all the corners of it
+	
+	Parameters
+	----------
+		boundaries: np.ndarray
+			shape: (2,D) -
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
+	
+	Returns
+	-------
+		corners: np.ndarray
+			shape: (N,D) -
+			An array with the corners. Each row is a different corner
+	
+	"""
+	corners = np.meshgrid(*boundaries.T)
+	corners = [c.flatten() for c in corners]
+	corners = np.column_stack(corners)
+	return corners
 
 def plawspace(start, stop, exp, N_points):
-	"Generates a grid which is 'power law distributed'. Helpful for a nice grid spacing in the mass sector."
+	"""
+	Generates a grid which is 'power law distributed'. It has almost the same behaviour as ``np.logspace``.
+	Helpful for a nice grid spacing in the mass sector.
+	
+	Parameters
+	----------
+		start: float
+			Starting point of the grid
+
+		end: float
+			End point of the grid	
+		
+		exp: float
+			Exponent for the equally space points
+		
+		N_points: int
+			Number of points to include in the grid		
+	
+	"""
+	assert exp != 0, "Exponent of plawspace cannot be negative!"
 	f_start = np.power(start, exp)
 	f_stop = np.power(stop, exp)
 	points = np.linspace(f_start, f_stop, N_points)
@@ -697,7 +861,26 @@ def plawspace(start, stop, exp, N_points):
 	return points
 
 def place_stochastically(MM, tile):
-	"Place templates stochastically at approximately constant distance dist"
+	"""
+	Place templates with a stochastic placing algorithm withing a given tile.
+	It iteratively propose a new template to add to the bank. The proposal is accepted if the match of the proposal with the bank is smaller than ``MM``. The iteration goes on until no template is found to have a match smaller than the given threshold ``MM``. 
+	
+	
+	Parameters
+	----------
+		MM: float
+			Minimum match. Controls the average distance between templates
+		
+		tile: tuple
+			An element of the ``tiling_handler`` object.
+			It consists of a tuple ``(scipy.spatial.Rectangle, np.ndarray)``
+	
+	Returns
+	-------
+		new_templates: np.ndarray
+			shape: (N,D) -
+			A set of templates generated by the stochastic placing algorithm within the given tile
+	"""
 	dist_sq = (1-MM)
 	new_templates = np.random.uniform(tile[0].mins, tile[0].maxes, (1, tile[0].maxes.shape[0])) #(1,D)
 	
@@ -722,8 +905,35 @@ def place_stochastically(MM, tile):
 		
 	return new_templates
 
-def place_stochastically_globally(MM, t_obj, empty_iterations = 200, first_guess = None):
-	"Does stochastic placement on the overall tiling"
+def place_stochastically_globally(MM, t_obj, empty_iterations = 200, seed_bank = None):
+	"""
+	Place templates with a stochastic placing algorithm.
+	It iteratively propose a new template to add to the bank. The proposal is accepted if the match of the proposal with the bank is smaller than ``MM``. The iteration goes on until no template is found to have a match smaller than the given threshold ``MM``. 
+	It can start from a given set of templates.
+	
+	The match of a proposal is computed against all the templats that have been added.
+	
+	Parameters
+	----------
+		MM: float
+			Minimum match. Controls the average distance between templates
+		
+		t_obj: tiling_handler
+			A tiling object to compute the match with
+		
+		empty_iterations: int
+			Number of consecutive templates that are not accepted before the placing algorithm is terminated
+			
+		seed_bank: np.ndarray
+			shape: (N,D) -
+			A set of templates that provides a first guess for the bank.
+	
+	Returns
+	-------
+		new_templates: np.ndarray
+			shape: (N,D) -
+			A set of templates generated by the stochastic placing algorithm
+	"""
 	N_neigh_templates = 20000 #FIXME: This option doesn't work!!
 
 		#User communication stuff
@@ -734,10 +944,10 @@ def place_stochastically_globally(MM, t_obj, empty_iterations = 200, first_guess
 
 	dist_sq = (1-MM)
 
-	if first_guess is None:
+	if seed_bank is None:
 		new_templates = np.concatenate([np.random.uniform(t[0].mins, t[0].maxes, (5, len(t[0].maxes))) for t in t_obj], axis=0)
 	else:
-		new_templates = np.array(first_guess)
+		new_templates = np.array(seed_bank)
 
 	nothing_new = np.zeros((len(t_obj),), dtype = int)
 	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
@@ -778,7 +988,30 @@ def place_stochastically_globally(MM, t_obj, empty_iterations = 200, first_guess
 	return new_templates
 
 def create_mesh(dist, tile, coarse_boundaries = None):
-	"Creates a mesh of points on an hypercube, given a metric."
+	"""
+	Creates a mesh of points on an hypercube, given a metric.
+	The points are approximately equally spaced with a distance ``dist``.
+	
+	Parameters
+	----------
+		dist: float
+			Distance between templates
+		
+		tile: tuple
+			An element of the ``tiling_handler`` object.
+			It consists of a tuple ``(scipy.spatial.Rectangle, np.ndarray)``
+	
+		coarse_boundaries: np.ndarray
+			shape: (2,D) -
+			An array with the coarse boundaries of the tiling.
+			If given, each tile is checked to belong to the border of the tiling. If it's the case, some templates are added to cover the boundaries
+
+	Returns
+	-------
+		mesh: np.ndarray
+			shape: (N,D) - 
+			A mesh of N templates that cover the tile
+	"""
 	#dist: float
 	#metric: (D,D)
 	#boundaries (2,D)
@@ -872,8 +1105,10 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 
 ###########################################################################################
 
+#All the garbage here should be removed!!
+
 def points_in_hull(points, hull, tolerance=1e-12):
-	"Check if points (N,D) are in the hull"
+	#"Check if points (N,D) are in the hull"
 	if points.ndim == 1:
 		points = point[None,:]
 	
@@ -883,7 +1118,7 @@ def points_in_hull(points, hull, tolerance=1e-12):
 	return np.prod(value_list<= tolerance, axis = 1).astype(bool) #(N,)
 
 def all_line_hull_intersection(v, c, hull):
-	"Compute all the intersection between N_lines and a single hull"
+	#"Compute all the intersection between N_lines and a single hull"
 	if c.ndim == 1:
 		c = np.repeat(c[None,:], v.shape[0], axis =0)
 
@@ -901,7 +1136,7 @@ def all_line_hull_intersection(v, c, hull):
 	return res.reshape((res.shape[0]*res.shape[1], res.shape[2]))
 
 def sample_from_hull(hull, N_points):
-	"Sample N_points from a convex hull"
+	#"Sample N_points from a convex hull"
 	dims = hull.points.shape[-1]
 	del_obj = scipy.spatial.Delaunay(hull.points) #Delaunay triangulation obj
 	deln = hull.points[del_obj.simplices] #(N_triangles, 3, dims)
@@ -919,7 +1154,7 @@ def sample_from_hull(hull, N_points):
 
 #@do_profile(follow=[])
 def sample_from_hull_boundaries(hull, N_points, boundaries = None, max_iter = 1000):
-	"SamplesN_points from a convex hull. If boundaries are given, it will enforce them"
+	#"SamplesN_points from a convex hull. If boundaries are given, it will enforce them"
 	dims = hull.points.shape[1]
 	del_obj = scipy.spatial.Delaunay(hull.points)
 	deln = hull.points[del_obj.simplices]
@@ -953,7 +1188,7 @@ def sample_from_hull_boundaries(hull, N_points, boundaries = None, max_iter = 10
 	return samples
 
 def plot_hull(hull, points = None):
-	"Plot the hull and a bunch of additional points"
+	#"Plot the hull and a bunch of additional points"
 	plt.figure()
 	for simplex in hull.simplices:
 		plt.plot(hull.points[simplex, 0], hull.points[simplex, 1], 'g-')
@@ -965,7 +1200,7 @@ def plot_hull(hull, points = None):
 	return
 
 def get_pad_points_2d(N_grid, boundaries):
-	"Get N points padding the boundary box"
+	#"Get N points padding the boundary box"
 	m1, M1 = boundaries[:,0]
 	m2, M2 = boundaries[:,1]
 	m, M = min(m1,m2), max(M1, M2)
@@ -981,7 +1216,7 @@ def get_pad_points_2d(N_grid, boundaries):
 	return new_points_2D
 
 def get_pad_points(N_grid, boundaries):
-	"Get N points padding the boundary box"
+	#"Get N points padding the boundary box"
 	#FIXME: this function is shit
 	m1, M1 = boundaries[:,0]
 	m2, M2 = boundaries[:,1]
@@ -1045,7 +1280,7 @@ def get_boundary_box(grid_list):
 		
 def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20.):
 		"""
-		Save the bank to a ligo xml injection file (sim_inspiral table).
+		Save the given injections to a ligo xml injection file (sim_inspiral table).
 		
 		Parameters
 		----------
@@ -1053,8 +1288,8 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 		filename: str
 			Filename to save the injections at
 		
-		injs: 'np.ndarray'
-			Injection array (N,10)
+		injs: np.ndarray
+			Injection array (N,12)
 		
 		GPS_start: int
 			Start GPS time for the injections

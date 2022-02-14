@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 """
+mbank_run
+---------
+
 A script to run mbank for generating a bank
------
+
 To generate a bank:
+
 	mbank_run --options-you-like
-Make sure that the mbank is installed with
-	python setup.py sdist
-	pip install dist/mbank-0.0.1.tar.gz
+
+You can also load (some) options from an ini-file:
+
+	mbank_run --some-options other_options.ini
+
+Make sure that the mbank is properly installed.
 To know which options are available:
+
 	mbank_run --help
 """
 import numpy as np
@@ -18,7 +26,7 @@ import lal.series
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.utils import parse_from_file, load_PSD
+from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD
 
 import argparse
 import os
@@ -30,16 +38,12 @@ def int_tuple_type(strings):
 
 
 ##### Creating parser
-var_handler = variable_handler()
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
-	'--ini-file', type=open, action=parse_from_file, required = False,
-	help="Initialization file that stores any option for the parser. An option will be overwritten if the command is given explicitely by command line and differes from default. If the option is left blank, all the arguments will be read from command line.")
+	"--variable-format", required = False,
+	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
 parser.add_argument(
-	"--variable-format", choices= var_handler.valid_formats, required = False,
-	help="Choose which variables to include in the bank")
-parser.add_argument(
-	"--MM", required = False, type = float,
+	"--mm", required = False, type = float, default = 0.97,
 	help="Minimum match for the bank (a.k.a. average distance between templates)")
 parser.add_argument(
 	"--psd",  required = False,
@@ -75,7 +79,7 @@ parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
-	"--placing-method", default = 'p_disc', type = str, choices = ['p_disc', 'uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'],
+	"--placing-method", default = 'geometric', type = str, choices = ['uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'],
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,
@@ -125,16 +129,22 @@ parser.add_argument(
 	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
 	help="Range values for reference phase (if applicable)")
 
+args, filenames = parser.parse_known_args()
 
-args, _ = parser.parse_known_args()
+	#updating from the ini file(s), if it's the case
+for f in filenames:
+	args = updates_args_from_ini(f, args, parser)
 
 ####################################################################################################
 	######
 	#	Interpreting the parser and initializing variables
 	######
 
-if (args.psd is None) or (args.MM is None) or (args.variable_format is None):
-	raise ValueError("The arguments MM, PSD and variable_format must be set!")
+if (args.psd is None) or (args.mm is None) or (args.variable_format is None):
+	raise ValueError("The arguments mm, psd and variable_format must be set!")
+
+var_handler = variable_handler()
+assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
 
 if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.run_name)
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
@@ -182,6 +192,8 @@ elif format_info['spin_format'] == 's1z_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, s2_min],[var1_max, var2_max, s1_max, s2_max]])
 elif format_info['spin_format'] == 's1xz':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min],[var1_max, var2_max, s1_max, theta_max]])
+elif format_info['spin_format'] == 's1xyz':
+	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, phi_min],[var1_max, var2_max, s1_max, theta_max, phi_max]])
 elif format_info['spin_format'] == 's1xz_s2z':
 	boundaries = np.array([[var1_min, var2_min, s1_min, theta_min, s2_min],[var1_max, var2_max, s1_max, theta_max, s2_max]])
 elif format_info['spin_format'] == 's1xyz_s2z':
@@ -220,7 +232,7 @@ if format_info['mass_format'] == 'm1m2':
 
 if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
 	
-	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.MM, boundaries = boundaries, N_temp = args.template_in_tile,
+	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, N_temp = args.template_in_tile,
 		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, show = args.show)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder

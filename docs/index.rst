@@ -15,6 +15,7 @@ Welcome to ``mbank``'s documentation!
    usage/overview.md
    usage/bank_generation.md
    usage/injections.md
+   usage/metric.md
 
 .. toctree::
    :maxdepth: 2

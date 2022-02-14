@@ -1,0 +1,151 @@
+\documentclass[twocolumn,showpacs,preprintnumbers,nofootinbib,prd,
+superscriptaddress,10pt]{revtex4-1}
+
+\usepackage{amsmath,amssymb}
+\usepackage{amsfonts}
+\usepackage[normalem]{ulem}
+\usepackage{textcomp}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{bm}
+\usepackage{afterpage}
+\usepackage{graphicx}
+\usepackage{psfrag}
+\usepackage{mathtools}
+\usepackage{tensor}
+\usepackage{layouts}
+\usepackage{DejaVuSans}
+\usepackage{epstopdf}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[utf8]{inputenc}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{blindtext}
+\usepackage{graphicx}
+\usepackage{siunitx}
+	\sisetup{output-decimal-marker={.}}
+	
+	%some math symbols
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\DeclareMathOperator{\sign}{sign}
+\renewcommand{\d}[1]{\ensuremath{\operatorname{d}\!{#1}}}
+%argmin and argmax
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+% comments command
+\newcommand{\an}[1]{{\textcolor{orange}{\texttt{AN: #1}} }}
+\newcommand{\pr}[1]{{\textcolor{cyan}{\texttt{PR: #1}} }}
+\newcommand{\fm}[1]{{\textcolor{blue}{\texttt{FM: #1}} }}
+\newcommand{\sschmidt}[1]{{\textcolor{red}{\texttt{SS: #1}} }}
+\newcommand{\BS}[1]{{\textcolor{green}{\texttt{SB: #1}} }}
+\newcommand{\oldnewtxt}[2]{\sout{#1}\textcolor{red}{#2}}
+
+\begin{document}
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
+\begin{abstract}
+ABSTRACT...
+
+\end{abstract}
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
+	\title{Metric bank placement}
+	\author{Stefano \surname{Schmidt}}
+		\email{s.schmidt@uu.nl}
+        \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
+        \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
+Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
+        
+        %
+	\author{Sarah \surname{Caudill}}
+		\email{s.e.caudill@uu.nl}
+        \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
+        \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
+Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
+	\maketitle
+
+	\tableofcontents
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY  
+\section{Introduction}
+Usual intro \cite{PhysRevD.95.042001}. Essential features of \texttt{mbank}:
+	\begin{itemize}
+		\item Fast
+		\item Decently accurate
+		\item Useful for exploration of exotic banks
+	\end{itemize}
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Methods}
+
+\subsection{The metric}
+
+Description of the metric (also in appendix \ref{app:metric})
+
+\subsection{The tiling}
+
+Description of the tiling and how it is generated.
+
+\subsection{Bank generation}
+
+Description of the workflow for the bank generation.
+The geometric placing method is described in appendix \ref{app:placing}
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Validation}
+
+\subsection{Metric accuracy}
+
+Histogram with the actual match for points with a constant metric match
+
+\subsection{Tiling accuracy}
+
+Compute the match computed with the tiling vs the actual match.
+
+\subsection{Comparison with \texttt{sbank} }
+
+Generating 2/3 small non-precessing banks with both \texttt{mbank} and \texttt{sbank}.
+Comparison based on:
+	\begin{itemize}
+		\item size
+		\item effectualness
+		\item speed
+	\end{itemize}
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Bank generation: two case studies}
+
+Useful to present the features of these two banks generated?
+
+\subsection{An precessing bank}
+This could be the bank we use for precessing searches.
+
+\subsection{An eccentric bank}
+This could be a nonspinning, eccentric bank. It should have 500K templates for a reasonable range of masses.
+
+\section{Final remarks and future prospects}
+Usual stuff
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ACKNOWLEDGMENTS
+        \begin{acknowledgments}
+         
+          WRITEME...
+        \end{acknowledgments}
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% APPENDIX
+\appendix
+\section{Details of the metric computation}\label{app:metric}
+\section{Details of the geometric template placing}\label{app:placing}
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY
+	\bibliography{biblio.bib}
+	\bibliographystyle{ieeetr}
+
+\end{document}
+
+
+

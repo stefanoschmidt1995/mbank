@@ -24,7 +24,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically, place_stochastically_globally, DefaultSnglInspiralTable
+from .utils import plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically_in_tile, place_stochastically_globally, place_stochastically, DefaultSnglInspiralTable
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -109,7 +109,7 @@ class cbc_bank():
 			avg_dist: float
 				Average distance between templates
 		"""
-		#return np.sqrt((1-avg_match)/self.D)
+		#return 2.5*np.sqrt((1-avg_match)/self.D)
 		return 2*np.sqrt((1-avg_match)/self.D) #Owen
 
 	def load(self, filename):
@@ -399,7 +399,7 @@ class cbc_bank():
 		
 		for t in it:
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
-			eigs, _ = np.linalg.eig(t[1]) #determinant of the metric
+			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
 				#some sanity checks on the metric eigenvalues
 			if np.any(eigs > 0):
@@ -413,7 +413,8 @@ class cbc_bank():
 			
 			if placing_method == 'uniform':
 					#N_templates is computed with a mesh, more realistic...
-				N_templates = int(t_obj.N_templates(*t, avg_dist)+1) #Computed by tiling_handler
+				N_templates = max(1, int(t_obj.N_templates(*t, avg_dist))) #Computed by tiling_handler
+				#print('\t',self.variable_format, N_templates) #DEBUG
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 				
 			elif placing_method == 'geometric' or placing_method == 'stochastic':
@@ -431,7 +432,7 @@ class cbc_bank():
 				
 				new_templates_ = temp_t_obj.get_centers()
 			#elif placing_method == 'stochastic':
-				#new_templates_ = place_stochastically(avg_match, t)
+				#new_templates_ = place_stochastically_in_tile(avg_match, t)
 				#break
 		
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
@@ -439,7 +440,11 @@ class cbc_bank():
 
 		if placing_method == 'pure_stochastic' or placing_method == 'stochastic':
 			if len(new_templates) == 0: new_templates = None #pure stochastic
-			new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, seed_bank = new_templates) #this is if I have a first guess
+			#new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, seed_bank = new_templates) #this is if I have a first guess
+			
+			new_templates = place_stochastically(avg_match, t_obj, self, empty_iterations = 400/self.D, seed_bank = new_templates)
+			self.templates = None
+			
 			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
 				dist_t = t[0].min_distance_point(new_templates)
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
@@ -448,9 +453,9 @@ class cbc_bank():
 		self.add_templates(new_templates)
 		return tile_id_population #shall I save it somewhere??	
 
-	def _generate_tiling(self, metric_obj, coarse_boundaries, avg_dist, N_temp, use_ray = False ):
+	def generate_tiling(self, metric_obj, boundaries_list, N_temp, use_ray = False, verbose = True):
 		"""
-		Creates a tiling of the space, starting from a coarse tile.
+		Creates a tiling of the space, starting from a coarse tiling.
 		
 		Parameters
 		----------
@@ -458,18 +463,22 @@ class cbc_bank():
 		metric_obj: cbc_metric
 			A ``cbc_metric`` object to compute the match with
 
-		N_temp: int
-			Maximum number of templates that each tile may contain
-
-		avg_dist: float
-			Average distance (in the metric space) between templates
-		
-		coarse_boundaries: list
+		boundaries_list: list
 			A list of boundaries for a coarse tiling. Each box will have its own independent hierarchical tiling
-			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube
-		
+			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube.
+			Each element can also be a (2,D) `np.ndarray`.
+			If a single `np.ndarray` is given
+			
+
+		N_temp: int
+			Maximum number of templates that each tile may contain at a **reference template spacing of 0.1**
+			This is a measure of the volume of each tile
+					
 		use_ray: bool
 			Whether to use ray to parallelize
+
+		verbose: bool
+			whether to print to screen the output
 		
 		Returns
 		-------
@@ -477,16 +486,24 @@ class cbc_bank():
 		tiling: tiling_handler 
 			A list of tiles ready to be used for the bank generation
 		"""
+			#checking on boundaries_list
+		if not isinstance(boundaries_list, list):
+			if isinstance(boundaries_list, np.ndarray):
+				if boundaries_list.ndim ==2 and boundaries_list.shape[0]==2: boundaries_list = [boundaries_list]
+				else: raise ValueError("If `boundaries_list` is an array, its shape must be (2,D)")
+			else:
+				raise ValueError("Wrong value for the entry `boundaries_list`")
+
 		t_obj = tiling_handler() #empty tiling handler
 		temp_t_obj = tiling_handler()
 		t_ray_list = []
 		
-		for i, b in enumerate(coarse_boundaries):
+		for i, b in enumerate(boundaries_list):
 			if use_ray:
 				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
-							N_temp, metric_obj.get_metric, avg_dist, verbose = True , worker_id = i) )
+							N_temp, metric_obj.get_metric, avg_dist = 0.1, verbose = verbose , worker_id = i) )
 			else:
-				t_obj += temp_t_obj.create_tiling(b, N_temp, metric_obj.get_metric, avg_dist, verbose = True, worker_id = None) #adding the newly computed templates to the tiling object
+				t_obj += temp_t_obj.create_tiling(b, N_temp, metric_obj.get_metric, avg_dist = 0.1, verbose = verbose, worker_id = None) #adding the newly computed templates to the tiling object
 			
 		if use_ray:
 			t_ray_list = ray.get(t_ray_list)
@@ -498,7 +515,7 @@ class cbc_bank():
 		
 		return t_obj
 			
-	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp = 200, placing_method = 'geometric', plot_folder = None, use_ray = False, show = True):
+	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp, placing_method = 'geometric', plot_folder = None, use_ray = False, show = True):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -524,7 +541,8 @@ class cbc_bank():
 			If use ray option is set, the subtiling of each coarse division will run in parallel
 		
 		N_temp: int
-			Maximum number of templates that each tile may contain
+			Maximum number of templates that each tile may contain at a **reference template spacing of 0.1**
+			This is a measure of the volume of each tile
 
 		placing_method: str
 			The placing method to set templates in each tile. It can be:
@@ -580,11 +598,11 @@ class cbc_bank():
 		grid_list = grid_list_
 		
 		lower_boxes, upper_boxes = get_boundary_box(grid_list)
-		coarse_boundaries = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
+		boundaries_list = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
 		
 			###
 			#creating the tiling
-		t_obj = self._generate_tiling(metric_obj, coarse_boundaries, avg_dist, N_temp, use_ray = use_ray )	
+		t_obj = self.generate_tiling(metric_obj, boundaries_list, N_temp, use_ray = use_ray )	
 		
 			##
 			#placing the templates

@@ -83,7 +83,7 @@ parser.add_argument(
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,
-	help="How many templates should lie in each tile?")
+	help="Maximum number of templates in each tile, assuming a constant reference distance between them of 0.1 (according to the metric). This is an indirect measure of the volume of each tile.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")

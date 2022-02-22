@@ -10,7 +10,7 @@ To generate a bank, you need to specify the following options to the command `mb
 - `psd`: a psd file. If the option `asd` is set, the is understood to keep an ASD. The `ifo` option controls the interferometer to read the PSD of
 - `placing-method`: the placing method to be used
 - `grid-size`: set the size of the first coarse division along each variable. If the `use-ray` option is set, each coarse division will run in parallel
-- `template-in-tile`: maximum number of templates in each tile that are tolerated in the iterative splitting. The smaller, the more precise is the tiling
+- `template-in-tile`: Maximum number of templates in each tile, assuming a constant reference distance between them of 0.1 (according to the metric). This is an indirect measure of the volume of each tile.
 - `approximant`: the lal waveform approximant to use for the metric computation
 - `f-min`, `f-max`: the start and end frequency for the match (and metric) computation
 - `var-range`: sets the boundaries for the variable `var`.

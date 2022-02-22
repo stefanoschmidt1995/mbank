@@ -31,6 +31,7 @@ from tqdm import tqdm
 import ray
 
 import scipy.stats
+import scipy.integrate
 import scipy.spatial
 
 ####################################################################################################################
@@ -794,12 +795,13 @@ class tiling_handler(list):
 		"""
 		Computes the approximate number of templates given metric, rect and avg_dist
 
-		N_templates is compute as:
+		`N_templates` is compute as:
 		
 		::
 		
-			N_templates = rect.volume() * sqrt(abs(det(metric))) / D
+			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
 		
+		`N_templates` is a measure of volume if `avg_dist` is kept fixed
 
 		Parameters
 		----------
@@ -835,10 +837,11 @@ class tiling_handler(list):
 		return centers
 	
 	@ray.remote
-	def create_tiling_ray(self, boundaries, N_temp, metric_func, avg_dist, verbose = True, worker_id = None):
+	def create_tiling_ray(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
+		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
 		return self.create_tiling(boundaries, N_temp, metric_func, avg_dist, verbose, worker_id)
 	
-	def create_tiling(self, boundaries, N_temp, metric_func, avg_dist, verbose = True, worker_id = None):
+	def create_tiling(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
 		"""
 		Create a tiling within the boundaries by a hierarchical iterative splitting
 		
@@ -852,6 +855,7 @@ class tiling_handler(list):
 
 		N_temp: int
 			Maximum number of templates that shall lie within the tile. The number of templates in each tile will be always smaller than ``N_temp``
+			Default is 0.1, the reference value for `cbc_bank.generate_bank()`.
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -882,6 +886,12 @@ class tiling_handler(list):
 		D = boundaries[0].shape[0]
 		start_rect = scipy.spatial.Rectangle(boundaries[0], boundaries[1])
 		start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
+		
+		if start_rect.volume()<1e-19:
+			warnings.warn("The given boundaries are degenerate (i.e. zero volume) and a single tile was generated: this may not be what you expected")
+			self.clear() #empty whatever was in the old tiling
+			self.extend( [(start_rect, start_metric)])
+			return self
 		
 		####
 		#Defining some convenience function
@@ -927,7 +937,7 @@ class tiling_handler(list):
 				#loops on tiles an updating tiles_list
 			for t in tiles_list:
 
-				if t[2] <= N_temp: #a bit of tolerance? Good idea?
+				if t[2] <= N_temp:
 					if verbose: V_covered += t[0].volume()
 					continue
 				
@@ -940,7 +950,7 @@ class tiling_handler(list):
 								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist)), ]
 				
 				
-					#replacing the old tile with a new one
+					#replacing the old tile with the new ones
 				tiles_list.remove(t)
 				tiles_list.extend(extended_list)
 
@@ -956,6 +966,55 @@ class tiling_handler(list):
 		#self.extend( [{'rect':t[0], 'metric':t[1]} for t in tiles_list] )
 		
 		return self
+	
+	def compute_volume(self, metric_func = None):
+		"""
+		Compute the volume of the space an the volume of each tile.
+		The volume will be computed with the metric approximation by default.
+		If `metric_function` is a function, the volume will be computed by means of an integration.
+		It must returns a metric approximation given a point theta in D dimension.
+		
+		The volume is computed as the integral of ``sqrt{|M(theta)|}`` over the D dimensional space of the tile.
+		
+		Using a metric function for the integration, may be veeeery slow!
+		
+		Parameters
+		----------
+			metric_func: function
+				A function that accepts theta and returns the metric.
+				A common usage would be:
+				
+				::
+				
+					metric_obj = mbank.metric.cbc_metric(**args)
+					metric_func = metric_obj.get_metric
+			
+		Returns
+		-------
+			volume: float
+				The volume of the space covered by the tiling
+			
+			tiles_volume: list
+				The volume covered by each tile
+		"""
+		if metric_func is None:
+			tiles_volume = [rect.volume()*np.sqrt(np.abs(np.linalg.det(metric))) for rect, metric in self.__iter__()]
+		else:
+			tiles_volume = []
+
+				#casting metric function to the weird format required by scipy
+			def metric_func_(*args):
+				theta = np.column_stack(args)
+				return metric_func(theta)
+
+			for rect, _ in tqdm(self.__iter__(), desc = 'Computing the volume of each tile'):
+				ranges = [(rect.mins[i], rect.maxes[i]) for i in range(rect.maxes.shape[0])]
+				tile_volume, abserr, out_dict = scipy.integrate.nquad(metric_func_, ranges, opts = {'limit':2}, full_output = True)
+				tiles_volume.append(tile_volume)
+				#print(tile_volume)
+		
+		volume = sum(tiles_volume)
+		return volume, tiles_volume
 	
 	def save(self, filename):
 		"""

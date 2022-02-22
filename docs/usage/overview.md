@@ -46,7 +46,7 @@ If you're not sure which options are available, feel free to use the `--help` op
 	mbank_place_templates --help
 
 As many options are in commond with the all the `mbank` commands, you're encouraged to use the same ini both for all the tasks that `mbank` can do. This will let you to keep everything in a single place, ensuring consistency between runs.
-You can find some complete example ini files [here](get/ini/file).
+You can find some complete example ini files [here](https://github.com/stefanoschmidt1995/mbank/tree/master/examples).
 
 In next pages of the documentation, you can find more details on the actual use of the code.
 

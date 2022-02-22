@@ -148,6 +148,69 @@ def updates_args_from_ini(ini_file, args, parser):
 
 ####################################################################################################################
 
+def get_boundaries_from_ranges(format_info, M_range, q_range,
+	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), theta_range = (0, np.pi), phi_range = (-np.pi, np.pi),
+	iota_range = (0, np.pi), ref_phase_range = (-np.pi, np.pi), e_range = (0., 0.5), meanano_range = (0.1, 1.)):
+	"""
+	Given the ranges of each quantity, it combines them in a bondary array, suitable for other uses in the package (for instance in the bank generation).
+	No checks are performed whether the given ranges make sense.
+	
+	Parameters
+	----------
+		format_info: dict
+			Dict holding the format information
+			It can be generated with: `variable_handler().format_info[variable_format]`
+		
+		M_range, q_range, s1_range, s2_range, theta_range, phi_range, iota_range, ref_phase_range, e_range, meanano_range: tuple
+			Ranges for each physical quantity. They will be used whenever required by the `variable_format`
+			If `mchirpeta` mass format is set, `M_range` and `q_range` are interpreted as mchirp and eta respectively.
+	
+	Returns
+	-------
+		boundaries: np.ndarray
+			shape (2,D) -
+			An array with the boundaries.
+	"""
+	######
+	#	Setting boundaries: shape (2,D)
+	######
+	if format_info['spin_format'].find('1x') >-1 and s1_range[0]<0.:
+		s1_range = (0, s1_range[0])
+	if format_info['spin_format'] == 'fullspins':
+		if s1_range[0]< 0: s1_range = (0, s1_range[0])
+		if s2_range[0]< 0: s2_range = (0, s2_range[0])
+		
+		#setting spin boundaries
+	if format_info['spin_format'] == 'nonspinning':
+		boundaries = np.array([[M_range[0], q_range[0]],[M_range[1], q_range[1]]])
+	elif format_info['spin_format'] == 's1z_s2z':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], s2_range[0]],[M_range[1], q_range[1], s1_range[1], s2_range[1]]])
+	elif format_info['spin_format'] == 's1xz':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], theta_range[0]],[M_range[1], q_range[1], s1_range[1], theta_range[1]]])
+	elif format_info['spin_format'] == 's1xyz':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], theta_range[0], phi_range[0]],[M_range[1], q_range[1], s1_range[1], theta_range[1], phi_range[1]]])
+	elif format_info['spin_format'] == 's1xz_s2z':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], theta_range[0], s2_range[0]],[M_range[1], q_range[1], s1_range[1], theta_range[1], s2_range[1]]])
+	elif format_info['spin_format'] == 's1xyz_s2z':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], theta_range[0], phi_range[0], s2_range[0]],[M_range[1], q_range[1], s1_range[1], theta_range[1], phi_range[1], s2_range[1]]])
+	elif format_info['spin_format'] == 'fullspins':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], theta_range[0], phi_range[0], s2_range[0], theta_range[0], phi_range[0],],[M_range[1], q_range[1], s1_range[1], theta_range[1], phi_range[1], s2_range[1], theta_range[1], phi_range[1]]])
+	else:
+		raise RuntimeError("Boundaries current not implemented for the required format of spins {}: apologies :(".format(format_info['spin_format']))
+
+	if format_info['e']:
+		boundaries = np.concatenate([boundaries, [[e_range[0]], [e_range[0]]]], axis =1)
+	if format_info['meanano']:
+		boundaries = np.concatenate([boundaries, [[meanano_range[0]], [meanano_range[1]]]], axis =1)
+	if format_info['iota']:
+		boundaries = np.concatenate([boundaries, [[iota_range[0]], [iota_range[1]]]], axis =1)
+	if format_info['phi']:
+		boundaries = np.concatenate([boundaries, [[ref_phase_range[0]], [ref_phase_range[1]]]], axis =1)
+	
+	return boundaries #(2,D)
+	
+
+####################################################################################################################
 def load_PSD(filename, asd = False, ifo = 'H1'):
 	"""
 	Loads a PSD from file and returns a grid of frequency and PSD values
@@ -191,11 +254,10 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 	return f, PSD	
 
 ####################################################################################################################
-def compute_avg_dist(bank, tiling, metric_obj, metric_approx = True):
+def compute_avg_metric_dist(bank, tiling, N_neigh_templates = 10, metric_obj = None):
 	"""
 	Given a tiling and a bank, it computes the distance of the nearest neighbour for each template.
-	
-	
+	It is a wrapper to ``compute_metric_injections_match_bruteforce``.
 	
 	Parameters
 	----------
@@ -205,70 +267,27 @@ def compute_avg_dist(bank, tiling, metric_obj, metric_approx = True):
 
 		tiling: tiling_handler
 			``tiling_handler`` object with a valid tiling
-			
-		metric_obj: cbc_metric
-			A ``cbc_metric`` object to compute the match with
 		
-		metric_approx: bool
-			Whether to use the metric to approximate the match
+		N_neigh_templates: int
+			Number of neighbours templates to consider
+		
+		metric_obj: cbc_metric
+			A cbc_metric object to compute the match with. If None, only the metric approximation will be used
 		
 	Returns
 	-------
 			
-		out_list: 'list'
-			A list of dict.
-			For each tile it is recorded a dict with {'theta_inj': (N_inj,D), 'match': (N_inj,), 'id_match': (N_inj,)}
+		out_dict: dict
+			A dictionary with the output. It has the same format of ``compute_metric_injections_match_bruteforce``
 	"""
-		#TODO: check this function makes sense
-	out_list = []
-	id_tile = -1
-	for t in tqdm(tiling[:10]):
-		id_tile += 1
-		dist_t = t[0].min_distance_point(bank.templates)
-		ids_t = np.where(dist_t == 0.)[0] #(N,) #ids of the templates that lie within this tile
+	out_dict = compute_metric_injections_match_bruteforce(bank.templates, bank, tiling, N_neigh_templates)
 
-		if len(ids_t) ==0: continue #skipping this
-		
-			#getting the template
-		templates_t = bank.templates[ids_t,:]
-		
-		#if metric_approx:
-				#you need to do the outer product of the difference... how??
-		#	diff = np.einsum('ij,lj->ilj', templates_t, templates_t)
-		#	matches_t_ = 1 + np.einsum('ilj,jk,ilk->il', diff, t[1], diff)
-		
-		if not metric_approx:
-			templates_t_WFs = metric_obj.get_WF(templates_t) #(N, D)
-		
-		matches_t = []
-		
-		for i in range(templates_t.shape[0]):
-		
-			if metric_approx:
-				template_ = np.repeat([templates_t[i,:]], len(templates_t), axis =0) #(N,D)
-				match_i = metric_obj.metric_match(templates_t, template_, t[1]) #(N,)
-			else:
-				template_ = np.repeat([templates_t_WFs[i,:]], len(templates_t), axis =0) #(N,D)
-				match_i = metric_obj.WF_match(templates_t_WFs, template_) #(N,)
-			
-			#print(match_i)
-			
-			matches_t.append(match_i)
+	if metric_obj is not None:
+		templates = np.array(bank.var_handler.get_BBH_components(bank.templates, bank.variable_format)).T
+		metric_obj.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
+		out_dict = compute_injections_match(out_dict, templates, metric_obj, N_neigh_templates = N_neigh_templates, symphony_match = False, cache = True, worker_id = None)
 
-		matches_t = np.array(matches_t) #(N_t, N_t)
-		
-		matches_t = matches_t-np.eye(matches_t.shape[0])
-		
-		ids_max_t = np.argmax(matches_t, axis =1) #(N_t,) #id of the best matching template for each injection (ids refers to ids_t)
-
-		matches_t = np.max(matches_t, axis =1) #(N_t,)
-		ids_max_t = [ids_t[id_max] for id_max in ids_max_t] #(N_t,) #id of the best matching template for each injection (ids refers to bank)
-
-		matches_t = metric_obj.metric_match( bank.templates[ids_max_t,:], templates_t, t[1])
-
-		out_list.append({'tile': id_tile,  'match': matches_t, 'id_match': ids_max_t})
-
-	return out_list
+	return out_dict
 
 def ray_compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates = 10, symphony_match = False, cache = True):
 	"""
@@ -470,7 +489,7 @@ def compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates 
 
 
 ####################################################################################################################	
-def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templates = 10):
+def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templates = 10, verbose = True):
 	"""
 	Computes the match of the injection with the bank by using the metric approximation.
 	It makes use of a brute force approach where each injection is checked against each template of the bank. The metric used is the one of the tile each injection belongs to
@@ -478,8 +497,10 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 	Parameters
 	----------
 		injs: np.ndarray
-			shape: (N,12) -
-			A set of injections in the full format of the ``mbank.metric.cbc_metric.get_BBH_components()``.
+			shape: (N,12)/(N,D) -
+			A set of injections.
+			If the shape is `(N,D)` they are assumed to be the lie in the bank manifold.
+			Otherwise, they are in the full format of the ``mbank.metric.cbc_metric.get_BBH_components()``.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 		
 		bank: cbc_bank
@@ -490,6 +511,9 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 		
 		N_neigh_templates: int
 			Number of nearest neigbour to report in the output
+		
+		verbose: bool
+			Whether to print the output
 		
 	Returns
 	-------
@@ -517,9 +541,17 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 				}
 	
 		#Projecting the injection on the template manifold
-	injs = bank.var_handler.get_theta(injs, bank.variable_format)
+	if injs.shape[1] == 12:
+		injs = bank.var_handler.get_theta(injs, bank.variable_format)
+	if injs.shape[1] != bank.D:
+		raise ValueError("Wrong input size for the injections")
+
 	dist_t = []
-	for t in tqdm(tiling, desc='Identifying a tile for each injection', leave = True):
+	
+	if verbose: t_iter = tqdm(tiling, desc='Identifying a tile for each injection', leave = True)
+	else: t_iter = tiling
+	
+	for t in t_iter:
 		dist_t.append( t[0].min_distance_point(injs) ) #(N_injs,)
 	dist_t = np.stack(dist_t, axis = 1) #(N_injs, N_tiles)
 	id_sort = np.argmin(dist_t, axis = 1)
@@ -531,17 +563,20 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 	out_dict['id_tile'] = id_sort
 	N_argpartiton = 20000
 	
-	for i in tqdm(range(injs.shape[0]), desc = 'Evaluating brute force metric match for injections', leave = True):
+	if verbose: r_iter = tqdm(range(injs.shape[0]), desc = 'Evaluating brute force metric match for injections', leave = True)
+	else: r_iter = range(injs.shape[0])
+	
+	for i in r_iter:
 		diff = bank.templates - injs[i] #(N_templates, D)
 		
 		#these are the indices being checked
-		#TODO: check this is fine!!!
 		
 		if N_argpartiton < bank.templates.shape[0]:
 			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
 		else:
 			id_diff_ok = np.arange(bank.templates.shape[0])
 		
+			#TODO: use here the metric of the tile of the average (bank.templates + injs[i])/2.
 		match_i = 1 + np.einsum('ij, jk, ik -> i', diff[id_diff_ok], tiling[out_dict['id_tile'][i]][1], diff[id_diff_ok])
 		indices_i = np.argpartition(match_i, -N_neigh_templates)[-N_neigh_templates:]
 		
@@ -553,6 +588,10 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 			#id = 0 if not template dist, 1 if template dist
 		out_dict['id_match'][i] = out_dict['id_match_neig'][i, int(template_dist)]
 		out_dict['match'][i] = out_dict['match_neig'][i, int(template_dist)]
+
+	#removing the first match in the case of template distance
+	out_dict['id_match_neig'] = out_dict['id_match_neig'][:, int(template_dist):]
+	out_dict['match_neig'] = out_dict['match_neig'][:, int(template_dist):]
 		
 	return out_dict
 
@@ -860,7 +899,7 @@ def plawspace(start, stop, exp, N_points):
 	
 	return points
 
-def place_stochastically(MM, tile):
+def place_stochastically_in_tile(MM, tile):
 	"""
 	Place templates with a stochastic placing algorithm withing a given tile.
 	It iteratively propose a new template to add to the bank. The proposal is accepted if the match of the proposal with the bank is smaller than ``MM``. The iteration goes on until no template is found to have a match smaller than the given threshold ``MM``. 
@@ -986,6 +1025,89 @@ def place_stochastically_globally(MM, t_obj, empty_iterations = 200, seed_bank =
 		nothing_new[~accepted] += 1
 		
 	return new_templates
+
+def place_stochastically(MM, t_obj, bank, empty_iterations = 200, seed_bank = None):
+	"""
+	Place templates with a stochastic placing algorithm
+	It iteratively propose a new template to add to the bank. The proposal is accepted if the match of the proposal with the bank is smaller than ``MM``. The iteration goes on until no template is found to have a match smaller than the given threshold ``MM``. 
+	It can start from a given set of templates.
+	
+	Unlike `place_stochastically_globally`, the match of the proposals is computed with `compute_metric_injections_match_bruteforce`.
+	
+	The match of a proposal is computed against all the templats that have been added.
+	
+	Parameters
+	----------
+		MM: float
+			Minimum match. Controls the average distance between templates
+		
+		t_obj: tiling_handler
+			A tiling object to compute the match with
+		
+		bank: cbc_bank
+			A ``cbc_bank`` object. The bank will be filled with the new templates generated
+		
+		empty_iterations: int
+			Number of consecutive templates that are not accepted before the placing algorithm is terminated
+			
+		seed_bank: np.ndarray
+			shape: (N,D) -
+			A set of templates that provides a first guess for the bank.
+	
+	Returns
+	-------
+		new_templates: np.ndarray
+			shape: (N,D) -
+			A set of templates generated by the stochastic placing algorithm
+	"""
+	N_neigh_templates = 20000 #FIXME: This option doesn't work!!
+
+		#User communication stuff
+	def dummy_iterator():
+		while True:
+			yield
+	t_ = tqdm(dummy_iterator())
+
+	dist_sq = (1-MM)
+
+	if seed_bank is None:
+		new_templates = np.concatenate([np.random.uniform(t[0].mins, t[0].maxes, (5, len(t[0].maxes))) for t in t_obj], axis=0)
+	else:
+		new_templates = np.array(seed_bank)
+
+	nothing_new = np.zeros((len(t_obj),), dtype = int)
+	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
+	
+	for _ in t_:
+		bank.templates = new_templates #updating bank
+		
+			#checking for stopping conditions
+		where_to_remove = (nothing_new > empty_iterations)
+		
+		if np.all(where_to_remove): break
+		tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
+		nothing_new = np.delete(nothing_new, np.where(where_to_remove))
+		
+		proposal = np.concatenate([np.random.uniform(t_obj[id_][0].mins, t_obj[id_][0].maxes, (1, len(t_obj[id_][0].maxes))) for id_ in tiles_to_use], axis = 0)
+		proposal = np.atleast_2d(proposal)
+		
+		out_dict = compute_metric_injections_match_bruteforce(proposal, bank, t_obj, N_neigh_templates = 1, verbose = False)
+		match_list = out_dict['match']
+		del out_dict
+
+		accepted = (np.array(match_list) < MM)
+		N_accepted = np.sum(accepted)
+		
+		if N_accepted>0:
+			new_templates = np.concatenate([new_templates, proposal[accepted,:]], axis =0)
+
+		t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
+
+		nothing_new[accepted] = 0
+		nothing_new[~accepted] += 1
+		
+	return new_templates
+
 
 def create_mesh(dist, tile, coarse_boundaries = None):
 	"""

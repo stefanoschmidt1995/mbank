@@ -88,7 +88,7 @@ class cbc_metric(object):
 		self.set_approximant(approx)
 		self.set_variable_format(variable_format)
 		
-		self.f_min = f_min
+		self.f_min = float(f_min)
 		
 		if not isinstance(PSD, tuple):
 			raise ValueError("Wrong format for the PSD. Expected a tuple of np.ndarray, got {}".format(type(PSD)))
@@ -108,6 +108,7 @@ class cbc_metric(object):
 			self.PSD = np.interp(self.f_grid, PSD[0], PSD[1])
 		else:
 			self.f_max = self.f_grid[-1]
+		self.f_max = float(f_max)
 		
 		return
 	
@@ -158,7 +159,43 @@ class cbc_metric(object):
 
 		return
 	
-	def get_metric_determinant(self, theta):
+	def get_space_dimension(self):
+		"""
+		Returns the dimensionality `D` of the metric.
+		
+		Returns
+		-------
+			D: float
+				The dimensionality of the metric
+		"""
+		return self.D
+
+	def get_volume_element(self, theta, overlap = False):
+		"""
+		Returns the volume element. It is equivalent to `sqrt{|M(theta)|}`
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D) -
+			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		Returns
+		-------
+		
+		vol_element : np.ndarray
+			shape: (N,) -
+			Volume element of the metric for the given input
+			
+		"""
+		return np.sqrt(np.abs(np.linalg.det(self.get_metric(theta, overlap = overlap)))) #(N,)
+	
+	def get_metric_determinant(self, theta, overlap = False):
 		"""
 		Returns the metric determinant
 		
@@ -168,6 +205,10 @@ class cbc_metric(object):
 		theta: np.ndarray
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
 
 		Returns
 		-------
@@ -177,7 +218,7 @@ class cbc_metric(object):
 			Determinant of the metric for the given input
 			
 		"""
-		return np.linalg.det(self.get_metric(theta)) #(N,)
+		return np.linalg.det(self.get_metric(theta, overlap = overlap)) #(N,)
 
 	def log_pdf(self, theta, boundaries = None):
 		"""
@@ -394,8 +435,8 @@ class cbc_metric(object):
 			#FIXME: WTF is this grid??
 		hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
                         m2*lalsim.lal.MSUN_SI,
-                        s1x, s1y, s1z,
-                        s2x, s2y, s2z,
+                        float(s1x), float(s1y), float(s1z),
+                        float(s2x), float(s2y), float(s2z),
                         1e6*lalsim.lal.PC_SI,
                         iota, phi, 0., #inclination, phi0, longAscNodes
                         e, meanano, # eccentricity, meanPerAno
@@ -494,7 +535,7 @@ class cbc_metric(object):
 		if theta.ndim ==1:
 			theta = theta[None,:]
 			squeeze = True
-		
+
 		####
 		#computing the metric
 		####
@@ -773,8 +814,9 @@ class cbc_metric(object):
 			theta2 = theta2[None,:]
 			squeeze = True
 		
-		theta1 = theta1[:,:self.var_handler.D(self.variable_format)]
-		theta2 = theta2[:,:self.var_handler.D(self.variable_format)]
+			#do you need this??
+		theta1 = theta1[:,:self.D]
+		theta2 = theta2[:,:self.D]
 
 		delta_theta = theta2 - theta1  #(N,D)
 		

@@ -7,7 +7,7 @@ from mbank.metric import cbc_metric
 from mbank.utils import load_PSD
 
 import pickle
-import os
+import os, sys
 
 #########################################
 
@@ -66,21 +66,24 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 200
+	N_points = 20
 	variable_format = 'Mq_nonspinning'
 	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	ifo = 'H1'
 	approximant = 'IMRPhenomPv2'
 	f_min, f_max = 10., 1024.
-	run_name = 'test_overlap'
+	if len(sys.argv)>1: run_name = sys.argv[1]
+	else: run_name = 'test_overlap'
 	load = True
+	overlap = (run_name.find('overlap')>-1)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 	
-	boundaries = np.array([[10, 1.],[30, 5.]])
-	#boundaries = np.array([[10, 1., -0.9, -0.9],[30, 5., 0.9, 0.9]])
+	boundaries = np.array([[10, 1.],[30, 5.]]) #Mq_nonspinning
+	boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.9, np.pi]]) #Mq_s1xz
 
 	filename = '{}_{}.pkl'.format(run_name, variable_format)
+	print("Working with file {}".format(filename))
 	
 		#metric and calling the function
 	m_obj = cbc_metric(variable_format,

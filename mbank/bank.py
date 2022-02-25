@@ -21,10 +21,11 @@ import ray
 
 	#for older versions of the code...
 #import emcee
+import poisson_disc
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically_in_tile, place_stochastically_globally, place_stochastically, DefaultSnglInspiralTable
+from .utils import plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -89,29 +90,35 @@ class cbc_bank():
 		self.variable_format = variable_format
 		self.templates = None #empty bank
 		
-		self.D = self.var_handler.D(self.variable_format) #handy shortening
-		
 		if isinstance(filename, str):
 			self.load(filename)
 
 		return
 	
-	def avg_dist(self, avg_match):
+	@property
+	def D(self):
 		"""
-		The average distance between templates such that an injection have an average match ``cbc_bank.avg_match`` with the bank. This sets the spacing between templates.
+		The dimensionality of the space
 		
-		Parameters
-		----------
-			MM: float
-				Minimum match
 		Returns
 		-------
-			avg_dist: float
-				Average distance between templates
+			D: float
+				Keeps the dimensionality of the space
 		"""
-		#return 2.5*np.sqrt((1-avg_match)/self.D)
-		return 2*np.sqrt((1-avg_match)/self.D) #Owen
-
+		return self.var_handler.D(self.variable_format) #handy shortening
+	
+	@property
+	def placing_methods(self):
+		"""
+		List all the available placing methods
+		
+		Returns
+		-------
+			placing_methods: list
+				The available methods for placing the templates
+		"""
+		return ['uniform', 'geometric', 'iterative', 'stochastic', 'geo_stochastic','tile_stochastic', 'p_disc', 'random']
+	
 	def load(self, filename):
 		"""
 		Load a template bank from file. They are added to the existing templates (if any).
@@ -287,72 +294,9 @@ class cbc_bank():
 		
 		return
 		
-	def get_templates(self, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = True):
-		#TODO: this function is garbage... Understand whether you can remove it
-		
-		center_1d = (upper_boxes+lower_boxes)/2.
-		new_templates = [] #to store the newly added templates
-		metric_values = [] #to store the metric evaluation on the centroids
-		
-			#setting verbosity
-		if verbose: it = tqdm(range(len(upper_boxes_i)), desc = 'Generating a bank - loops on sub-tiles', leave = False)
-		else: it = range(len(upper_boxes_i))
-		
-		for j in it:
-			center = np.concatenate([[center_1d], (lower_boxes_i[j]+upper_boxes_i[j])/2.])
-			boundaries_ij = np.column_stack([np.concatenate([[lower_boxes], lower_boxes_i[j]]),
-				np.concatenate([[upper_boxes], upper_boxes_i[j]]) ]).T
-
-				#TODO: edit create_mesh, so that it produces meaningful results :)
-			#metric =  metric_obj.get_metric(center) #metric
-			#new_templates = create_mesh(avg_dist, (scipy.spatial.Rectangle(boundaries_ij[0,:],boundaries_ij[1,:]) , metric))
-			#self.add_templates(new_templates)
-			#continue
-				
-				######computing N_templates
-				#volume computation
-			volume = np.abs(np.prod(boundaries_ij[1,:] - boundaries_ij[0,:]))
-			volume_factor = np.sqrt(np.abs(metric_obj.get_metric_determinant(center))) #volume factor (from the metric)
-			volume = volume*volume_factor
-			
-			metric_values.append(np.concatenate([center, [volume_factor], [int(volume / np.power(avg_dist, self.D))] ]))
-			#DEBUUUUUUUUUUUUUUUUUUUG
-			#pay attention to that!!
-			new_templates.append(np.random.uniform(*boundaries_ij, (3, self.D))) #DEBUG
-			continue
-			
-				#extracting the templates and placing
-			if p_disc:
-				#FIXME: how the hell shall I tune this parameter??
-				radius = 0.5*avg_dist/np.power(volume_factor, 1/self.D)
-				new_templates.append(poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:])
-			else:
-				lambda_N_templates = volume / np.power(avg_dist, self.D)
-				N_templates = np.random.poisson(lambda_N_templates)
-				#print(center, N_templates)
-				#print(avg_dist)
-				new_templates.append(np.random.uniform(*boundaries_ij, (N_templates, self.D)))
-		
-			if new_templates[-1].ndim ==1: new_templates[-1]= new_templates[-1][None,:]
-			
-			if False:
-				corners = get_cube_corners(boundaries_ij[:,:2])
-				plt.scatter(corners[:,0], corners[:,1], c = 'r', s = 15)
-				plt.plot(*corners[[0,1],:].T, c = 'k', lw = 2)
-				plt.plot(*corners[[2,3],:].T, c = 'k', lw = 2)
-				plt.plot(*corners[[1,3],:].T, c = 'k', lw = 2)
-				plt.plot(*corners[[0,2],:].T, c = 'k', lw = 2)
-				plt.scatter(*center[:2], c = 'r', marker = 'x')
-				plt.scatter(*new_templates[-1][:,:2].T, c = 'r', s = 1)
-
-		new_templates = np.concatenate(new_templates, axis =0)
-		metric_values = np.stack(metric_values, axis =0)
-		
-		return new_templates, metric_values
-	
 	def place_templates(self, t_obj, avg_match, placing_method, verbose = True):
 		"""
-		Given a tiling, it places the templates according to the given method and adds them to the bank
+		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
 		Parameters
 		----------
@@ -361,7 +305,7 @@ class cbc_bank():
 			A tiling handler with a non-empty tiling
 		
 		avg_match: float
-			Average match for the bank: it controls the distance between templates as in ``cbc_bank.avg_dist()``
+			Average match for the bank: it controls the distance between templates as in ``utils.avg_dist()``
 		
 		placing_method: str
 			The placing method to set templates in each tile. It can be:
@@ -369,8 +313,13 @@ class cbc_bank():
 			- `uniform`	-> Uniform drawing in each hyper-rectangle
 			- `geometric` -> Geometric placement
 			- `iterative` -> Each tile is split iteratively until the number of templates in each subtile is equal to one
-			- `stochastic` -> Geometric placement + stochastic placement
-			- `pure_stochastic` -> Stochastic placement
+			- `stochastic` -> Stochastic placement
+			- `geo_stochastic` -> Geometric placement + stochastic placement
+			- `tile_stochastic` -> Stochastic placement for each tile separately
+			- `p_disc` -> Poisson disc sampling (using package `poisson_disc`)
+			- `random` -> The volume is covered with some point that are killed by placing the templates
+		
+			Those methods are listed in `cbc_bank.placing_methods`
 		
 		verbose: bool
 			Whether to print the output
@@ -382,22 +331,24 @@ class cbc_bank():
 			A list of list, where each element of index i ``tile_id_population[i]`` keeps the ids of the templates inside tile i
 
 		"""
-		assert placing_method in ['uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'], ValueError("Wrong placing method selected")
+		assert placing_method in self.placing_methods, ValueError("Wrong placing method '{}' selected. The methods available are: ".format(placing_method, self.placing_methods))
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
-			#getting coarse_boundaries from the tiling
-		#if placing_method in ['geometric', 'uniform']:
-		coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
-		coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
+			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
+		if placing_method == 'geometric':
+			coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
+			coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
 		
-		avg_dist = self.avg_dist(avg_match) #desired average distance between templates
+		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 		new_templates = []
 		tile_id_population = [] #for each tile, this stores the templates inside it
 		
-		if verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile')
+		if verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile', leave = True)
 		else: it = t_obj
-		
+		if placing_method in ['pure_stochastic', 'random']: it = iter(())
+
 		for t in it:
+			
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
@@ -413,41 +364,44 @@ class cbc_bank():
 			
 			if placing_method == 'uniform':
 					#N_templates is computed with a mesh, more realistic...
-				N_templates = max(1, int(t_obj.N_templates(*t, avg_dist))) #Computed by tiling_handler
+				N_templates = max(1, int(t_obj.N_templates(*t, dist))) #Computed by tiling_handler
 				#print('\t',self.variable_format, N_templates) #DEBUG
 				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 				
-			elif placing_method == 'geometric' or placing_method == 'stochastic':
-					#if stochastic option is set, we create a first guess for stochastic placing method 
-				new_templates_ = create_mesh(avg_dist, t, coarse_boundaries = None) #(N,D)
+			elif placing_method == 'p_disc':
+				radius = 0.5*dist/np.power(volume_factor, 1/self.D)
+				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
 			
-			elif placing_method == 'pure_stochastic':
-				break
+			elif placing_method == 'geometric' or placing_method == 'geo_stochastic':
+					#if stochastic option is set, we create a first guess for stochastic placing method 
+				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
 				temp_t_obj = tiling_handler()
 				temp_metric_fun = lambda theta: t[1]
 
-				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), 1, temp_metric_fun, avg_dist, verbose = False, worker_id = None)
+				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), 1, temp_metric_fun, dist, verbose = False, worker_id = None)
 				
 				new_templates_ = temp_t_obj.get_centers()
-			#elif placing_method == 'stochastic':
-				#new_templates_ = place_stochastically_in_tile(avg_match, t)
-				#break
+			elif placing_method == 'tile_stochastic':
+				new_templates_ = place_stochastically_in_tile(dist, t)
 		
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
 
-		if placing_method == 'pure_stochastic' or placing_method == 'stochastic':
-			if len(new_templates) == 0: new_templates = None #pure stochastic
-			#new_templates = place_stochastically_globally(avg_match, t_obj, empty_iterations = 400/self.D, seed_bank = new_templates) #this is if I have a first guess
-			
-			new_templates = place_stochastically(avg_match, t_obj, self, empty_iterations = 400/self.D, seed_bank = new_templates)
-			self.templates = None
+		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
+			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
+					empty_iterations = 400/self.D,
+					seed_bank = new_templates if placing_method == 'stochastic' else None)
 			
 			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
 				dist_t = t[0].min_distance_point(new_templates)
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
+
+		if placing_method == 'random':
+			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			print(N_points)
+			new_templates = place_random(dist, t_obj, N_points = int(N_points))
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)
@@ -573,7 +527,7 @@ class cbc_bank():
 		#TODO: add an option to avoid the hierarchical tiling??
 			##
 			#Initialization
-		avg_dist = self.avg_dist(avg_match) #desired average distance in the metric space between templates
+		dist = avg_dist(avg_match, self.D) #desired average distance in the metric space between templates
 		
 		if use_ray: ray.init()
 		

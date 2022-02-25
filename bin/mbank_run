@@ -79,7 +79,7 @@ parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
-	"--placing-method", default = 'geometric', type = str, choices = ['uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'],
+	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--template-in-tile", default = 200, type = int,

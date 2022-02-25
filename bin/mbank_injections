@@ -33,7 +33,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_metric_injections_match, compute_metric_injections_match_bruteforce, compute_injections_match, compute_avg_dist, load_PSD
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match_bruteforce, load_PSD
 from mbank.utils import updates_args_from_ini
 
 from itertools import combinations, permutations
@@ -253,11 +253,6 @@ else:
 	######
 injection_stat_dict = compute_metric_injections_match_bruteforce(injections_full, bank,  t_obj, N_neigh_templates = args.N_neigh_templates)
 
-#injection_stat_dict = compute_metric_injections_match(injections_full, bank, t_obj,
-#			N_neigh_templates = args.N_neigh_templates, N_neigh_tiles = args.N_neigh_tiles,
-#			tile_id_population = tile_id_population)
-#out_list = compute_avg_dist(bank, t_obj, metric)
-
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
 	#	(if it's the case)
@@ -306,8 +301,10 @@ if args.plot:
 	
 	best_matches = injection_stat_dict['match']
 	best_matches[best_matches<=0] = 0.01
-	
-	print("Matches percentiles [50, 5, 1]: ", np.percentile(best_matches, [50, 5,1]))
+
+	full_match = args.full_match or args.full_match_symphony
+	if full_match: print("Metric match percentiles [50, 5, 1]: ", np.percentile(best_matches_metric, [50, 5,1]))	
+	print("{} match percentiles [50, 5, 1]: ".format("'Full'" if full_match else 'Metric'), np.percentile(best_matches, [50, 5,1]))
 	fs = 15
 	
 		###
@@ -320,7 +317,7 @@ if args.plot:
 	plt.gca().tick_params(axis='x', labelsize=fs)
 	plt.gca().tick_params(axis='y', labelsize=fs)
 	plt.hist(best_matches, bins = logbins, density = True)
-	if args.full_match or args.full_match_symphony: plt.hist(best_matches_metric, bins = logbins, histtype='step', density = True)
+	if full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step', density = True)
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG
 	plt.xscale('log')

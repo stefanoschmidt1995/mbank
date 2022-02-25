@@ -111,7 +111,7 @@ def plot_scaling_data(out_dict, sbank_dict = None, savefile = None, title = None
 	"""
 	v_h = variable_handler()
 	
-	plt.figure()
+	plt.figure(figsize = (15,15))
 	if isinstance(title, str): plt.title(title)
 	
 	for v_f in out_dict['var_formats']:
@@ -167,10 +167,10 @@ if __name__ == '__main__':
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'geometric_nonprecessing'
 	
-	placing_method = 'geometric'
+	placing_method = 'random'
 	
-	load_dict = True
-	load_tiling = False
+	load_dict = False
+	load_tiling = True
 	
 	folder_name = 'scaling_{}/'.format(run_name)
 	if not os.path.isdir(folder_name): os.mkdir(folder_name)
@@ -192,7 +192,9 @@ if __name__ == '__main__':
 
 	if not load_dict:
 
-		out_dict = get_scaling_data(m_obj, variable_format_list, MM_list, M_range, q_range, s_range, e_range, templates_in_tile = 1500, placing_method = placing_method, save_folder = folder_name, load_tiling = load_tiling, verbose = True)
+		out_dict = get_scaling_data(m_obj, variable_format_list, MM_list, M_range, q_range, s_range, e_range,
+					templates_in_tile = 100, placing_method = placing_method,
+					save_folder = folder_name, load_tiling = load_tiling, verbose = True)
 		
 		with open(folder_name+'out_dict.pkl', 'wb') as filehandler:
 			pickle.dump(out_dict, filehandler)
@@ -201,7 +203,7 @@ if __name__ == '__main__':
 			out_dict = pickle.load(filehandler)
 
 	sbank_dict = None
-	#sbank_dict = dict(Mq_nonspinning = folder_name+'sbank_Mq_nonspinning.dat', Mq_s1z_s2z = folder_name+'sbank_Mq_s1z_s2z.dat')
+	sbank_dict = dict(Mq_nonspinning = folder_name+'sbank_Mq_nonspinning.dat', Mq_s1z_s2z = folder_name+'sbank_Mq_s1z_s2z.dat')
 	plot_scaling_data(out_dict, sbank_dict = sbank_dict, savefile = folder_name+'scaling.png', title = run_name)
 
 

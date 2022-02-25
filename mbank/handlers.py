@@ -791,37 +791,6 @@ class tiling_handler(list):
 		if isinstance(filename, str): self.load(filename)
 		return
 	
-	def N_templates(self, rect, metric, avg_dist):
-		"""
-		Computes the approximate number of templates given metric, rect and avg_dist
-
-		`N_templates` is compute as:
-		
-		::
-		
-			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
-		
-		`N_templates` is a measure of volume if `avg_dist` is kept fixed
-
-		Parameters
-		----------
-			rect: scipy.spatial.Rectangle
-				Rectangle object defining the boundaries of the tile
-
-			metric: np.ndarray
-				shape: (D,D)
-				Metric to use within the tile
-			
-			avg_dist: float
-				Desidered average distance between templates
-		
-		"""
-		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
-		#return rect.volume() * np.sqrt(np.abs(np.prod(np.diag(metric)))) / np.power(avg_dist, metric.shape[0])
-		#print(create_mesh(avg_dist, (rect, metric) ).shape[0], rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0]))
-		#return create_mesh(avg_dist, (rect, metric) ).shape[0]
-		
-	
 	def get_centers(self):
 		"""
 		Returns an array with the centers of the tiling
@@ -835,7 +804,51 @@ class tiling_handler(list):
 		"""
 		centers = np.stack( [(t[0].maxes+t[0].mins)/2. for t in self.__iter__()], axis =0)
 		return centers
-	
+
+	def N_templates(self, rect, metric, avg_dist):
+		"""
+		Computes the approximate number of templates given metric, rect and avg_dist
+
+		`N_templates` is compute as:
+		
+		::
+			
+			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
+
+		`N_templates` is a measure of volume if `avg_dist` is kept fixed
+
+		Parameters
+		----------
+			rect: scipy.spatial.Rectangle
+				Rectangle object defining the boundaries of the tile
+
+			metric: np.ndarray
+				shape: (D,D) -
+				Metric to use within the tile
+				
+			avg_dist: float
+				Desidered average distance between templates
+
+		Returns
+		-------
+			N_templates: float
+				The number or templates that should lie inside the tile (i.e. the rectangle with the given metric)
+			
+		"""
+		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
+		eigs, _ = np.linalg.eig(-metric)
+		d = np.power(rect.volume(), 1./metric.shape[0])
+		N_templates = np.prod(np.maximum(np.sqrt(eigs)*d/ avg_dist, 1))
+		N_templates_owen = rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
+		
+		#print('\n')
+		#print(eigs, avg_dist)
+		#print(np.sqrt(eigs)*d/ avg_dist)
+		#print(np.maximum(np.sqrt(eigs)*d/ avg_dist, 1))
+		#print(N_templates, N_templates_owen)
+		return N_templates
+
+
 	@ray.remote
 	def create_tiling_ray(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
 		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
@@ -867,7 +880,7 @@ class tiling_handler(list):
 				metric_func = metric_obj.get_metric
 		
 		avg_dist: float
-				Desidered average distance between templates. To compute the number of templates in each tile via ``tiling_handler.N_templates()``
+				Desidered average distance between templates. To compute the number of templates in each tile via ``mbank.utils.N_templates()``
 			
 		verbose: bool
 			Whether to print the progress of the computation
@@ -1015,6 +1028,34 @@ class tiling_handler(list):
 		
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
+	
+	def sample_from_tiling(self, N_samples):
+		"""
+		Samples random points from the tiling. It uses Gibb's sampling.
+		
+		Parameters
+		----------
+			N_samples: int
+				Number of samples to draw from the tiling
+		
+		Returns
+		-------
+			samples: np.ndarray
+				shape: (N_samples, D) - 
+				`N_samples` samples drawn from the tiling
+		"""
+		tot_vols, vols = self.compute_volume()
+		vols = np.array(vols)/tot_vols #normalizing volumes
+		
+		tiles_rand_id = np.random.choice(len(vols), N_samples, replace = True, p = vols)
+		tiles_rand_id, counts = np.unique(tiles_rand_id, return_counts = True)
+		
+		D = self[0][1].shape[0]
+		
+		samples = np.concatenate([
+					np.random.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) )
+					for t_id, c in zip(tiles_rand_id, counts)], axis = 0)
+		return samples		
 	
 	def save(self, filename):
 		"""

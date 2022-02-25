@@ -51,7 +51,7 @@ parser.add_argument(
 	"--run-name", default = 'cbc_mbank',
 	help="Name for the bank output file")
 parser.add_argument(
-	"--placing-method", default = 'geometric', type = str, choices = ['uniform', 'geometric', 'iterative', 'stochastic', 'pure_stochastic'],
+	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,

@@ -26,7 +26,7 @@ setuptools.setup(
 	long_description_content_type="text/markdown",
 	url="https://github.com/stefanoschmidt1995/mbank",
 	packages=setuptools.find_packages(),
-	licence = 'GNU GENERAL PUBLIC LICENSE v3',
+	license = 'GNU GENERAL PUBLIC LICENSE v3',
 	classifiers=[
 		"Programming Language :: Python :: 3",
 		"Operating System :: OS Independent",

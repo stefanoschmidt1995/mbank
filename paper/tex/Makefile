@@ -10,5 +10,4 @@ mbank.bbl: mbank.aux
 	bibtex "mbank".aux
 
 clean:
-	rm -f mbank.bbl mbank.out mbankNotes.bib mbank.aux mbank.log mbank.blg mbank.toc mbank.synctex.gz mbank.pdf
-	rm -rf scripts/__pycache__
+	rm -f mbank.bbl mbank.out mbankNotes.bib mbank.aux mbank.log mbank.blg mbank.toc mbank.synctex.gz mbank.pdf_

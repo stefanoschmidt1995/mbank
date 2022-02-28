@@ -430,10 +430,10 @@ class cbc_metric(object):
 		if not lalsim.SimInspiralImplementedFDApproximants(lal_approx):
 			raise RuntimeError("Approximant {} is TD: only FD approximants are supported".format(approx)) #must be FD approximant
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(theta, self.variable_format)
-		#print("mbank pars: ",m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi) #DEBUG
+		#print("mbank pars: ",m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
 		
-			#FIXME: WTF is this grid??
-		hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
+		try:
+			hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
                         m2*lalsim.lal.MSUN_SI,
                         float(s1x), float(s1y), float(s1z),
                         float(s2x), float(s2y), float(s2z),
@@ -446,6 +446,9 @@ class cbc_metric(object):
                         self.f_min, #fref
                         lal.CreateDict(),
                         lal_approx)
+		except RuntimeError:
+			msg = "Failed to call lal waveform with parameters: ({} {} {} {} {} {} {} {} {} {} {} {})".format(m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano)
+			raise ValueError(msg)
 		#f_grid = np.linspace(0., self.f_max, len(hptilde.data.data))
 		
 		return hptilde, hctilde
@@ -506,7 +509,7 @@ class cbc_metric(object):
 	
 	def get_metric(self, theta, overlap = False):
 		"""
-		Returns the metric
+		Returns the metric.
 		
 		Parameters
 		----------
@@ -539,7 +542,7 @@ class cbc_metric(object):
 		####
 		#computing the metric
 		####
-			#M(theta) = 0.5 * { (h|d_i h)(h|d_j h) / <h|h>^2 + [h|d_i h][h|d_j h] / <h|h>^2 - (d_i h|d_j h) / <h|h> }
+			#M(theta) = - 0.5 * { (h|d_i h)(h|d_j h) / <h|h>^2 + [h|d_i h][h|d_j h] / <h|h>^2 - (d_i h|d_j h) / <h|h> }
 
 		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h.real/h_grad_h.imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
 
@@ -576,8 +579,8 @@ class cbc_metric(object):
 			time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt)
 			metric = metric - time_factor
 		
-			#adding the 0.5 factor
-		metric = 0.5*metric
+			#adding the -0.5 factor
+		metric = -0.5*metric
 		
 		if squeeze:
 			metric = np.squeeze(metric)
@@ -743,19 +746,16 @@ class cbc_metric(object):
 			
 		"""
 		#FIXME: this function agrees with pycbc but disagree with sbank!! WFT?? Time alignment is the way!
-		theta1 = np.array(theta1)
-		theta2 = np.array(theta2)
+		theta1 = np.asarray(theta1)
+		theta2 = np.asarray(theta2)
+		squeeze = ((theta1.ndim == 1) and (theta2.ndim == 1))
+		theta1 = np.atleast_2d(theta1)
+		theta2 = np.atleast_2d(theta2)
 		
 			#checking for shapes
 		if theta1.shape != theta2.shape:
 			if theta1.shape[-1] != theta1.shape[-1]:
-				raise ValueError("Shapes of the two inputs should be the same!")
-		
-		squeeze = False
-		if theta1.ndim ==1:
-			theta1 = theta1[None,:]
-			theta2 = theta2[None,:]
-			squeeze = True
+				raise ValueError("Last dimension of the two imputs should be the same!")
 		
 		h1 = self.get_WF(theta1, self.approx, plus_cross = symphony)
 		h2 = self.get_WF(theta2, self.approx, plus_cross = symphony)
@@ -823,9 +823,9 @@ class cbc_metric(object):
 		if metric is None:
 			metric = self.get_metric((theta1+theta2)/2., overlap)
 			#metric = self.get_metric(theta1, overlap) #DEBUG
-			match = 1 + np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
+			match = 1 - np.einsum('ij, ijk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		else:
-			match = 1 + np.einsum('ij, jk, ik -> i', delta_theta, metric, delta_theta) #(N,)
+			match = 1 - np.einsum('ij, jk, ik -> i', delta_theta, metric, delta_theta) #(N,)
 		
 		return match
 		
@@ -896,7 +896,7 @@ class cbc_metric(object):
 			Points with distance dist from the center
 		"""
 		dist = np.sqrt(1-match)
-		metric = -self.get_metric(theta, overlap)
+		metric = self.get_metric(theta, overlap)
 		
 		L = np.linalg.cholesky(metric).T
 		L_inv = np.linalg.inv(L)

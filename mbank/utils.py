@@ -28,7 +28,7 @@ from scipy.spatial import Rectangle
 from tqdm import tqdm
 import ray
 
-from .handlers import variable_handler
+#from .handlers import variable_handler
 
 from scipy.spatial import ConvexHull, Rectangle
 
@@ -163,6 +163,7 @@ def avg_dist(avg_match, D):
 	"""
 	#return np.sqrt((1-avg_match)) #like 2202.09380
 	return 2*np.sqrt((1-avg_match)/D) #Owen
+	#return 2*np.sqrt(1-avg_match)
 
 
 ####################################################################################################################
@@ -610,8 +611,8 @@ def compute_metric_injections_match_bruteforce(injs, bank, tiling, N_neigh_templ
 		else:
 			id_diff_ok = np.arange(bank.templates.shape[0])
 		
-		match_i_inj = 1 + np.einsum('ij, jk, ik -> i', diff[id_diff_ok], tiling[out_dict['id_tile'][i]][1], diff[id_diff_ok])
-		match_i_metric = 1 + np.einsum('ij, ijk, ik -> i', diff[id_diff_ok], metric_array[id_templates[id_diff_ok],...], diff[id_diff_ok])
+		match_i_inj = 1 - np.einsum('ij, jk, ik -> i', diff[id_diff_ok], tiling[out_dict['id_tile'][i]][1], diff[id_diff_ok])
+		match_i_metric = 1 - np.einsum('ij, ijk, ik -> i', diff[id_diff_ok], metric_array[id_templates[id_diff_ok],...], diff[id_diff_ok])
 		match_i = np.maximum(match_i_inj, match_i_metric) #FIXME: is the maximum the best approx?? Or should you do the mean? Or maybe we shouldn't do this at all
 		
 		indices_i = np.argpartition(match_i, -N_neigh_templates)[-N_neigh_templates:]
@@ -747,7 +748,7 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 10, 
 			metric = tiling[id_][1]
 			
 			diff = bank.templates[tile_id_population[id_],:] - injs[i] #(N_templates_in_tile, D)
-			match_ = 1 + np.einsum('ij, jk, ik -> i', diff, metric, diff) ##(N_templates_in_tile,)
+			match_ = 1 - np.einsum('ij, jk, ik -> i', diff, metric, diff) ##(N_templates_in_tile,)
 			match_list.extend(match_)
 		
 			#selecting the closest N_neigh_templates to the injection
@@ -770,8 +771,43 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 10, 
 	return out_dict
 
 ####################################################################################################################
+def get_ellipse(metric, center, dist, **kwargs):
+	"""
+	Given a two dimensional metric and a center, it returns the `matplotlib.Patch` that represent the points at constant distance `dist` according to the metric.
+	It accepts as an additional parameter, anything that can be given to `matplotlib.patches.Ellipse`.
+	
+	Parameters
+	----------
+		metric: np.ndarray
+			shape: (2,2) - 
+			A two dimensional metric
+		
+		center: np.ndarray
+			shape: (2,) - 
+			The center for the ellipse
+		
+		dist: float
+			The distance between points
+	
+	Returns
+	-------
+		ellipse: matplotlib.patches.Ellipse
+			The ellips of constant match
+	"""
+	
+		#setting some defaults...
+	if 'fill' not in kwargs.keys():	kwargs['fill'] = None
+	if 'alpha' not in kwargs.keys(): kwargs['alpha'] =1
 
-def plot_tiles_templates(t_obj, templates, variable_format, save_folder = None, show = False):
+	eig, eig_vals = np.linalg.eig(metric)
+	w, h = 2*np.sqrt(dist**2/eig)
+	angle = 180-np.arccos(eig_vals[0,0])*180/np.pi 
+	ellipse = matplotlib.patches.Ellipse(center, w, h, angle, **kwargs)
+
+	return ellipse	
+
+
+def plot_tiles_templates(t_obj, templates, variable_format, var_handler, dist_ellipse = None, save_folder = None, show = False):
 	"""
 	Make some plots of the templates and the tiling.
 		
@@ -786,6 +822,12 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder = None, 
 		
 		variable_format: str
 			How to handle the BBH variables.	
+			
+		var_handler: variable_handler
+			A variable handler object to handle the labels. Can be instantiated with `mbank.handlers.variable_handler()`
+		
+		dist_ellipse: float
+			The distance for the match countour ellipse to draw. If `None`, no contour will be drawn.
 		
 		save_folder: str
 			Folder where to save the plots
@@ -795,13 +837,21 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder = None, 
 			Wheter to show the plots
 
 	"""
+	#var_handler = variable_handler() #old
 		###
 		#Plotting templates
 		###
-	var_handler = variable_handler()
 	if isinstance(save_folder, str): 
 		if not save_folder.endswith('/'): save_folder.out_dir = save_folder.out_dir+'/'
 	fs = 15 #font size
+	
+	if isinstance(dist_ellipse, float): #computing a tile for each template
+		dist_template = []
+		for t in t_obj:
+			dist_template.append( t[0].min_distance_point(templates) ) #(N_templates,)
+		dist_template = np.stack(dist_template, axis = 1) #(N_templates, N_tiles)
+		id_tile_templates = np.argmin(dist_template, axis = 1) #(N_templates,)
+		del dist_template
 	
 		###
 		#Plotting templates & tiles
@@ -847,8 +897,18 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder = None, 
 			d = t[0].maxes- t[0].mins
 			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 
-
 	if isinstance(save_folder, str): plt.savefig(save_folder+'tiling.png', transparent = False)
+
+		#Plotting the ellipses, if it is the case
+	if isinstance(dist_ellipse, float):
+		plt.suptitle('Templates + tiling + ellipses of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+		for ax_ in combinations(range(templates.shape[1]), 2):
+			currentAxis = axes[ax_[1]-1, ax_[0]]
+			ax_ = list(ax_)
+			for i, templ in enumerate(templates):
+				metric_projected = project_metric(-t_obj[id_tile_templates[i]][1], ax_)
+				currentAxis.add_patch(get_ellipse(metric_projected, templ[ax_], dist_ellipse))
+		if isinstance(save_folder, str): plt.savefig(save_folder+'ellipses.png', transparent = False)
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
@@ -868,6 +928,43 @@ def plot_tiles_templates(t_obj, templates, variable_format, save_folder = None, 
 	if show: plt.show()
 	
 	return
+
+####################################################################################################################
+def project_metric(metric, axes):
+	"""
+	Projects the metric on the given axes.
+	It follows a discussion on `stackexchange <https://math.stackexchange.com/questions/2431159/how-to-obtain-the-equation-of-the-projection-shadow-of-an-ellipsoid-into-2d-plan>`_
+	
+	Parameters
+	----------
+		metric: np.ndarray
+			shape: (D,D) - 
+			A D dimensional metric
+		
+		axes: list
+			The D' axes to project the metric over
+	
+	Returns
+	-------
+		projected_metric: np.ndarray
+			shape: (D',D') - 
+			The projected dimensional metric
+
+	"""
+
+	if len(axes) == metric.shape[0]: return metric
+	
+	other_axes = [ d for d in range(metric.shape[0]) if d not in axes]
+	
+	J = metric[axes,:][:,axes] #(D',D')
+	K = metric[other_axes,:][:,other_axes] #(K,K)
+	L = metric[axes,:][:,other_axes] #(D',K) 
+	
+	K_inv = np.linalg.inv(K)
+
+	proj_metric = J - np.einsum('ij,jk,kl->il', L, K_inv, L.T)
+	
+	return proj_metric
 
 ####################################################################################################################
 
@@ -961,7 +1058,7 @@ def place_stochastically_in_tile(avg_dist, tile):
 	"""
 	dist_sq = avg_dist**2
 
-	metric = -tile[1]
+	metric = tile[1]
 	L = np.linalg.cholesky(metric).T
 	
 	new_templates = np.random.uniform(tile[0].mins, tile[0].maxes, (1, tile[0].maxes.shape[0])) #(1,D)
@@ -1110,7 +1207,8 @@ def place_random(dist, tile_obj, N_points, empty_iteration = 50):
 	
 		#loops on tiles in ascending order: removing the livepoints
 	new_templates = []
-	for id_ in tqdm(ids_sort, desc = 'Loops on tiles'):
+	it = tqdm(ids_sort, desc = 'Loops on tiles (0/{}) livepoints killed'.format(N_points))
+	for id_ in it:
 		min_, max_ = tile_obj[id_][0].mins, tile_obj[id_][0].maxes
 		metric = tile_obj[id_][1]
 
@@ -1120,7 +1218,7 @@ def place_random(dist, tile_obj, N_points, empty_iteration = 50):
 			proposal = np.random.uniform(min_, max_)
 			
 			diff = livepoints - proposal
-			dist_ = - np.einsum('ij,jk,ik->i', diff, metric, diff)
+			dist_ = np.einsum('ij,jk,ik->i', diff, metric, diff)
 			ids_kill = np.where(dist_< dist_sq)[0]
 			
 			#print(dist_, dist_sq)
@@ -1130,10 +1228,9 @@ def place_random(dist, tile_obj, N_points, empty_iteration = 50):
 				new_templates.append(proposal)
 				nothing_new = 0
 				if len(livepoints) == 0: break
+				it.set_description('Loops on tiles ({}/{}) livepoints killed'.format(len(livepoints), N_points))
 	
-	print(livepoints.shape)
 	new_templates = np.column_stack([new_templates])
-	print(new_templates.shape,livepoints.shape)
 	if len(livepoints)>0: new_templates = np.concatenate([new_templates, livepoints], axis =0)
 	
 	return new_templates
@@ -1181,7 +1278,7 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 	else: bound_list = []
 	
 		#Computing Choelsky decomposition of the metric	
-	metric = -tile[1]
+	metric = tile[1]
 	L = np.linalg.cholesky(metric).T
 	L_inv = np.linalg.inv(L)
 	
@@ -1204,9 +1301,9 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 		
 		N = max(int((max_d-min_d)/dist), 1)
 			#this tends to overcover...
-		grid_d = [np.linspace(min_d, max_d, N+1, endpoint = False)[1:]] 
+		#grid_d = [np.linspace(min_d, max_d, N+1, endpoint = False)[1:]] 
 			 #this imposes a constant distance but may undercover
-		#grid_d = [np.arange(center_prime[d], min_d, -dist)[1:][::-1], np.arange(center_prime[d], max_d, dist)]
+		grid_d = [np.arange(center_prime[d], min_d, -dist)[1:][::-1], np.arange(center_prime[d], max_d, dist)]
 
 		grid_d = np.concatenate(grid_d)
 		
@@ -1250,7 +1347,7 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 		#new_coarse_boundaries = np.stack([rect_proj.mins, rect_proj.maxes], axis =0) #(2,D)
 		new_coarse_boundaries = None
 		
-		new_mesh_ = create_mesh(new_dist, (rect_proj, -metric_proj), new_coarse_boundaries) #(N,D-1) #mesh on the D-1 plane
+		new_mesh_ = create_mesh(new_dist, (rect_proj, metric_proj), new_coarse_boundaries) #(N,D-1) #mesh on the D-1 plane
 		boundary_mesh_ = np.zeros((D-1, D))
 		boundary_mesh_[:,ids_not_d] = new_mesh_
 		boundary_mesh_[:,d] = boundaries[up_down,d]

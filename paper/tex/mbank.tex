@@ -99,7 +99,7 @@ As a summary, \texttt{mbank} is implemented to be:
 \begin{itemize}
 	\item Extremely fast
 	\item Suitable for large banks and high dimensional {\it exotic} parameter space
-	\item Decently accurate
+	\item Fairly accurate
 \end{itemize}
 \stefano{Shall you explicitly say a common use case??}
 
@@ -160,7 +160,7 @@ Technically, this is a scalar product on the $L^2$ space of the waveforms $h$ an
 } between two \textit{waveforms} $h$ as:
 
 \begin{equation} \label{eq:scalar_product}
-	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h_+}^*(f;\theta_1) \tilde{h_+}(f;\theta_2)}{S_n(f)}
+	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}_+^*(f;\theta_1) \tilde{h}_+(f;\theta_2)}{S_n(f)}
 \end{equation}
 
 where $h_+(\cdot; \theta)$ denotes the plus polarization of the waveform evaluated at the point $\theta$ of the manifold, $\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density.
@@ -223,6 +223,10 @@ We can then use standard results from differential geometry to compute distances
 \end{equation}
 where $|\cdot|$ denotes the determinant of a matrix.
 
+It is important to realize that, as any Taylor expansion, this approximation holds only when ${\Delta\theta_i << 1 \; \forall i}$.
+\stefano{Keep writing here... Or state this somewhere...}
+
+
 As a final remark, we note that other definitions for the match are possible (see e.g. \cite{sky_maxed,symphony}). These are motivated by different expressions for the detection statistics, which depends on the assumptions made on the signal (i.e. precessing or eccentric signals or with Higher Order Modes). Here we limit to use the ``vanilla" expression~\eqref{eq:match} for aligned spins BBH (for which $\tilde{h}_+ \propto i \tilde{h}_\times$), even for cases where it does not hold. We expect the error introduced by this to be negligible.
 
 \subsection{The tiling} \label{sec:tiling}
@@ -280,15 +284,15 @@ Several templates methods have been implemented, each of which has their strengt
 
 Below we describe briefly each of them. The recommended one is ...
 
-\paragraph{Random}
-\paragraph{Geometric}
+\paragraph{Random}\label{par:random}
+\paragraph{Geometric}\label{par:geometric}
 \stefano{Do we want to do an appendix for the geometric placement? \ref{app:placing}}
-\paragraph{Stochastic}
-\paragraph{Geo-Stochastic}
-\paragraph{Tile-Stochastic}
-\paragraph{Uniform}
+\paragraph{Stochastic}\label{par:stochastic}
+\paragraph{Geo-Stochastic}\label{par:geostochastic}
+\paragraph{Tile-Stochastic}\label{par:tilestochastic}
+\paragraph{Uniform}\label{par:uniform}
 \stefano{Where do we want to say that Owen law is very limited in scope??}
-\paragraph{Iterative}
+\paragraph{Iterative}\label{par:iterative}
 
 
 \begin{table}[t!]
@@ -306,8 +310,8 @@ Below we describe briefly each of them. The recommended one is ...
 	 Iterative & 88 & 788 & 6344 \\ 
 	 \hline
 	 \end{tabular}
-	 \label{tab:placing_methods}
 	 \caption{A schematic comparison of the different placing methods implemented \stefano{We need to think about this...}}
+ 	 \label{tab:placing_methods}
 \end{table}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

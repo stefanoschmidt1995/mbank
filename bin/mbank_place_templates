@@ -24,7 +24,7 @@ import sys
 import pickle
 
 from mbank import cbc_bank, tiling_handler, variable_handler
-from mbank.utils import plot_tiles_templates, parse_from_file
+from mbank.utils import plot_tiles_templates, parse_from_file, avg_dist
 from mbank.utils import updates_args_from_ini, int_tuple_type
 
 import argparse
@@ -109,7 +109,8 @@ with open(args.run_dir+'tile_id_population_{}.pkl'.format(args.run_name), 'wb') 
 	pickle.dump(tile_id_population, filehandler)
 
 if args.plot:
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, plot_folder, show = args.show)
+	dist = avg_dist(args.mm, bank.D) if bank.D == 2 else None
+	plot_tiles_templates(t_obj, bank.templates, args.variable_format, variable_handler(), dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
 
 

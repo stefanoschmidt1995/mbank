@@ -34,6 +34,8 @@ import scipy.stats
 import scipy.integrate
 import scipy.spatial
 
+from .utils import project_metric
+
 ####################################################################################################################
 
 ###
@@ -836,18 +838,19 @@ class tiling_handler(list):
 			
 		"""
 		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
-		eigs, _ = np.linalg.eig(-metric)
-		d = np.power(rect.volume(), 1./metric.shape[0])
-		N_templates = np.prod(np.maximum(np.sqrt(eigs)*d/ avg_dist, 1))
-		N_templates_owen = rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
-		
-		#print('\n')
-		#print(eigs, avg_dist)
-		#print(np.sqrt(eigs)*d/ avg_dist)
-		#print(np.maximum(np.sqrt(eigs)*d/ avg_dist, 1))
-		#print(N_templates, N_templates_owen)
-		return N_templates
 
+			#This trash is to look for projecting over many variable and check which gives the maximum number of templates
+		#D =  metric.shape[0]
+		#rect_diff = rect.maxes - rect.mins
+		#N_templates_list = []
+		#for l in range(1, D+1):
+		#	for axes in itertools.combinations(range(D),l):	
+		#		axes = list(axes)
+		#		proj_metric = project_metric(metric, axes)
+		#		dist_ = avg_dist*np.sqrt(D/len(axes))
+		#		N_templates_list.append( np.prod(rect_diff[axes])* np.sqrt(np.abs(np.linalg.det(proj_metric))) / np.power(dist_, len(axes)) )
+
+		#return np.max(N_templates_list)
 
 	@ray.remote
 	def create_tiling_ray(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
@@ -920,7 +923,7 @@ class tiling_handler(list):
 			#which axis should be split?
 		def which_split_axis(rect, metric):
 			d_vector = rect.maxes - rect.mins #(D,)
-			dist = - np.square(d_vector)*np.diag(metric)
+			dist = np.square(d_vector)*np.diag(metric)
 			
 			#dist = - np.einsum('ij,jk,ik -> i', np.diag(d_vector), metric, np.diag(d_vector)) #distance is -match !!
 			#print("\t", dist, -np.einsum('ij,jk,ik -> i', np.diag(d_vector), metric, np.diag(d_vector)))

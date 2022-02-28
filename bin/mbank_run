@@ -26,7 +26,7 @@ import lal.series
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD
+from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, avg_dist, plot_tiles_templates
 
 import argparse
 import os
@@ -76,7 +76,7 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
+	"--approximant", default = None,
 	help="LAL approximant for the bank generation")
 parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
@@ -150,7 +150,7 @@ if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.r
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
-if args.grid_size is None: args.grid_size = tuple([1 for i in range(s.D(args.variable_format))])
+if args.grid_size is None: args.grid_size = tuple([1 for i in range(var_handler.D(args.variable_format))])
 
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range
@@ -233,7 +233,7 @@ if format_info['mass_format'] == 'm1m2':
 if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
 	
 	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, N_temp = args.template_in_tile,
-		grid_list = args.grid_size, placing_method = args.placing_method, plot_folder = plot_folder, use_ray = args.use_ray, show = args.show)
+		grid_list = args.grid_size, placing_method = args.placing_method, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 
@@ -249,6 +249,9 @@ print("Saving bank to {}".format(args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
 bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); title = ''
 
+if args.plot:
+	dist = avg_dist(args.mm, bank.D) if bank.D == 2 else None
+	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
 
 

@@ -119,7 +119,7 @@ parser.add_argument(
 	"--mm", type = float,
 	help="Minimum match for the bank - for plotting purposes")
 parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
+	"--approximant", default = None,
 	help="LAL approximant for the bank generation")
 
 args, filenames = parser.parse_known_args()

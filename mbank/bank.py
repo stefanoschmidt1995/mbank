@@ -25,7 +25,7 @@ import poisson_disc
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, plot_tiles_templates, get_cube_corners, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
+from .utils import plawspace, create_mesh, get_boundary_box, get_cube_corners, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -342,10 +342,10 @@ class cbc_bank():
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 		new_templates = []
 		tile_id_population = [] #for each tile, this stores the templates inside it
-		
-		if verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile', leave = True)
+
+		if placing_method in ['pure_stochastic', 'random']: it = iter(())		
+		elif verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile', leave = True)
 		else: it = t_obj
-		if placing_method in ['pure_stochastic', 'random']: it = iter(())
 
 		for t in it:
 			
@@ -353,12 +353,13 @@ class cbc_bank():
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
 				#some sanity checks on the metric eigenvalues
-			if np.any(eigs > 0):
-				warnings.warn("The metric has a positive eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed. You may improve the stability of the computation by increasing the order of differentiation.")
+			if np.any(eigs < 0):
+				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed. You may improve the stability of the computation by increasing the order of differentiation.")
 			
 			abs_det = np.abs(np.prod(eigs))
 			if abs_det < 1e-50: #checking if the determinant is close to zero...
-				raise ValueError("The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?")
+				msg = "The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?\nRectangle: {}\nMetric: {}".format(t[0], t[1])
+				raise ValueError(msg)
 				
 			volume_factor = np.sqrt(abs_det)
 			
@@ -400,7 +401,6 @@ class cbc_bank():
 
 		if placing_method == 'random':
 			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
-			print(N_points)
 			new_templates = place_random(dist, t_obj, N_points = int(N_points))
 
 		new_templates = np.stack(new_templates, axis =0)
@@ -469,7 +469,7 @@ class cbc_bank():
 		
 		return t_obj
 			
-	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp, placing_method = 'geometric', plot_folder = None, use_ray = False, show = True):
+	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, N_temp, placing_method = 'geometric', use_ray = False):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -503,15 +503,8 @@ class cbc_bank():
 				- 'uniform'	-> Uniform drawing in each hyper-rectangle
 				- 'geometric'	-> Geometric placement
 
-		plot_folder: str
-			String with the folder to save the plots at.
-			If None, no plots will be produced. If 'show', the results will be shown.
-
 		use_ray: bool
 			Whether to use ray to parallelize
-		
-		show: bool
-			Whether to show the plotted output
 		
 		Returns
 		-------
@@ -567,11 +560,6 @@ class cbc_bank():
 			tile_id_population = None
 			plot_folder	= None
 			self.templates = None
-		
-			##
-			#plot debug
-		if isinstance(plot_folder, str):
-			plot_tiles_templates(t_obj, self.templates, self.variable_format, plot_folder, show = show)
 		
 		return t_obj, tile_id_population
 				

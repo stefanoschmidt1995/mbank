@@ -10,6 +10,7 @@ superscriptaddress,10pt]{revtex4-1}
 \usepackage{bm}
 \usepackage{afterpage}
 \usepackage{graphicx}
+\graphicspath{{img/}} %setting img path
 \usepackage{psfrag}
 \usepackage{mathtools}
 \usepackage{tensor}
@@ -210,6 +211,8 @@ The metric depends on the gradients $\partial_i h(\theta)$ of the waveform and h
 \end{equation}
 where $H(\theta)$ is the Hessian of the overlap eq.~\eqref{eq:overlap} (a $D+1$ square matrix). Note that the metric is positive definite.
 The details of the computation of the Hessian in terms of the gradients of the waveform are presented in appendix \ref{app:metric}.
+The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
+
 For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{something}, such gradients are available analytically (thus speeding up the computation).
 The validity and the limitation of eq.~\eqref{eq:metric_definition} will be scrutined in sec.\ref{sec:metric_accuracy}.
 
@@ -256,6 +259,7 @@ As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non 
 \begin{algorithm}[t!]
 \caption{Tiling}
 \begin{algorithmic}
+	\State WRITEME
 	\State $i \gets 10$
 	\If{$i\geq 5$} 
 		\State $i \gets i-1$
@@ -319,13 +323,31 @@ Below we describe briefly each of them. The recommended one is ...
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
+\begin{figure}[h]
+	\includegraphics{metric_accuracy_Mq_s1z_s2z}
+	\caption{Metric accuracy, for different variable formats}
+	\label{fig:metric_accuracy}
+\end{figure}
+
 Histogram with the actual match for points with a constant metric match
 
 \subsection{Tiling accuracy} \label{sec:tiling_accuracy}
 
+\begin{figure}[h]
+	\includegraphics{tiling_accuracy_test}
+	\caption{Tiling accuracy}
+	\label{fig:tiling_accuracy}
+\end{figure}
+
 Compute the match computed with the tiling vs the actual match.
 
 \subsection{Comparison with \texttt{sbank} }
+
+\begin{figure}[h]
+	\includegraphics{bank_scaling_nonprecessing_geometric}
+	\caption{Scaling for the bank, compared with sbank}
+	\label{fig:bank_scaling}
+\end{figure}
 
 Generating 2/3 small non-precessing banks with both \texttt{mbank} and \texttt{sbank}.
 Comparison based on:
@@ -342,7 +364,7 @@ Include scaling plots.
 
 Useful to present the features of these two banks generated?
 
-\subsection{An precessing bank}
+\subsection{A precessing bank}
 This could be the bank we use for precessing searches.
 
 \subsection{An eccentric bank}
@@ -404,11 +426,11 @@ where $A_{(ij)} = \frac{1}{2}(A_{ij}+A_{ji})$ denotes symmetrization.
 
 Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
 \begin{align}
-	H_{tt} &= \frac{1}{\rescalar{h}{h}^{2}} \rescalar{{h}}{{h}f}^2 - \frac{1}{\rescalar{h}{h}} \imscalar{h}{{h} f^2 }\\
+	H_{tt} &= \frac{1}{\rescalar{h}{h}^{2}} \rescalar{{h}}{{h}f}^2 - \frac{1}{\rescalar{h}{h}} \imscalar{h}{{h} f^2 } \label{eq:H_tt_grad} \\
 	H_{ti} &= \frac{1}{\rescalar{h}{h}^{2}} \Big\{ \imscalar{h}{\partial_i {h}} \rescalar{{h}}{{h}f} +\rescalar{h}{\partial_i {h}} \imscalar{h}{hf} \Big\} \nonumber \\
-	&- \frac{1}{\rescalar{h}{h}} \imscalar{h}{\partial_i{h} f }\\
+	&- \frac{1}{\rescalar{h}{h}} \imscalar{h}{\partial_i{h} f } \label{eq:H_ti_grad} \\
 	H_{ij} &=  \frac{1}{\rescalar{h}{h}^{2}} \Big\{ \rescalar{h}{\partial_i {h}} \rescalar{{h}}{\partial_j {h}} +\imscalar{h}{\partial_i {h}} \imscalar{h}{\partial_j {h}} \Big\} \nonumber \\
-	&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}}
+	&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}} \label{eq:H_ij_grad} 
 \end{align}
 
 Such expressions, togheter with eq.~\eqref{eq:metric_expression} fully specify the metric computation.

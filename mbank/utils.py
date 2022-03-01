@@ -1207,7 +1207,7 @@ def place_random(dist, tile_obj, N_points, empty_iteration = 50):
 	
 		#loops on tiles in ascending order: removing the livepoints
 	new_templates = []
-	it = tqdm(ids_sort, desc = 'Loops on tiles (0/{}) livepoints killed'.format(N_points))
+	it = tqdm(ids_sort, desc = 'Loops on tiles (0/{} livepoints killed | 0 templates placed)'.format(N_points))
 	for id_ in it:
 		min_, max_ = tile_obj[id_][0].mins, tile_obj[id_][0].maxes
 		metric = tile_obj[id_][1]
@@ -1228,14 +1228,141 @@ def place_random(dist, tile_obj, N_points, empty_iteration = 50):
 				new_templates.append(proposal)
 				nothing_new = 0
 				if len(livepoints) == 0: break
-				it.set_description('Loops on tiles ({}/{}) livepoints killed'.format(len(livepoints), N_points))
+				it.set_description('Loops on tiles ({}/{} livepoints killed| {} templates placed)'.format(len(livepoints), N_points, len(new_templates) ))
 	
 	new_templates = np.column_stack([new_templates])
 	if len(livepoints)>0: new_templates = np.concatenate([new_templates, livepoints], axis =0)
 	
 	return new_templates
 	
+def create_mesh_new(dist, tile, coarse_boundaries = None):
+	"""
+	Creates a mesh of points on an hypercube, given a metric.
+	The points are approximately equally spaced with a distance ``dist``.
 	
+	`NEW VERSION: TEST IN PROGRESS. IT SEEMS TO OVERCOVER :(`
+	
+	Parameters
+	----------
+		dist: float
+			Distance between templates
+		
+		tile: tuple
+			An element of the ``tiling_handler`` object.
+			It consists of a tuple ``(scipy.spatial.Rectangle, np.ndarray)``
+	
+		coarse_boundaries: np.ndarray
+			shape: (2,D) -
+			An array with the coarse boundaries of the tiling.
+			If given, each tile is checked to belong to the border of the tiling. If it's the case, some templates are added to cover the boundaries
+
+	Returns
+	-------
+		mesh: np.ndarray
+			shape: (N,D) - 
+			A mesh of N templates that cover the tile
+	"""
+	D = tile[0].maxes.shape[0]
+	
+		#bound_list keeps the dimension over which the tile is a boundary in the larger space
+	if coarse_boundaries is not None:
+		up_bound_list = np.where( np.isclose(tile[0].maxes, coarse_boundaries[1,:], 1e-4, 0) )[0].tolist() #axis where there is an up bound
+		low_bound_list = np.where( np.isclose(tile[0].mins, coarse_boundaries[0,:], 1e-4, 0) )[0].tolist()
+		bound_list = [ (1, up_) for up_ in up_bound_list]
+		bound_list.extend( [ (0, low_) for low_ in low_bound_list])
+	else: bound_list = []
+	
+		#Computing Choelsky decomposition of the metric	
+	metric = tile[1]
+	L = np.linalg.cholesky(metric).T
+	L_inv = np.linalg.inv(L)
+	
+		#computing boundaries and boundaries_prime
+	boundaries = np.stack([tile[0].mins, tile[0].maxes], axis = 0) #(2,D)
+	corners = get_cube_corners(boundaries)#[0,:], boundaries[1,:])
+	corners_prime = np.matmul(corners, L.T)
+	center = (tile[0].mins+tile[0].maxes)/2. #(D,) #center
+	center_prime = np.matmul(L, center) #(D,) #center_prime
+	
+		#computing the extrema of the boundaries (rectangle)
+	boundaries_prime = np.array([np.amin(corners_prime, axis =0), np.amax(corners_prime, axis =0)])
+	
+		#creating a mesh in the primed coordinates (centered around center_prime)
+	mesh_prime = []
+	where_single_layer = [] #list to keep track of the dimensions where templates should be drawn at random!
+	
+	for d in range(D):
+		min_d, max_d = boundaries_prime[:,d]
+		#if (0,d) not in bound_list: min_d = min_d + dist/2.
+		#if (1,d) not in bound_list: max_d = max_d - dist/2.
+		
+		N = max(int((max_d-min_d)/dist), 1)
+			#this tends to overcover...
+		#grid_d = [np.linspace(min_d, max_d, N+1, endpoint = False)[1:]] 
+			 #this imposes a constant distance but may undercover
+		grid_d = [np.arange(center_prime[d], min_d, -dist)[1:][::-1], np.arange(center_prime[d], max_d, dist)]
+
+		grid_d = np.concatenate(grid_d)
+		
+		if len(grid_d) <=1 and d >1: where_single_layer.append(d)
+		
+		mesh_prime.append(grid_d)
+		
+		#creating the mesh in the primed space and inverting
+	mesh_prime = np.meshgrid(*mesh_prime)
+	mesh_prime = [g.flatten() for g in mesh_prime]
+	mesh_prime = np.column_stack(mesh_prime) #(N,D)
+	
+	mesh = np.matmul(mesh_prime, L_inv.T)
+
+		#we don't check the boundaries for the axis that will be drawn at random
+	axis_ok = [i for i in range(D) if i not in where_single_layer]
+	ids_ok = np.logical_and(np.all(mesh[:,axis_ok] >= boundaries[0,axis_ok], axis =1), np.all(mesh[:,axis_ok] <= boundaries[1,axis_ok], axis = 1)) #(N,)
+	mesh = mesh[ids_ok,:]
+	
+		#Creating a grid for the others dimensions
+	new_mesh = []
+	for d in where_single_layer:
+		min_d, max_d = boundaries[:,d]
+
+			#teoretical N_points
+			#It is not achieved to the finitess of the tile...
+		metric_d = project_metric(metric, [d])
+		N_teo = (max_d - min_d)*np.sqrt(np.squeeze(metric_d)) / dist
+
+			#checking the distance between the top of the tile and the grid so far
+			#If it is too high, we should add more to the grid		
+		test_point = np.mean(boundaries, axis = 0)
+		test_point[d] = boundaries[1,d] 
+		diff = mesh - test_point
+		true_dist = np.min(np.sqrt(np.einsum('ij,jk,ik->i', diff, metric, diff)))
+		N_true = 2*true_dist/dist
+
+			#adding boundaries
+		N_true = N_true - 0.5 * ((0,d) not in bound_list) - 0.5 * ((1,d) not in bound_list)
+		#grid_d = np.linspace(min_d, max_d, max(int(N_true), 1)+1, endpoint = ((1,d) in bound_list))[int(((0,d) not in bound_list)):]
+		grid_d = np.linspace(min_d, max_d, max(int(N_true), 1)+1, endpoint = False)[1:]
+		new_mesh.append(grid_d)
+		
+		print(d, N_teo, N_true)
+		print(grid_d)
+
+	N_new_points = np.prod([len(g) for g in new_mesh])
+	
+	if N_new_points>1:
+			#filling the new grid
+		new_mesh = np.meshgrid(*new_mesh)
+		new_mesh = [g.flatten() for g in new_mesh]
+		new_mesh = np.column_stack(new_mesh) #(N,D)
+		
+		mesh_list = []
+		for i in range(N_new_points):
+			temp_mesh = np.array(mesh)
+			temp_mesh[:,where_single_layer] = new_mesh[i,:]
+			mesh_list.append(temp_mesh)
+		mesh = np.concatenate(mesh_list, axis =0)
+	
+	return mesh
 	
 
 def create_mesh(dist, tile, coarse_boundaries = None):

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+plt.style.use(['science','ieee', 'bright'])
 import matplotlib
 
 from tqdm import tqdm
@@ -67,14 +68,21 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 def plot_metric_accuracy_data(out_dict, savefile = None):
 	"Given a dict produced by get_metric_accuracy_data, it plots the histograms for each of the match points"
 	
-	plt.figure()
-	plt.title('{} - overlap = {}'.format(out_dict['variable_format'], out_dict['overlap']))
+	fig = plt.figure()
+	ax = fig.gca()
+	#plt.title('{} - overlap = {}'.format(out_dict['variable_format'], out_dict['overlap']))
+	plt.title('{}'.format(out_dict['variable_format']))
+	next(ax._get_lines.prop_cycler)
 	for MM in out_dict['MM_list']:
-		bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], 15)), 0, 10)
+		bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], 5)), 0, 50)
 		plt.hist(out_dict[MM], bins = bins, histtype='step')
-		plt.axvline(MM, c = 'r')
-
+		plt.axvline(MM, c = 'k', ls = '-')
 	plt.xscale('log')
+	plt.xlabel('$1-MM$')
+
+	ax.set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
+	ax.set_xticks([0.9+0.01*i for i in range(10)], labels = [], minor = True)
+#	ax.set_xticklabels([str(MM) for MM in out_dict['MM_list']])
 
 	if savefile is not None: plt.savefig(savefile)	
 	plt.show()
@@ -157,15 +165,15 @@ if __name__ == '__main__':
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = False
+	load = True
 	overlap = (run_name.find('overlap')>-1)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 	
 	boundaries = np.array([[10, 1.],[30, 5.]]) #Mq_nonspinning
-	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.9, np.pi]]) #Mq_s1xz
-	#boundaries = np.array([[10, 1., 0., 0., 0.],[30, 5., 0.9, np.pi, np.pi]]) #Mq_s1xz_iota
-	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.9, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
+	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.99, np.pi]]) #Mq_s1xz
+	#boundaries = np.array([[10, 1., 0., 0., 0.],[30, 5., 0.99, np.pi, np.pi]]) #Mq_s1xz_iota
+	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.99, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
 	boundaries = np.array([[20, 1., -0.99, -0.99],[30, 5., 0.99, 0.99]]) #Mq_s1z_s2z
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
@@ -177,8 +185,8 @@ if __name__ == '__main__':
 			approx = approximant,
 			f_min = f_min, f_max = f_max)
 	
-	plot_ellipse([25, 3, 0., 0.], 0.95, m_obj, boundaries)
-	quit()
+	#plot_ellipse([25, 3, 0., 0.], 0.95, m_obj, boundaries)
+	#quit()
 	
 	if not load:
 		out_dict = get_metric_accuracy_data(m_obj, MM_list, boundaries, N_points, overlap = overlap)
@@ -188,7 +196,8 @@ if __name__ == '__main__':
 		with open(filename, 'rb') as filehandler:
 			out_dict = pickle.load(filehandler)
 	
-	plot_metric_accuracy_data(out_dict)
+	savefile = '../tex/img/metric_accuracy_{}.pdf'.format(variable_format)
+	plot_metric_accuracy_data(out_dict, savefile)
 	
 	
 	

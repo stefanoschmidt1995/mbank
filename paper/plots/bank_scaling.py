@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+plt.style.use(['science','ieee'])
+
 from tqdm import tqdm
 
 from mbank.bank import cbc_bank
@@ -111,7 +113,7 @@ def plot_scaling_data(out_dict, sbank_dict = None, savefile = None, title = None
 	"""
 	v_h = variable_handler()
 	
-	plt.figure(figsize = (15,15))
+	plt.figure()#figsize = (15,15))
 	if isinstance(title, str): plt.title(title)
 	
 	for v_f in out_dict['var_formats']:
@@ -145,13 +147,13 @@ def plot_scaling_data(out_dict, sbank_dict = None, savefile = None, title = None
 				plt.plot(x_sbank, y_pred_sbank, '--', c= color) #linear fit
 				plt.plot(x_sbank, y_pred_owen_fit_sbank, ls = 'dotted', c= color) #owen slope and fitted q
 		
-	plt.legend()
+	plt.legend(loc = 'lower left')
 	plt.xlabel(r"$1-MM$")
 	plt.ylabel(r"$N_{templates}$")
 	plt.xscale('log')
 	plt.yscale('log')
 	
-	if isinstance(savefile, str): plt.savefig(savefile, transparent = False)
+	if isinstance(savefile, str): plt.savefig(savefile, transparent = True)
 	
 	plt.show()
 
@@ -167,17 +169,17 @@ if __name__ == '__main__':
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'geometric_nonprecessing'
 	
-	placing_method = 'random'
+	placing_method = 'geometric'
 	
-	load_dict = False
+	load_dict = True
 	load_tiling = True
 	
 	folder_name = 'scaling_{}/'.format(run_name)
 	if not os.path.isdir(folder_name): os.mkdir(folder_name)
 	
-	MM_list = [0.6, 0.7, 0.8, 0.9]#, 0.95, 0.97]#, 0.99]
+	MM_list = [0.6, 0.7, 0.8, 0.9, 0.95, 0.97]#, 0.99]
 	variable_format_list = ['Mq_s1xz_s2z_iota', 'Mq_s1xz_s2z','Mq_s1xz', 'Mq_nonspinning', 'Mq_s1z_s2z']
-	variable_format_list = ['Mq_nonspinning', 'Mq_s1z_s2z']
+	variable_format_list = ['Mq_nonspinning', 'Mq_s1z_s2z', 'Mq_s1xz_s2z']
 
 	M_range = (10,30)
 	q_range = (1,5)
@@ -204,7 +206,9 @@ if __name__ == '__main__':
 
 	sbank_dict = None
 	sbank_dict = dict(Mq_nonspinning = folder_name+'sbank_Mq_nonspinning.dat', Mq_s1z_s2z = folder_name+'sbank_Mq_s1z_s2z.dat')
-	plot_scaling_data(out_dict, sbank_dict = sbank_dict, savefile = folder_name+'scaling.png', title = run_name)
+	savefile = folder_name+'scaling.png'
+	#savefile = '../tex/img/bank_scaling_nonprecessing_{}.pdf'.format(placing_method)
+	plot_scaling_data(out_dict, sbank_dict = sbank_dict, savefile = savefile, title = run_name)
 
 
 

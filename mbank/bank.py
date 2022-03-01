@@ -25,7 +25,7 @@ import poisson_disc
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, get_cube_corners, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
+from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -376,6 +376,7 @@ class cbc_bank():
 			elif placing_method == 'geometric' or placing_method == 'geo_stochastic':
 					#if stochastic option is set, we create a first guess for stochastic placing method 
 				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
+				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
 				temp_t_obj = tiling_handler()
@@ -400,7 +401,7 @@ class cbc_bank():
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
 
 		if placing_method == 'random':
-			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = 500*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 			new_templates = place_random(dist, t_obj, N_points = int(N_points))
 
 		new_templates = np.stack(new_templates, axis =0)

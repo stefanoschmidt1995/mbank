@@ -837,6 +837,7 @@ class tiling_handler(list):
 				The number or templates that should lie inside the tile (i.e. the rectangle with the given metric)
 			
 		"""
+		#return rect.volume() * np.sqrt(np.prod(np.diag(metric))) / np.power(avg_dist, metric.shape[0])
 		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
 
 			#This trash is to look for projecting over many variable and check which gives the maximum number of templates
@@ -963,7 +964,7 @@ class tiling_handler(list):
 				metric_2 = metric_func(get_center(nt[2]))
 				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, avg_dist)),
 								(nt[1], t[1],       self.N_templates(nt[1], t[1], avg_dist)),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist)), ]
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist)) ]
 				
 				
 					#replacing the old tile with the new ones

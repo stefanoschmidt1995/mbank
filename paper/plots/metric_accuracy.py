@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-plt.style.use(['science','ieee', 'bright'])
 import matplotlib
 
 from tqdm import tqdm
@@ -54,9 +53,13 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				#plt.show()
 				
 				theta2 = theta2[np.argmin(dists),:]
+				#theta2 = theta2[np.where(np.all(np.abs(theta2-theta1)<1, axis =1))[0][0],:]
 					#storing to out_dict
 				out_dict['theta2'][i,:,j] = theta2
 				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap)
+				print(i, MM, out_dict[MM][i],
+						metric_obj.metric_match(theta1, theta2, overlap=True), metric_obj.match(theta1, theta2, overlap=True),
+						metric_obj.metric_match(theta1, theta2, overlap=False), metric_obj.match(theta1, theta2, overlap=False))
 			else:
 				out_dict['theta2'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
@@ -157,7 +160,7 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 20000
+	N_points = 200
 	variable_format = 'Mq_s1z_s2z'
 	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	ifo = 'H1'
@@ -196,7 +199,7 @@ if __name__ == '__main__':
 		with open(filename, 'rb') as filehandler:
 			out_dict = pickle.load(filehandler)
 	
-	savefile = '../tex/img/metric_accuracy_{}.pdf'.format(variable_format)
+	savefile = None #'../tex/img/metric_accuracy_{}.pdf'.format(variable_format)
 	plot_metric_accuracy_data(out_dict, savefile)
 	
 	

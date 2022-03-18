@@ -33,7 +33,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match_bruteforce, load_PSD
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match, load_PSD
 from mbank.utils import updates_args_from_ini
 
 from itertools import combinations, permutations
@@ -151,7 +151,7 @@ if args.inj_file is not None:
 	if args.inj_file.find('/') <0: args.inj_file = args.run_dir+args.inj_file
 if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
 if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
-if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
+if isinstance(args.psd, str): args.psd = args.run_dir+args.psd if args.psd.find('/') <0 else args.psd
 
 plot_folder = None
 if args.show: args.plot = True
@@ -251,7 +251,7 @@ else:
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_metric_injections_match_bruteforce(injections_full, bank,  t_obj, N_neigh_templates = args.N_neigh_templates)
+injection_stat_dict = compute_metric_injections_match(injections_full, bank,  t_obj, N_neigh_templates = args.N_neigh_templates)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)

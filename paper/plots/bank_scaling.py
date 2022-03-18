@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-plt.style.use(['science','ieee'])
+#plt.style.use(['science','ieee'])
 
 from tqdm import tqdm
 
@@ -174,12 +174,13 @@ if __name__ == '__main__':
 	load_dict = True
 	load_tiling = True
 	
-	folder_name = 'scaling_{}/'.format(run_name)
+	folder_name = 'bank_scaling/scaling_{}_{}/'.format(run_name, placing_method)
 	if not os.path.isdir(folder_name): os.mkdir(folder_name)
+	print("Working in folder {}".format(folder_name))
 	
 	MM_list = [0.6, 0.7, 0.8, 0.9, 0.95, 0.97]#, 0.99]
 	variable_format_list = ['Mq_s1xz_s2z_iota', 'Mq_s1xz_s2z','Mq_s1xz', 'Mq_nonspinning', 'Mq_s1z_s2z']
-	variable_format_list = ['Mq_nonspinning', 'Mq_s1z_s2z', 'Mq_s1xz_s2z']
+	variable_format_list = [ 'Mq_s1xz', 'Mq_nonspinning', 'Mq_s1z_s2z']
 
 	M_range = (10,30)
 	q_range = (1,5)
@@ -195,7 +196,7 @@ if __name__ == '__main__':
 	if not load_dict:
 
 		out_dict = get_scaling_data(m_obj, variable_format_list, MM_list, M_range, q_range, s_range, e_range,
-					templates_in_tile = 100, placing_method = placing_method,
+					templates_in_tile = 200, placing_method = placing_method,
 					save_folder = folder_name, load_tiling = load_tiling, verbose = True)
 		
 		with open(folder_name+'out_dict.pkl', 'wb') as filehandler:
@@ -205,7 +206,7 @@ if __name__ == '__main__':
 			out_dict = pickle.load(filehandler)
 
 	sbank_dict = None
-	sbank_dict = dict(Mq_nonspinning = folder_name+'sbank_Mq_nonspinning.dat', Mq_s1z_s2z = folder_name+'sbank_Mq_s1z_s2z.dat')
+	#sbank_dict = dict(Mq_nonspinning = folder_name+'sbank_Mq_nonspinning.dat', Mq_s1z_s2z = folder_name+'sbank_Mq_s1z_s2z.dat')
 	savefile = folder_name+'scaling.png'
 	#savefile = '../tex/img/bank_scaling_nonprecessing_{}.pdf'.format(placing_method)
 	plot_scaling_data(out_dict, sbank_dict = sbank_dict, savefile = savefile, title = run_name)

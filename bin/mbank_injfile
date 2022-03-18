@@ -84,6 +84,8 @@ assert args.variable_format in variable_handler().valid_formats, "Wrong value {}
 
 if not args.approximant.endswith('PN'):
 	warnings.warn("GstLAL wants the injection approximant name to end with a the required PN order, e.g. IMRPhenomPv2 -> IMRPhenomPv2threePointFivePN . Are you sure you want to omit it?")
+else:
+	print("Using approximant ", args.approximant)
 
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir):

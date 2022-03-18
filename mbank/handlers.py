@@ -83,9 +83,13 @@ class variable_handler(object):
 	- ``s1xyz_s2z``: the two z components are assigned as well as s1x, s1y,  D = 4
 	- ``fullspins``: all the 6 dimensional spin parameter is assigned,  D = 6
 	
-	Whenever a precessing spin is assigned to a BH, the spin is *always* expressed in sperical coordinates s1, theta1, phi1.
+	Regarding the spins, we stick to the following conventions:
 
-	On top of this, the user can *optionally* specify a format for Angles and for the Eccentricity
+	- If a spin is aligned to the z axis the spin variable is the value of the z component of the spin (with sign): ``s1z`` or ``s2z``.
+	- If a generic spin is assigned to a BH, the spin is *always** expressed in sperical coordinates ``s1``, ``theta1``, ``phi``.
+	``s1`` (or ``s2``) represents the spin magnitude (between 0 and 1). The angle ``theta1`` (``theta2``) corresponds to the polar angle of the spin, which controls the magnitude of in-plane spin. The angle ``phi1``(``phi2``) is the aximuthal angle (if set), which controls the mixing between x and y components.
+
+	On top of the spins, the user can **optionally** specify a format for Angles and for the Eccentricity
 	
 	Valid formats for the angles are:
 	
@@ -470,6 +474,14 @@ class variable_handler(object):
 				vars_to_assign.append(np.zeros(m1.shape))
 		
 		e, meanano, iota, phi = vars_to_assign
+	
+			#setting spins to zero, if they need to be
+		def set_zero_spin(s):
+			ids_ = np.where(np.abs(s)<1e-10)[0]
+			if len(ids_)>0: s[ids_] = 0.
+			return s
+		s1x, s1y, s1z, s2x, s2y, s2z = set_zero_spin(s1x), set_zero_spin(s1y), set_zero_spin(s1z), set_zero_spin(s2x), set_zero_spin(s2y), set_zero_spin(s2z)
+		
 		
 		if squeeze:
 			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z,  e, meanano, iota, phi = m1[0], m2[0], s1x[0], s1y[0], s1z[0], s2x[0], s2y[0], s2z[0], e[0], meanano[0], iota[0], phi[0]
@@ -854,11 +866,11 @@ class tiling_handler(list):
 		#return np.max(N_templates_list)
 
 	@ray.remote
-	def create_tiling_ray(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
+	def create_tiling_ray(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
 		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
-		return self.create_tiling(boundaries, N_temp, metric_func, avg_dist, verbose, worker_id)
+		return self.create_tiling(boundaries, V_tile, metric_func, verbose, worker_id)
 	
-	def create_tiling(self, boundaries, N_temp, metric_func, avg_dist = 0.1, verbose = True, worker_id = None):
+	def create_tiling(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
 		"""
 		Create a tiling within the boundaries by a hierarchical iterative splitting
 		
@@ -870,9 +882,10 @@ class tiling_handler(list):
 			Boundaries of the space to tile.
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
 
-		N_temp: int
-			Maximum number of templates that shall lie within the tile. The number of templates in each tile will be always smaller than ``N_temp``
-			Default is 0.1, the reference value for `cbc_bank.generate_bank()`.
+		V_tile: float/tuple
+			Maximum volume for the tile. The volume is normalized by 0.1^D.
+			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
+			If a tuple is given, it is interpreted as ``(V_tile, ref_dist)``, where ``ref_dist`` is the reference template spacing (with 0.1 default)
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -883,8 +896,6 @@ class tiling_handler(list):
 				metric_obj = mbank.metric.cbc_metric(**args)
 				metric_func = metric_obj.get_metric
 		
-		avg_dist: float
-				Desidered average distance between templates. To compute the number of templates in each tile via ``mbank.utils.N_templates()``
 			
 		verbose: bool
 			Whether to print the progress of the computation
@@ -899,6 +910,9 @@ class tiling_handler(list):
 		
 		"""
 		#boundaries is a tuple (max, min)
+		dist = 0.1
+		if isinstance(V_tile, tuple): V_tile, dist = V_tile
+		
 		boundaries = tuple([np.array(b) for b in boundaries])
 		D = boundaries[0].shape[0]
 		start_rect = scipy.spatial.Rectangle(boundaries[0], boundaries[1])
@@ -936,7 +950,7 @@ class tiling_handler(list):
 		
 			#tiles list is initialized with a start cell. The first split is done no matter what
 		#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-		tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, avg_dist))] 
+		tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist))] 
 		tiles_list_old = []
 		
 			 #progress bar = % of volume covered
@@ -954,7 +968,7 @@ class tiling_handler(list):
 				#loops on tiles an updating tiles_list
 			for t in tiles_list:
 
-				if t[2] <= N_temp:
+				if t[2] <= V_tile:
 					if verbose: V_covered += t[0].volume()
 					continue
 				
@@ -962,9 +976,9 @@ class tiling_handler(list):
 				
 				metric_0 = metric_func(get_center(nt[0]))
 				metric_2 = metric_func(get_center(nt[2]))
-				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, avg_dist)),
-								(nt[1], t[1],       self.N_templates(nt[1], t[1], avg_dist)),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, avg_dist)) ]
+				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist)),
+								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist)),
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist)) ]
 				
 				
 					#replacing the old tile with the new ones

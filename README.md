@@ -16,7 +16,13 @@ To install the latest released verion (no release has been done yet):
 pip install mbank
 ```
 
-To install the code from source:
+To intall the latest version in the github repository, you can type:
+
+```Bash
+pip install git+https://github.com/stefanoschmidt1995/mbank
+```
+
+Otherwise, you can clone the repo, build a distribution and install the package:
 
 ```Bash
 git clone git@github.com:stefanoschmidt1995/mbank.git
@@ -89,8 +95,8 @@ You can also throw some injection chosen from a file: you just need to set an in
 If you don't feel like typing all the options every time, you can add them to a text file and pass all of them through the `--ini-file` option. You can find an example ini file in the repo. To run it:
 
 ```Bash
-mbank_run --ini-file test.ini
-mbank_injections --ini-file test.ini
+mbank_run test.ini
+mbank_injections test.ini
 ```
 
 As you see, the same file can be used for different commands: each command will just ignore any option not relevant for it.
@@ -98,7 +104,7 @@ As you see, the same file can be used for different commands: each command will 
 
 ## Contacts
 
-Fore more info, or just to say hello, you can contact me: [stefanoschmidt1995@gmail.com](mailto:stefanoschmidt1995@gmail.com)
+Fore more info, or just to say hello, you can contact me: [stefanoschmidt1995@gmail.com](mailto:stefanoschmidt1995@gmail.com).
 
 
 

@@ -82,8 +82,8 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--template-in-tile", default = 200, type = int,
-	help="Maximum number of templates in each tile, assuming a constant reference distance between them of 0.1 (according to the metric). This is an indirect measure of the volume of each tile.")
+	"--v-tile", default = 200, type = int,
+	help="Maximum volume for each tile. The volume is normalized by 0.1^D. This is equivalent to the number of templates in each tile, assuming a constant reference metric distance between them of 0.1.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
@@ -149,6 +149,7 @@ assert args.variable_format in var_handler.valid_formats, "Wrong value {} for va
 if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.run_name)
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
+if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 
 if args.grid_size is None: args.grid_size = tuple([1 for i in range(var_handler.D(args.variable_format))])
 
@@ -232,7 +233,7 @@ if format_info['mass_format'] == 'm1m2':
 
 if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
 	
-	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, N_temp = args.template_in_tile,
+	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
 		grid_list = args.grid_size, placing_method = args.placing_method, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder

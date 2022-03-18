@@ -108,7 +108,7 @@ class cbc_metric(object):
 			self.PSD = np.interp(self.f_grid, PSD[0], PSD[1])
 		else:
 			self.f_max = self.f_grid[-1]
-		self.f_max = float(f_max)
+		self.f_max = float(self.f_max) #Do we need this?
 		
 		return
 	
@@ -299,12 +299,13 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		h : np.ndarray
+		grad_h : np.ndarray
 			shape: (N, K, D) -
 			Complex array holding the gradient of the WFs evaluated on the default frequency/time grid
 		"""
 		#Take home message, to get a really nice metric:
 		# - The order of the integration is crucial. You can set this adaptively, depending on total mass
+		assert order in [None, 1,2,4,6,8], "Wrong order '{}' for the finite difference scheme given: options are 'None' or '{}'".format(order, [1,2,4,6,8])
 
 		def get_WF(theta_value, df_):
 			#return self.get_WF_lal(theta_value, approx, df_)[0].data.data
@@ -330,7 +331,7 @@ class cbc_metric(object):
 			df = self.delta_f#*10.
 			order_theta = get_order(theta_[0])
 			grad_theta_list = []
-			if order==1: WF = get_WF(theta_, df) #only for forward euler
+			if order == 1: WF = get_WF(theta_, df) #only for forward Euler
 			
 				#loops on the D dimensions of the theta vector
 			for i in range(theta.shape[1]):
@@ -364,7 +365,7 @@ class cbc_metric(object):
 					#forward euler: faster but less accurate
 				if order_theta ==1:
 					grad_i = (WF_p - WF )/(epsilon) #(N,D) 
-					#second order method: slower but more accurate
+					#second order method
 				elif order_theta==2:
 					grad_i = (WF_p - WF_m )/(2*epsilon) #(N,D)
 					#fourth order method
@@ -430,7 +431,7 @@ class cbc_metric(object):
 		if not lalsim.SimInspiralImplementedFDApproximants(lal_approx):
 			raise RuntimeError("Approximant {} is TD: only FD approximants are supported".format(approx)) #must be FD approximant
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(theta, self.variable_format)
-		#print("mbank pars: ",m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
+		#print("mbank pars - {}: ".format(self.variable_format),m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
 		
 		try:
 			hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
@@ -507,7 +508,7 @@ class cbc_metric(object):
 		else: return h
 	
 	
-	def get_metric(self, theta, overlap = False):
+	def get_metric(self, theta, overlap = False, order = None):
 		"""
 		Returns the metric.
 		
@@ -522,6 +523,10 @@ class cbc_metric(object):
 			Whether to compute the metric based on the local expansion of the overlap rather than of the match
 			In this context the match is the overlap maximized over time
 
+		order: int
+			Order of the finite difference scheme for the gradient computation.
+			If None, some defaults values will be set, depending on the total mass.
+
 		Returns
 		-------
 		
@@ -530,7 +535,6 @@ class cbc_metric(object):
 			Array containing the metric in the given parameters
 			
 		"""
-			#TODO: add an option for choosing the gradient accuracy
 			#TODO: understand whether the time shift is an issue here!!
 			#		Usually match is max_t0 <h1(t)|h2(t-t0)>. How to cope with that? It this may make the space larger than expected
 		theta = np.array(theta)
@@ -548,8 +552,8 @@ class cbc_metric(object):
 
 		### scalar product in FD
 		h = self.get_WF(theta, approx = self.approx) #(N,D)
-		grad_h = self.get_WF_grads(theta, approx = self.approx) #(N,D, K)
-			
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order) #(N,D, K)
+		
 		h_W = h / np.sqrt(self.PSD) #whithened WF
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
 		

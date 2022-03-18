@@ -22,6 +22,7 @@ superscriptaddress,10pt]{revtex4-1}
 \usepackage{multirow}
 \usepackage{algpseudocode}
 \usepackage{algorithm}
+\usepackage{algorithmicx}
 \usepackage{rotating}
 \usepackage{tabularx}
 \usepackage{ragged2e}
@@ -29,6 +30,12 @@ superscriptaddress,10pt]{revtex4-1}
 \usepackage{graphicx}
 \usepackage{siunitx}
 	\sisetup{output-decimal-marker={.}}
+
+	%To define a global variable in the algorithm
+\algdef{SE}[VARIABLES]{Variables}{EndVariables}
+   {\algorithmicvariables}
+   {\algorithmicend\ \algorithmicvariables}
+\algnewcommand{\algorithmicvariables}{\textbf{global variables}}
 	
 	%some math symbols
 \newcommand{\R}{\mathbb{R}}
@@ -244,30 +251,39 @@ To simplify the geometry (and make the computation faster), we only consider hyp
 \end{equation}
 where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-cube (rectangle) with extrema $\theta_{min/max}$ and where $M$ is the metric evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
-To tile the space we use the iterative algorithm described in alg.~\ref{alg:tiling}.
-Given an initial tile, that covers the whole space of interests, the algorithm returns a list of tiles, covering the original space.
-The number of tiles is controlled by a parameter $V_{tile}$ which is an indirect measure of the (metric) volume. It is defined as:
+To tile the space we use the recursive \texttt{SplitTile} function described in alg.~\ref{alg:tiling}.
+Given an initial tile, covering the whole space of interests, the algorithm returns a list of tiles, which gives a finer cover of the original space.
+The number of tiles used is controlled by a threshold $V_{max}$ on $V_{tile}$, which is an indirect measure of the (metric) volume. It is defined as:
 \begin{equation} \label{eq:templates}
 	V_{tile} = \frac{Vol(R_{[\theta_{min}, \theta_{max}]}) \sqrt{|M|}}{0.1^D}
 \end{equation}
 where $0.1$ is a reference distance.
 $V_{tile}$ has a straightforward interpretation: under certain assumptions (see sec.~\ref{sec:template_placing}), it is the number of templates that should lie into the tile if their spacing is exactly $0.1$.
-The choice of this parameter makes sure that all the tiles cover approximately the same volume, thus keeping the same number of templates: the smaller $V_{tile}$ the more accurate is the coverage of the space (hence the higher is the computational cost).
+Setting a threshold value on $V_{tile}$ makes sure that all the tiles cover approximately the same volume, thus hosting the same number of templates: the smaller $V_{max}$ the more accurate is the coverage of the space (hence the higher is the computational cost).
 
 As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. \stefano{shall we implement this??? Given the new random approach it shouldn't be too difficult...}
 
 \begin{algorithm}[t!]
-\caption{Tiling}
+\caption{Tiling generation function}
+\flushleft
+\hspace*{\algorithmicindent} \textbf{Input}: A tile $\mathcal{T} = \left(R, M\right)$ \\
+\hspace*{\algorithmicindent} \textbf{Output}: A list of tiles
 \begin{algorithmic}
-	\State WRITEME
-	\State $i \gets 10$
-	\If{$i\geq 5$} 
-		\State $i \gets i-1$
-	\Else
-		\If{$i\leq 3$}
-		    \State $i \gets i+2$
-		\EndIf
-	\EndIf
+	\Procedure{SplitTile}{$\mathcal{T}$, $V_{max}$}
+	  \If{$V_{max}<V_{tile}$}
+	  	\State\Return [$\mathcal{T}$]
+	  \Else
+	    \State $d \gets $ smaller (metric) dimension of $R$
+	    \State $R_{left}, R_{center}, R_{right} \gets $ 3 equal volume rectangles generated splitting $R$ along dimension $d$ 
+	    \State $M_{left}, M_{center}, M_{right} \gets $ metric evaluated at the center of each rectangle
+	  	\State $\mathcal{T}_{left},\mathcal{T}_{center}, \mathcal{T}_{right} \gets \left( R_{left}, M_{left}\right) \right),$
+	  		$\left( R_{center}, M_{center}\right) \right),$ $\left( R_{right}, M_{right}\right) \right)$
+%	  	\State $\mathcal{T}_{left} \gets \left( R_{left}, M_{left}\right) \right)$
+%	  	\State $\mathcal{T}_{center} \gets \left( R_{center}, M_{center}\right) \right)$
+%	  	\State $\mathcal{T}_{right} \gets \left( R_{right}, M_{right}\right) \right)$
+		\State\Return{[\Call{SplitTile}{$\mathcal{T}_{left}$}, \Call{SplitTile}{$\mathcal{T}_{center}$}, \Call{SplitTile}{$\mathcal{T}_{right}$}]}
+ 	  \EndIf
+	\EndProcedure
 \end{algorithmic}
 \label{alg:tiling}
 \end{algorithm}
@@ -314,7 +330,7 @@ Below we describe briefly each of them. The recommended one is ...
 	 Iterative & 88 & 788 & 6344 \\ 
 	 \hline
 	 \end{tabular}
-	 \caption{A schematic comparison of the different placing methods implemented \stefano{We need to think about this...}}
+	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...}}
  	 \label{tab:placing_methods}
 \end{table}
 
@@ -333,7 +349,7 @@ Below we describe briefly each of them. The recommended one is ...
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
 \begin{figure}[h]
-	\includegraphics{metric_accuracy_Mq_s1z_s2z}
+	\includegraphics{metric_accuracy}
 	\caption{Metric accuracy, for different variable formats \sarah{what are the different colors here?}}
 	\label{fig:metric_accuracy}
 \end{figure}

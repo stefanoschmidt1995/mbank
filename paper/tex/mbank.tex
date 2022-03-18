@@ -82,7 +82,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data is constantly increasing. There are already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{}, primordial BHs \cite{} and intermediate mass BHs. Moreover, there is a growing interests in searching for precessing signals and eccentric binaries.
 All these efforts requires to generate accurate templates banks that covers the parameter space of interests. This is a highly non trivial and computationally expensive, task and its accuracy is crucial for the outcome of the searches.
 
-The most widely used approach to bank generation ({\it stochastic} method) consists in scattering templates around the parameter space with a rejection technique. A proposed template is included in the bank only if its distance between all the other templates is smaller than a given user defined threshold. While this method is very accurate and proved to work in many situation, it is very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
+The most widely used approach to bank generation ({\it stochastic} method) consists in scattering templates around the parameter space with a rejection technique \sarah{we should cite sbank papers here; think this is the main one: https://arxiv.org/abs/1210.6666}. A proposed template is included in the bank only if its distance between all the other templates is smaller than a given user defined threshold. While this method is very accurate and proved to work in many situation, it is very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
 As we are moving toward larger banks, that cover more exotic parameter space, such approach may become unfeasibly expensive.
 
 For this reason, there has been a recent growing interest on metric template placing. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
@@ -91,14 +91,14 @@ Following the seminal work by Owen \cite{owen_metric}, a large number of approac
 In this work, we develop a novel approach to template placing based on the metric approximation of the match.
 Our method is specifically designed for dealing with high-dimensional (more than 4 dimensional) template banks of precessing signals. This makes it particulary suitable for investigating exotic regions for BBH parameter space, enabling generation of banks for precessing and eccentric signals. In such situation, where an established standard bank does not exist, it is crucial to allow for a fast, yet accurate, exploration of different bank configuration.
 
-Our model constructs an internal representation of the paramter space of interests, computes the metric for distance computation and exploits this for fast template placing.
+Our model constructs an internal representation of the paramter space of interests, computes the metric for distance computation and exploits this for fast template placing. \sarah{This is nice. I think you will want to have maybe a diagram that gives an overview of the whole package. For instance, to show how the bank code and injection code can make a workflow that gives you a validated bank.}
 The approach is implemented in an open-source python package \texttt{mbank}, freely available on GitHub\footnote{
 It available at the repository: \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}}.
 The package offers support for tiling the parameter space of interests and placing templates with an user given average spacing. Moreover, it offers an injection helper that allows for a very fast validation of the bank.
 It is designed to run in parallel the most heavy computations.
 As a summary, \texttt{mbank} is implemented to be:
 \begin{itemize}
-	\item Extremely fast
+	\item Extremely fast \sarah{This will need to be bench-marked. Do you have some timing numbers already?}
 	\item Suitable for large banks and high dimensional {\it exotic} parameter space
 	\item Fairly accurate
 \end{itemize}
@@ -321,11 +321,20 @@ Below we describe briefly each of them. The recommended one is ...
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
+\sarah{Here we will want a few different types of tests and plots:\\
+* You will want some plots showing what the template banks look like\\
+* Might also be nice to zoom in on a cell or demonstrate some of the details of the bank placement with a plot or two\\
+* You will want to describe the injection set used to test the coverage of each bank you make (could use a table for this)\\
+* You will want a plot showing the recovery of these injections as a function of their parameter space (see for example Fig 7-11 here: https://arxiv.org/pdf/1812.05121.pdf)\\
+* You will want a plot showing the speed of your code compared to a conventional method (the benchmarking I mentioned earlier) \\
+* 
+ }
+
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
 \begin{figure}[h]
 	\includegraphics{metric_accuracy_Mq_s1z_s2z}
-	\caption{Metric accuracy, for different variable formats}
+	\caption{Metric accuracy, for different variable formats \sarah{what are the different colors here?}}
 	\label{fig:metric_accuracy}
 \end{figure}
 

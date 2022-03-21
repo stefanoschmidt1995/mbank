@@ -1504,7 +1504,49 @@ def get_boundary_box(grid_list):
 	return lower_grids, upper_grids
 
 ##########################################################################################
+#TODO: use this function every time you read an xml!!!
+def read_xml(filename, table, N = None):
+	"""
+	Read an xml file in the ligo.lw standard and extracts the BBH parameters
+	
+	Parameters
+	----------
+		filename: str
+			Name of the file to load
 		
+		table: ligo.lw.lsctables.table.Table
+			A ligo.lw table type. User typically will want to set `ligo.lw.lsctables.SnglInspiralTable` for a bank and `ligo.lw.lsctables.SimInspiralTable` for injections
+		
+		N: int
+			Number of rows to be read. If `None` all the rows inside the table will be read
+	
+	Returns
+	-------
+		BBH_components: np.ndarray
+			shape (N,12) -
+			An array with the read BBH components. It has the same layout as in `mbank.handlers.variable_handler`
+	"""
+	@lsctables.use_in
+	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+		pass
+	lsctables.use_in(LIGOLWContentHandler)
+
+	xmldoc = lw_utils.load_filename(filename, verbose = False, contenthandler = LIGOLWContentHandler)
+	table = table.get_table(xmldoc)
+	
+	if not isinstance(N, int): N = len(table)
+	BBH_components = []
+			
+	for i, row in enumerate(table):
+		if i>=N: break
+		#FIXME: read e and meanano properly!!
+		BBH_components.append([row.mass1, row.mass2, #masses
+			row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, #spins
+			0, 0, row.alpha3, row.alpha5]) #e, meananano, iota, phi
+			
+	BBH_components = np.array(BBH_components) #(N,12)
+	
+	return BBH_components
 		
 def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20.):
 		"""

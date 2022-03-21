@@ -331,7 +331,7 @@ class cbc_metric(object):
 			df = self.delta_f#*10.
 			order_theta = get_order(theta_[0])
 			grad_theta_list = []
-			if order == 1: WF = get_WF(theta_, df) #only for forward Euler
+			if order_theta == 1: WF = get_WF(theta_, df) #only for forward Euler
 			
 				#loops on the D dimensions of the theta vector
 			for i in range(theta.shape[1]):

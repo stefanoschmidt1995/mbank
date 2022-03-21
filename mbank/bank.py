@@ -6,7 +6,6 @@ mbank.bank
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 import warnings
 
 	#ligo.lw imports for xml files: pip install python-ligo-lw
@@ -24,7 +23,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random
+from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -135,23 +134,9 @@ class cbc_bank():
 		if filename.endswith('.xml') or filename.endswith('.xml.gz'):
 
 			if self.var_handler.format_info[self.variable_format]['e']: warnings.warn("Currently loading from an xml file does not support eccentricity")
-			
-				#for some reason this content handles is needed... Why??
-			@lsctables.use_in
-			class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-				pass
-			lsctables.use_in(LIGOLWContentHandler)
-
-			xmldoc = lw_utils.load_filename(filename, verbose = False, contenthandler = LIGOLWContentHandler)
-			sngl_inspiral_table = lsctables.SnglInspiralTable.get_table(xmldoc)
+				#reading the BBH components
+			BBH_components = read_xml(filename, lsctables.SnglInspiralTable)
 		
-			BBH_components = []
-			
-			for row in sngl_inspiral_table:
-				BBH_components.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, 0, 0, row.alpha3, row.alpha5])
-			
-			BBH_components = np.array(BBH_components) #(N,12)
-			
 				#making the templates suitable for the bank
 			templates_to_add = self.var_handler.get_theta(BBH_components, self.variable_format) #(N,D)
 			
@@ -380,7 +365,7 @@ class cbc_bank():
 			
 			elif placing_method == 'geometric' or placing_method == 'geo_stochastic':
 					#if stochastic option is set, we create a first guess for stochastic placing method 
-				new_templates_ = create_mesh(dist, t, coarse_boundaries = coarse_boundaries) #(N,D)
+				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
 				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
@@ -699,9 +684,6 @@ class cbc_bank():
 				if len(tau_list)>1 and np.all(np.abs(tau_list[-2]-tau_list[-1]) < 0.001*tau_list[-1]):
 					tau = tau_list[-1]
 					break
-			#print(tau)		
-			#plt.plot(tau_list)
-			#plt.show()
 			if verbose: print("")
 			###########
 			#doing the actual sampling

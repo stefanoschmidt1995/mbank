@@ -82,7 +82,7 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--v-tile", default = 200, type = int,
+	"--v-tile", default = 200, type = float,
 	help="Maximum volume for each tile. The volume is normalized by 0.1^D. This is equivalent to the number of templates in each tile, assuming a constant reference metric distance between them of 0.1.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,

@@ -775,6 +775,10 @@ class variable_handler(object):
 	
 ####################################################################################################################
 
+#TODO: tiling_handler should have a variable format! It should be a string attribute and should be stored in the tiling numpy array as a metadata. See https://numpy.org/devdocs/reference/generated/numpy.dtype.metadata.html
+#It must be given at initialization (if it's not read from file).
+#The idea is that, whenever a tiling file is read, there is no need to specify explicitly the variable_format
+
 class tiling_handler(list):
 	"""
 	Class for a tiling with I/O helpers.
@@ -793,7 +797,7 @@ class tiling_handler(list):
 	
 	def __init__(self, filename = None):
 		"""
-		Initializes the tilin handler.
+		Initializes the tiling handler.
 		
 		Parameters
 		----------

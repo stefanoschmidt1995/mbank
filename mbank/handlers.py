@@ -806,6 +806,7 @@ class tiling_handler(list):
 				The file shall be the same format as produced by ``tiling_handler.save()``
 		"""
 		super().__init__()
+		self.lookup_table = None
 		if isinstance(filename, str): self.load(filename)
 		return
 	
@@ -822,6 +823,45 @@ class tiling_handler(list):
 		"""
 		centers = np.stack( [(t[0].maxes+t[0].mins)/2. for t in self.__iter__()], axis =0)
 		return centers
+
+	def update_KDTree(self):
+		"""
+		Updates the lookup table to compute the tile each point falls in.
+		It should be called if you update the tiling and you want to compute the tile each point falls in.
+		"""
+		self.lookup_table = scipy.spatial.KDTree(self.get_centers())
+		return
+
+	def get_tile(self, points):
+		"""
+		Given a set points, it computes the tile each point is closest to.
+		
+		Parameter
+		---------
+			points: np.ndarray
+				shape (N,D)/(D,) - 
+				A set of points
+		
+		Returns
+		-------
+			id_tile: list
+				A list of length N of the indices of the closest tile for each point.
+		"""
+		#TODO: Understand whether the look-up table is fine. It is FASTER, but maybe this is unwanted...
+		points = np.atleast_2d(np.asarray(points))
+
+		if self.lookup_table is None: self.update_KDTree()
+		_, id_tile = self.lookup_table.query(points, k=1)
+		return id_tile
+
+		distance_points = []
+		for R, _ in self.__iter__():
+			distance_points.append( R.min_distance_point(points) ) #(N_points,)
+		distance_points = np.stack(distance_points, axis = 1) #(N_points, N_tiles)
+		id_tiles = np.argmin(distance_points, axis = 1) #(N_points,)
+		del distance_points
+		
+		return id_tiles
 
 	def N_templates(self, rect, metric, avg_dist):
 		"""
@@ -1117,6 +1157,9 @@ class tiling_handler(list):
 			raise FileNotFoundError("Input tiling file {} does not exist".format(filename))
 		for in_ in in_array:
 			self.append( (scipy.spatial.Rectangle(in_[0,:], in_[1,:]), in_[2:,:]) )
+
+			#updating look_up table
+		self.update_KDTree()
 		
 		return
 

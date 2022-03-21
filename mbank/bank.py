@@ -391,8 +391,8 @@ class cbc_bank():
 				tile_id_population.append( np.where(dist_t == 0.)[0] )
 
 		if placing_method == 'random':
-			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
-			new_templates = place_random(dist, t_obj, N_points = int(N_points))
+			N_points = 500*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.001)
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)

@@ -306,11 +306,15 @@ if args.plot:
 	logbins = np.logspace(np.log10(np.percentile(best_matches, [.5])[0]),np.log10(max(best_matches)), N_bins)
 	plt.gca().tick_params(axis='x', labelsize=fs)
 	plt.gca().tick_params(axis='y', labelsize=fs)
-	plt.hist(best_matches, bins = logbins, density = True)
-	if full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step', density = True)
+	plt.hist(best_matches, bins = logbins, density = True,
+				color = 'orange' if full_match else 'blue',
+				label = 'match' if full_match else 'metric match')
+	if full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step',
+				density = True, color = 'blue', label = 'metric match')
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG
 	plt.xscale('log')
+	plt.legend(fontsize = fs+3)
 
 	plt.savefig(args.run_dir+'FF_hist.png', transparent = False)
 

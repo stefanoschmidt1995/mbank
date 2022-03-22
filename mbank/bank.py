@@ -115,7 +115,7 @@ class cbc_bank():
 		placing_methods: list
 			The available methods for placing the templates
 		"""
-		return ['uniform', 'geometric', 'iterative', 'stochastic', 'geo_stochastic','tile_stochastic', 'p_disc', 'random']
+		return ['uniform', 'geometric', 'iterative', 'stochastic', 'geo_stochastic','tile_stochastic', 'random']
 	
 	def load(self, filename):
 		"""
@@ -300,7 +300,6 @@ class cbc_bank():
 			- `stochastic` -> Stochastic placement
 			- `geo_stochastic` -> Geometric placement + stochastic placement
 			- `tile_stochastic` -> Stochastic placement for each tile separately
-			- `p_disc` -> Poisson disc sampling (using package `poisson_disc` (not among the dependencies))
 			- `random` -> The volume is covered with some point that are killed by placing the templates
 		
 			Those methods are listed in `cbc_bank.placing_methods`
@@ -318,12 +317,6 @@ class cbc_bank():
 		assert placing_method in self.placing_methods, ValueError("Wrong placing method '{}' selected. The methods available are: ".format(placing_method, self.placing_methods))
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
-		if placing_method == 'p_disc':
-			try:
-				import poisson_disc
-			except ImportError:
-				raise ImportError("Placing method 'p_disc' requires package 'poisson_disc', which is not among the package dependencies. If you really care about using this method, try: `pip install poisson_disc`")
-		
 			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
 		if placing_method in ['geometric', 'geo_stochastic'] :
 			coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
@@ -333,12 +326,13 @@ class cbc_bank():
 		new_templates = []
 		tile_id_population = [] #for each tile, this stores the templates inside it
 
-		if placing_method in ['stochastic', 'random']: it = iter(())		
-		elif verbose: it = tqdm(t_obj, desc = 'Placing the templates within each tile', leave = True)
+		if placing_method in ['stochastic', 'random', 'uniform']: it = iter(())		
+		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
 		else: it = t_obj
 
-		for t in it:
+		for i in it:
 			
+			t = t_obj[i]
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
@@ -350,20 +344,12 @@ class cbc_bank():
 			if abs_det < 1e-50: #checking if the determinant is close to zero...
 				msg = "The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?\nRectangle: {}\nMetric: {}".format(t[0], t[1])
 				raise ValueError(msg)
-				
-			volume_factor = np.sqrt(abs_det)
 			
-			if placing_method == 'uniform':
-					#N_templates is computed with a mesh, more realistic...
-				N_templates = max(1, int(t_obj.N_templates(*t, dist))) #Computed by tiling_handler
-				#print('\t',self.variable_format, N_templates) #DEBUG
-				new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
-				
-			elif placing_method == 'p_disc':
-				radius = 0.5*dist/np.power(volume_factor, 1/self.D)
-				new_templates_ = poisson_disc.Bridson_sampling((boundaries_ij[1,:]-boundaries_ij[0,:]), radius = radius) + boundaries_ij[0,:]
+				#old uniform placement	
+			#N_templates = min(1,t_obj.N_templates(*t, dist)) #Computed by tiling_handler
+			#new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 			
-			elif placing_method == 'geometric' or placing_method == 'geo_stochastic':
+			if placing_method == 'geometric' or placing_method == 'geo_stochastic':
 					#if stochastic option is set, we create a first guess for stochastic placing method 
 				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
 				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
@@ -381,18 +367,24 @@ class cbc_bank():
 			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
 
+		if placing_method == 'uniform':
+			vol_tot, _ = t_obj.compute_volume()
+			N_templates = int( vol_tot/(dist**self.D) )+1
+			new_templates = t_obj.sample_from_tiling(N_templates)
+			
+
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
 					empty_iterations = 400/self.D,
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
-			
-			for t in tqdm(t_obj, desc='Computing the tile which each template belongs to', leave = True):
-				dist_t = t[0].min_distance_point(new_templates)
-				tile_id_population.append( np.where(dist_t == 0.)[0] )
+			#TODO: set properly this shit!!
+			#tile_id_population = list(t.get_tile(new_templates))
 
 		if placing_method == 'random':
-			N_points = 500*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = min(N_points, int(1e7))
 			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.001)
+			#tile_id_population = list(t.get_tile(new_templates))
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)
@@ -453,7 +445,7 @@ class cbc_bank():
 		if use_ray:
 			t_ray_list = ray.get(t_ray_list)
 			ray.shutdown()
-			print("All ray jobs are done")
+			if verbose: print("All ray jobs are done")
 			t_obj = tiling_handler()
 			for t in t_ray_list:
 				t_obj += t
@@ -490,9 +482,7 @@ class cbc_bank():
 			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
 
 		placing_method: str
-			The placing method to set templates in each tile. It can be:
-				- 'uniform'	-> Uniform drawing in each hyper-rectangle
-				- 'geometric'	-> Geometric placement
+			The placing method to set templates in each tile. See `place_templates` for more information.
 
 		use_ray: bool
 			Whether to use ray to parallelize
@@ -511,6 +501,9 @@ class cbc_bank():
 		#TODO: add an option to avoid the hierarchical tiling??
 			##
 			#Initialization
+		assert avg_match<1. and avg_match>0., "`avg_match` should be in the range (0,1)!"
+		if avg_match <0.9:
+			warnings.warn("Average match is set to be smaller than 0.9. Although the code will work, this can give unreliable results as the metric match approximation is less accurate.")
 		dist = avg_dist(avg_match, self.D) #desired average distance in the metric space between templates
 		
 		if use_ray: ray.init()
@@ -528,7 +521,6 @@ class cbc_bank():
 					#placing m_tot or M_chirp according the scaling relation: mc**(-8/3)*l ~ const.
 					#(but maybe it is better to use geomspace)
 				g_list = plawspace(boundaries[0,i], boundaries[1,i], -8./3., grid_list[i]+1) #power law spacing
-				#g_list = np.geomspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #not based on physics
 				#g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #linear spacing
 			else:
 				g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1)

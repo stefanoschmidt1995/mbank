@@ -916,7 +916,8 @@ class tiling_handler(list):
 	
 	def create_tiling(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
 		"""
-		Create a tiling within the boundaries by a hierarchical iterative splitting
+		Create a tiling within the boundaries by a hierarchical iterative splitting. The iteration is continued until the threshold `V_tile` is obtained.
+		If there is already a tiling, the splitting will be continued.
 		
 		Parameters
 		----------
@@ -925,6 +926,7 @@ class tiling_handler(list):
 			shape: (2,D) -
 			Boundaries of the space to tile.
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
+			Boundaries are ignored if the tili
 
 		V_tile: float/tuple
 			Maximum volume for the tile. The volume is normalized by 0.1^D.
@@ -953,14 +955,36 @@ class tiling_handler(list):
 				Return this object filled with the desired tiling
 		
 		"""
-		#boundaries is a tuple (max, min)
+			#TODO: make sure that this works also with a full tiling...
+			
 		dist = 0.1
 		if isinstance(V_tile, tuple): V_tile, dist = V_tile
 		
 		boundaries = tuple([np.array(b) for b in boundaries])
 		D = boundaries[0].shape[0]
+		
+		####
+		#Defining the initial list of tiles. It will be updated accordingly to the splitting algorithm
+			
+			#initializing with the center of the boundaries and doing the first metric evaluation
 		start_rect = scipy.spatial.Rectangle(boundaries[0], boundaries[1])
-		start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
+		if len(self) ==0:
+			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
+
+			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
+			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist))]
+
+			#else the tiling is already full! We do:
+			#	- a consistency check of the boundaries
+			#	- initialization of tiles_list
+		else:
+			centers = self.get_centers()
+			if np.all(start_rect.min_distance_point(centers)!=0):
+				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
+			tiles_list = [(R, M, self.N_templates(R, M, dist)) for R, M in self.__iter__()]
+		
+		tiles_list_old = []
+		
 		
 		if start_rect.volume()<1e-19:
 			warnings.warn("The given boundaries are degenerate (i.e. zero volume) and a single tile was generated: this may not be what you expected")
@@ -992,18 +1016,16 @@ class tiling_handler(list):
 		def get_center(rect):
 			return (rect.maxes + rect.mins)/2.
 		
-			#tiles list is initialized with a start cell. The first split is done no matter what
-		#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-		tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist))] 
-		tiles_list_old = []
-		
 			 #progress bar = % of volume covered
 		if verbose:
 			if worker_id is None: desc = 'Volume covered by the tiling'
 			else:  desc = 'Worker {} - Volume covered by tiling'.format(worker_id)
 			pbar = tqdm(total=100, desc = desc,
-				bar_format = "{desc}: {percentage:.2f}%|{bar}| [{elapsed}<{remaining}]")
-			V_tot = tiles_list[0][0].volume()
+				bar_format = "{desc}: {percentage:.1f}%|{bar}| [{elapsed}<{remaining}]")
+			V_tot = start_rect.volume()
+		
+		####
+		#Iterative splitting
 		
 		while not (tiles_list == tiles_list_old):
 				#updating old one
@@ -1029,7 +1051,9 @@ class tiling_handler(list):
 				tiles_list.remove(t)
 				tiles_list.extend(extended_list)
 
-			if verbose: pbar.update(np.round(min(V_covered/V_tot*100. - pbar.last_print_n, 100),2))
+			if verbose:
+				pbar.n = V_covered/V_tot*100.
+				pbar.refresh()
 
 		if verbose: pbar.close()
 		#plot_tiles(tiles_list, boundaries)
@@ -1037,8 +1061,9 @@ class tiling_handler(list):
 		
 		self.clear() #empty whatever was in the old tiling
 		self.extend( [(t[0],t[1]) for t in tiles_list] )
-		#TODO: this might have an easier interface with
-		#self.extend( [{'rect':t[0], 'metric':t[1]} for t in tiles_list] )
+		#self.extend( [{'rect':t[0], 'metric':t[1]} for t in tiles_list] ) #nicer interface?
+		
+		#self.update_KDTree()
 		
 		return self
 	

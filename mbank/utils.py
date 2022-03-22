@@ -3,6 +3,9 @@ mbank.utils
 ===========
 	Some utilities for ``mbank``.
 	It keeps function for plotting, for template placing and for match computation.
+
+	#FIXME: this may be split in two parts as some functions need to import the tiling handler
+	#They are `plot_tiles_templates` and `get_boundaries_from_ranges`
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -961,6 +964,8 @@ def place_stochastically(avg_dist, t_obj, bank, empty_iterations = 200, seed_ban
 	Place templates with a stochastic placing algorithm
 	It iteratively proposes a new template to add to the bank. The proposal is accepted if the distance of the proposal with the previously placed templates is smaller than ``avg_dist``. The iteration goes on until no template is found to have a distance smaller than the given threshold ``avg_dist``.
 	It can start from a given set of templates.
+
+	At each iteration a proposal is made in each tile. This means that if the number of tiles is larger than the expected number ot templates, this method will **overcover**.
 	
 	The match of the proposals is computed with `compute_metric_injections_match`.
 	
@@ -1001,7 +1006,7 @@ def place_stochastically(avg_dist, t_obj, bank, empty_iterations = 200, seed_ban
 	MM = 1- avg_dist**2
 
 	if seed_bank is None:
-		if MM < 0.95:
+		if MM < 0.95: #FIXME: set a nicer condition here... :)
 			ran_id_ = np.random.choice(len(t_obj))
 			new_templates = np.random.uniform(t_obj[ran_id_][0].mins, t_obj[ran_id_][0].maxes, (1, len(t_obj[ran_id_][0].maxes)))
 		else: new_templates = np.concatenate([np.random.uniform(t[0].mins, t[0].maxes, (1, len(t[0].maxes))) for t in t_obj], axis=0)
@@ -1024,7 +1029,7 @@ def place_stochastically(avg_dist, t_obj, bank, empty_iterations = 200, seed_ban
 		proposal = np.concatenate([np.random.uniform(t_obj[id_][0].mins, t_obj[id_][0].maxes, (1, len(t_obj[id_][0].maxes))) for id_ in tiles_to_use], axis = 0)
 		proposal = np.atleast_2d(proposal)
 		
-			#shall you create an option for a smaller output?
+			#TODO: shall you create an option for a smaller output?
 		out_dict = compute_metric_injections_match(proposal, bank, t_obj, N_neigh_templates = 1, verbose = False)
 		match_list = out_dict['match']
 		del out_dict
@@ -1106,7 +1111,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01):
 		#ids_kill = ids_test[ids_kill]
 			
 		if len(ids_kill)>0: #this is useless, as there is should always be at least something to kill
-			livepoints = np.delete(livepoints, ids_kill, axis = 0)
+			livepoints = np.delete(livepoints, ids_kill, axis = 0) #THIS IS PROBABLY REALLY BAAAAD!!
 			new_templates.append(point)
 			if len(livepoints) == 0: break
 			it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )

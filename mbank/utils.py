@@ -895,6 +895,9 @@ def plawspace(start, stop, exp, N_points):
 	points = np.linspace(f_start, f_stop, N_points)
 	points = np.power(points, 1/exp)
 	
+	points[0]=start
+	if N_points>1: points[1] = stop
+	
 	return points
 
 def place_stochastically_in_tile(avg_dist, tile):
@@ -1017,34 +1020,35 @@ def place_stochastically(avg_dist, t_obj, bank, empty_iterations = 200, seed_ban
 	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
 	
 	for _ in t_:
-		bank.templates = new_templates #updating bank
+		#bank.templates = new_templates #updating bank
 		
-			#checking for stopping conditions
+			#checking for stopping conditions and updating for empty tiles
 		where_to_remove = (nothing_new > empty_iterations)
-		
-		if np.all(where_to_remove): break
 		tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
 		nothing_new = np.delete(nothing_new, np.where(where_to_remove))
-		
-		proposal = np.concatenate([np.random.uniform(t_obj[id_][0].mins, t_obj[id_][0].maxes, (1, len(t_obj[id_][0].maxes))) for id_ in tiles_to_use], axis = 0)
-		proposal = np.atleast_2d(proposal)
-		
-			#TODO: shall you create an option for a smaller output?
-		out_dict = compute_metric_injections_match(proposal, bank, t_obj, N_neigh_templates = 1, verbose = False)
-		match_list = out_dict['match']
-		del out_dict
-
-		accepted = (np.array(match_list) < MM)
-		N_accepted = np.sum(accepted)
-		
-		if N_accepted>0:
-			new_templates = np.concatenate([new_templates, proposal[accepted,:]], axis =0)
 
 		t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
-
-		nothing_new[accepted] = 0
-		nothing_new[~accepted] += 1
+		if len(tiles_to_use) == 0: break
 		
+		id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
+		tile_id = tiles_to_use[id_tiles_to_use] #id of the tile in the tiling list
+		
+		proposal = np.random.uniform(t_obj[tile_id][0].mins, t_obj[tile_id][0].maxes, (1, len(t_obj[tile_id][0].maxes)))
+		
+		diff = new_templates - proposal #(N_templates, D)
+		match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, t_obj[tile_id][1], diff)) #()
+
+			#TODO: shall you create an option for a smaller output?
+		#out_dict = compute_metric_injections_match(proposal, bank, t_obj, N_neigh_templates = 1, verbose = False)
+		#match = out_dict['match']
+		#del out_dict
+
+		if (match < MM)>0:
+			new_templates = np.concatenate([new_templates, proposal], axis =0)
+			nothing_new[id_tiles_to_use] = 0
+		else:
+			nothing_new[id_tiles_to_use] +=1
+
 	return new_templates
 
 def place_random(dist, t_obj, N_points, tolerance = 0.01):
@@ -1111,7 +1115,8 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01):
 		#ids_kill = ids_test[ids_kill]
 			
 		if len(ids_kill)>0: #this is useless, as there is should always be at least something to kill
-			livepoints = np.delete(livepoints, ids_kill, axis = 0) #THIS IS PROBABLY REALLY BAAAAD!!
+				#FIXME: THIS IS PROBABLY REALLY BAAAAD!! How can you overcome this?
+			livepoints = np.delete(livepoints, ids_kill, axis = 0) 
 			new_templates.append(point)
 			if len(livepoints) == 0: break
 			it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )

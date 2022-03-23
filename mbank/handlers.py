@@ -779,6 +779,66 @@ class variable_handler(object):
 #It must be given at initialization (if it's not read from file).
 #The idea is that, whenever a tiling file is read, there is no need to specify explicitly the variable_format
 
+class tile(tuple):
+	"""
+	Class to represent a tile. A tile is a tuple
+	
+	::
+		(Rectangle, Metric)
+	
+	where rectangle is represented by a `scipy.spatial.Rectangle` object and metric is a square matrix, stored as a `np.ndarray`.
+	
+	The rectangle and the metric can be accessed with `tile.rectangle` and `tile.metric`.
+	The volume and the center of the tile can be accessed with `tile.center` and `tile.volume` respectively.
+	"""
+	def __new__(cls, rectangle, metric = None):
+		"""
+		Create a new tile.
+		
+		Parameters
+		----------
+			rectangle: scipy.spatial.Rectangle/np.ndarray/tuple
+				A scipy rectangle.
+				If an `np.ndarray` is given, it must be of shape `(2,D)` and it is interpreted s.t. `rectangle[0,:]` is the minimum and `rectangle[1,:]` is the maximum.
+				If metric is None, it can be initialized with a tuple: in this case it is understood that the tuple is (Rect, metric) and it will be unwrapped authomatically
+				
+			metric: np.ndarray
+				shape (D,D)
+		"""
+		if metric is None:  rectangle, metric = rectangle
+		if isinstance(rectangle, np.ndarray) or isinstance(rectangle, list):
+			rectangle = np.asarray(rectangle)
+			assert rectangle.ndim ==2 and rectangle.shape[0] == 2, "The given rectangle must be of shape (2,D) but {} was given".format(rectangle.shape)
+			rectangle = scipy.spatial.Rectangle(rectangle[0,:], rectangle[1,:])
+		assert isinstance(rectangle, scipy.spatial.Rectangle), "The given rectangle must be either a scipy.spatial.Rectangl or a numpy array but a {} was given".format(type(rectangle))
+		
+		metric = np.asarray(metric)
+		assert isinstance(metric, np.ndarray), "The metric must be a numpy array"
+		metric_shape = (rectangle.maxes.shape[0], rectangle.maxes.shape[0])
+		assert metric.shape == metric_shape, "The metric must have shape {} but shape {} was given".format(metric_shape, metric.shape)
+
+		return super().__new__(cls, [rectangle, metric])
+
+	@property
+	def rectangle(self):
+		return self[0]
+	
+	@property
+	def metric(self):
+		return self[1]
+	
+	@property
+	def center(self):
+		return (self.rectangle.maxes+self.rectangle.mins)/2.
+	
+	@property
+	def volume(self):
+		return np.sqrt(np.abs(np.linalg.det(self.metric)))*self.rectangle.volume()
+
+	@property
+	def D(self):
+		return self.metric.shape[0]
+
 class tiling_handler(list):
 	"""
 	Class for a tiling with I/O helpers.
@@ -821,7 +881,7 @@ class tiling_handler(list):
 				All the centers of the tiles
 			
 		"""
-		centers = np.stack( [(t[0].maxes+t[0].mins)/2. for t in self.__iter__()], axis =0)
+		centers = np.stack( [t.center for t in self.__iter__()], axis =0)
 		return centers
 
 	def update_KDTree(self):
@@ -979,8 +1039,10 @@ class tiling_handler(list):
 			#	- initialization of tiles_list
 		else:
 			centers = self.get_centers()
-			if np.all(start_rect.min_distance_point(centers)!=0):
+			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
+				print(centers, start_rect.min_distance_point(centers), start_rect)
+				quit()
 			tiles_list = [(R, M, self.N_templates(R, M, dist)) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
@@ -989,7 +1051,7 @@ class tiling_handler(list):
 		if start_rect.volume()<1e-19:
 			warnings.warn("The given boundaries are degenerate (i.e. zero volume) and a single tile was generated: this may not be what you expected")
 			self.clear() #empty whatever was in the old tiling
-			self.extend( [(start_rect, start_metric)])
+			self.extend( [tile(start_rect, start_metric)])
 			return self
 		
 		####
@@ -1060,7 +1122,7 @@ class tiling_handler(list):
 		#plt.show()
 		
 		self.clear() #empty whatever was in the old tiling
-		self.extend( [(t[0],t[1]) for t in tiles_list] )
+		self.extend( [tile(t[0],t[1]) for t in tiles_list] )
 		#self.extend( [{'rect':t[0], 'metric':t[1]} for t in tiles_list] ) #nicer interface?
 		
 		#self.update_KDTree()
@@ -1098,7 +1160,8 @@ class tiling_handler(list):
 				The volume covered by each tile
 		"""
 		if metric_func is None:
-			tiles_volume = [rect.volume()*np.sqrt(np.abs(np.linalg.det(metric))) for rect, metric in self.__iter__()]
+			#tiles_volume = [rect.volume()*np.sqrt(np.abs(np.linalg.det(metric))) for rect, metric in self.__iter__()]
+			tiles_volume = [t.volume for t in self.__iter__()]
 		else:
 			tiles_volume = []
 
@@ -1181,7 +1244,7 @@ class tiling_handler(list):
 		except FileNotFoundError:
 			raise FileNotFoundError("Input tiling file {} does not exist".format(filename))
 		for in_ in in_array:
-			self.append( (scipy.spatial.Rectangle(in_[0,:], in_[1,:]), in_[2:,:]) )
+			self.append( tile(scipy.spatial.Rectangle(in_[0,:], in_[1,:]), in_[2:,:]) )
 
 			#updating look_up table
 		self.update_KDTree()

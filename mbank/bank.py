@@ -375,15 +375,14 @@ class cbc_bank():
 
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
-					empty_iterations = 400/self.D,
+					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
-			#TODO: set properly this shit!!
 			#tile_id_population = list(t.get_tile(new_templates))
 
 		if placing_method == 'random':
 			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 			N_points = min(N_points, int(1e7))
-			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.001)
+			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.0001)
 			#tile_id_population = list(t.get_tile(new_templates))
 
 		new_templates = np.stack(new_templates, axis =0)
@@ -432,10 +431,10 @@ class cbc_bank():
 				raise ValueError("Wrong value for the entry `boundaries_list`")
 
 		t_obj = tiling_handler() #empty tiling handler
-		temp_t_obj = tiling_handler()
 		t_ray_list = []
 		
 		for i, b in enumerate(boundaries_list):
+			temp_t_obj = tiling_handler() #This must be emptied at every iteration!! Otherwise, it gives lots of troubles :(
 			if use_ray:
 				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
 							V_tile, metric_obj.get_metric, verbose = verbose , worker_id = i) )

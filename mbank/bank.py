@@ -219,6 +219,7 @@ class cbc_bank():
 		return
 		
 	def save_bank(self, filename, ifo = 'L1'):
+		#TODO: change this name to `save`
 		"""
 		Save the bank to file
 		
@@ -244,10 +245,25 @@ class cbc_bank():
 		elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
 			self._save_xml(filename, ifo)
 		else:
-			raise RuntimeError("Type of file not understood. The file can only end with 'npy', 'txt', 'data, 'xml', 'xml.gx'.")
+			raise RuntimeError("Type of file not understood. The file can only end with 'npy', 'txt', 'data, 'xml', 'xml.gx'")
 		
 		return
-
+	
+	def BBH_components(self):
+		"""
+		Returns the BBH components of the templates in the bank.
+		They are: `m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi`
+		
+		Returns
+		-------
+			BBH_components: np.ndarray
+				shape: (N,12)
+				Array of BBH components of the templates in the bank. They have the same layout as `variable_handler.get_BBH_components`
+		"""
+		if self.templates is not None:
+			return np.array(self.var_handler.get_BBH_components(self.templates, self.variable_format)).T
+		return
+		
 	def add_templates(self, new_templates):
 		"""
 		Adds a bunch of templates to the bank. They must be of a shape suitable for the variable format
@@ -373,14 +389,15 @@ class cbc_bank():
 			new_templates = t_obj.sample_from_tiling(N_templates)
 			
 
+		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
-					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
+					empty_iterations = 200/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
 			#tile_id_population = list(t.get_tile(new_templates))
 
 		if placing_method == 'random':
-			N_points = 50*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = 100*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 			N_points = min(N_points, int(1e7))
 			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.0001)
 			#tile_id_population = list(t.get_tile(new_templates))

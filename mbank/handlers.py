@@ -1179,7 +1179,7 @@ class tiling_handler(list):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
-	def sample_from_tiling(self, N_samples):
+	def sample_from_tiling(self, N_samples, seed = None):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
 		
@@ -1187,6 +1187,9 @@ class tiling_handler(list):
 		----------
 			N_samples: int
 				Number of samples to draw from the tiling
+			
+			seed: int
+				Seed for the random points. If `None` no seed will be set
 		
 		Returns
 		-------
@@ -1194,6 +1197,7 @@ class tiling_handler(list):
 				shape: (N_samples, D) - 
 				`N_samples` samples drawn from the tiling
 		"""
+		if isinstance(seed, int): np.random.seed(seed)
 		tot_vols, vols = self.compute_volume()
 		vols = np.array(vols)/tot_vols #normalizing volumes
 		

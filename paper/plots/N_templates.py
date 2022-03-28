@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 from tqdm import tqdm
+from sklearn.neighbors import KernelDensity
 import pickle
 
 import sys
@@ -10,12 +11,12 @@ sys.path.insert(0, '../..')
 
 from mbank.bank import cbc_bank
 from mbank.metric import cbc_metric
-from mbank.utils import load_PSD, get_boundaries_from_ranges
+from mbank.utils import load_PSD, get_boundaries_from_ranges, compute_injections_match, compute_metric_injections_match, ray_compute_injections_match
 from mbank.handlers import tiling_handler, variable_handler
 
 ###########################################################################################
 
-def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, m_obj, boundaries, load_tiling, folder_name):
+def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, N_injs, N_neigh_templates, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
 	"Computes the number of templates for each MM and for each V_tile"
 
 	V_tile_list.sort(reverse=True)
@@ -25,27 +26,50 @@ def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, 
 			'boundaries':boundaries,
 			'N_templates': np.zeros((len(V_tile_list), len(MM_list)), int),
 			'N_tiles': np.zeros((len(V_tile_list), ), int),
-			'volume_tiles': np.zeros((len(V_tile_list), ))
+			'volume_tiles': np.zeros((len(V_tile_list), )),
+			'MM_metric': np.zeros((len(V_tile_list), N_injs), float),
+			'MM_full': np.zeros((len(V_tile_list), N_injs), float),
+			'N_injs': N_injs, 'N_neigh_templates': N_neigh_templates, 'MM_inj': 0.97
 		}
 
 	t = tiling_handler()
 	for i, V_tile in enumerate(V_tile_list):
-		filename = "{}/tiling_{}_{}.npy".format(folder_name, variable_format, V_tile)
+		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, V_tile)
 			#getting the tiling
 		if load_tiling:
 			del t
 			t = tiling_handler(filename)
-		else: 
+		else:
 			t.create_tiling(boundaries, V_tile, m_obj.get_metric, verbose = True)
 			t.save(filename)
 		out_dict['N_tiles'][i]= len(t)
 		out_dict['volume_tiles'][i]= t.compute_volume()[0]
 		
 		for j, MM in enumerate(MM_list):
+				#generating the bank
+			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, V_tile, MM)
 			b = cbc_bank(variable_format)
-			b.place_templates(t, MM, placing_method = placing_method, verbose = True)
+			if load_bank: b.load(bank_name)
+			else: 
+				b.place_templates(t, MM, placing_method = placing_method, verbose = True)
+				b.save_bank(bank_name)
 			out_dict['N_templates'][i,j] = b.templates.shape[0]
 			print("MM, N_tiles, N_templates\t:", MM, out_dict['N_tiles'][i], out_dict['N_templates'][i,j])
+		
+				#Throwing injections
+			if MM != out_dict['MM_inj']: continue #injections only for MM = 0.97
+			injs = t.sample_from_tiling(N_injs, seed = 210795)
+					#metric injections
+			inj_dict = compute_metric_injections_match(injs, b, t, N_neigh_templates = N_neigh_templates, verbose = True)
+			out_dict['MM_metric'][i,:] = inj_dict['match']
+			print('\t\tMetric match: ', np.percentile(inj_dict['match'], [1, 5,50,95])) 
+					#full match injections
+			if full_match:
+				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj, N_neigh_templates = N_neigh_templates,
+							symphony_match = False, cache = True)
+				out_dict['MM_full'][i,:] = inj_dict['match']
+				print('\t\tFull match: ', np.percentile(inj_dict['match'], [1, 5,50,95]))
+		
 		
 	return out_dict
 
@@ -75,6 +99,47 @@ def plot(out_dict, run_name, folder_name = None):
 		plt.savefig('{}/template_number_{}_{}.png'.format(folder_name,
 			out_dict['variable_format'], out_dict['placing_method']))
 	
+		#MM study
+	plt.figure()
+	plt.title("Injection study {}\n{} - {}".format(run_name, out_dict['variable_format'],out_dict['placing_method']))
+	for i, N_t in enumerate(out_dict['N_tiles']):
+		perc = np.percentile(out_dict['MM_metric'][i,:], 1) if np.all(out_dict['MM_full'][i,:]==0.) else np.minimum(np.percentile(out_dict['MM_full'][i,:], 1), np.percentile(out_dict['MM_metric'][i,:], 1))
+		perc = np.array([perc, 1])
+		MM_grid = np.linspace(*perc, 30)
+		bw = np.diff(perc)/10
+		if False and N_t>1000: #check KDE
+			plt.figure()
+			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_metric'][i,:, None])
+			plt.plot(MM_grid, np.exp(kde.score_samples(MM_grid[:,None])))
+			plt.hist(out_dict['MM_metric'][i,:], density = True, bins =20)
+			plt.show()
+		
+		plt.plot(np.repeat(N_t, 2), perc, '--', lw = 1, c='k')
+			#creating a KDE for the plots
+		scale_factor = 0.3
+		kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_metric'][i,:, None])
+		pdf_metric = np.exp(kde.score_samples(MM_grid[:,None]))
+		plt.plot(N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0])), MM_grid,
+						c= 'b', label = 'Metric Match' if i==0 else None)
+
+		if not np.all(out_dict['MM_full'][i,:]==0.):
+			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_full'][i,:, None])
+			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
+			plt.plot(N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0])), MM_grid,
+						c= 'orange', label = 'Full Match' if i==0 else None)
+		
+	#plt.yscale('log')
+	plt.xscale('log')
+	plt.axhline(out_dict['MM_inj'], c = 'r')
+	plt.xlabel(r"$N_{tiles}$")
+	plt.ylabel(r"${Match}$")
+	plt.ylim((0.94,1.001))
+	plt.legend(loc = 'lower right')
+	if isinstance(folder_name, str):
+		plt.savefig('{}/injection_recovery_{}_{}.png'.format(folder_name,
+			out_dict['variable_format'], out_dict['placing_method']))
+	
+	
 		#Volume as a function of V_tile
 	plt.figure()
 	plt.title("Volume {} - {}".format(run_name, out_dict['variable_format']))
@@ -95,12 +160,14 @@ if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
+	load_bank = False
 
 	MM_list = [0.92, 0.95, 0.97, 0.99]
 	
 	V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [1000, 100, 10, 5, 2, 1, 0.2]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
 	#V_tile_list = [120, 100, 10, 5, 1, 0.2]; variable_format =  'Mq_nonspinning' #for nonspinning
+	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
 	
 			#setting ranges
 	M_range = (50, 100)
@@ -113,6 +180,8 @@ if __name__ == '__main__':
 	ifo = 'H1'
 	approximant = 'IMRPhenomPv2'
 	f_min, f_max = 10., 1024.
+	N_injs, N_neigh_templates = 1000, 30
+	full_match = False
 	
 	m_obj = cbc_metric(variable_format,
 			PSD = load_PSD(psd, False, ifo),
@@ -127,12 +196,14 @@ if __name__ == '__main__':
 	folder_name = 'N_templates/{}'.format(run_name)	
 	filename = '{}/N_templates_{}_{}.pkl'.format(folder_name, variable_format, placing_method)
 	if not os.path.isdir(folder_name): os.mkdir(folder_name)
+	if not os.path.isdir(folder_name+'/files'): os.mkdir(folder_name+'/files')
 	
 	print("Working with folder: ", folder_name)
 	
 	if not load:
 
-		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, m_obj, boundaries, load_tiling, folder_name)
+		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, N_injs, N_neigh_templates,
+					m_obj, boundaries, load_tiling, load_bank, full_match, folder_name)
 		
 		with open(filename, 'wb') as filehandler:
 			pickle.dump(out_dict, filehandler)

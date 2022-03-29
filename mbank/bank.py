@@ -388,18 +388,18 @@ class cbc_bank():
 			N_templates = int( vol_tot/(dist**self.D) )+1
 			new_templates = t_obj.sample_from_tiling(N_templates)
 			
-
+		if placing_method == 'random':
+				#FIXME: this method is too slow for being feasible on large banks
+			N_points = 100*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = min(N_points, int(1e7))
+			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.0001)
+			#tile_id_population = list(t.get_tile(new_templates))
+			
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
 					empty_iterations = 200/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
-			#tile_id_population = list(t.get_tile(new_templates))
-
-		if placing_method == 'random':
-			N_points = 100*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
-			N_points = min(N_points, int(1e7))
-			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.0001)
 			#tile_id_population = list(t.get_tile(new_templates))
 
 		new_templates = np.stack(new_templates, axis =0)

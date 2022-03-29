@@ -160,11 +160,12 @@ if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
-	load_bank = False
+	load_bank = True
 
-	MM_list = [0.92, 0.95, 0.97, 0.99]
+	MM_list = [0.92, 0.95, 0.97]#, 0.99]
 	
 	V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
+	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
 	#V_tile_list = [1000, 100, 10, 5, 2, 1, 0.2]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
 	#V_tile_list = [120, 100, 10, 5, 1, 0.2]; variable_format =  'Mq_nonspinning' #for nonspinning
 	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test

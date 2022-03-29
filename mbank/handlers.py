@@ -1179,7 +1179,7 @@ class tiling_handler(list):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
-	def sample_from_tiling(self, N_samples, seed = None):
+	def sample_from_tiling(self, N_samples, seed = None, dtype = np.float64):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
 		
@@ -1190,6 +1190,9 @@ class tiling_handler(list):
 			
 			seed: int
 				Seed for the random points. If `None` no seed will be set
+			
+			dtype: type
+				Data type for the sampling (default np.float64)
 		
 		Returns
 		-------
@@ -1207,7 +1210,7 @@ class tiling_handler(list):
 		D = self[0][1].shape[0]
 		
 		samples = np.concatenate([
-					np.random.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) )
+					np.random.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) ).astype(dtype)
 					for t_id, c in zip(tiles_rand_id, counts)], axis = 0)
 		return samples		
 	

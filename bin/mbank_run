@@ -245,7 +245,7 @@ if bank.templates is None:
 	print("No templates were added to the bank: the bank is not saved")
 	quit()
 
-print("Generated bank with {} templates".format(len(bank.templates)))
+print("Generated bank with {} templates and {} tiles".format(len(bank.templates), len(t_obj)))
 print("Saving bank to {}".format(args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
 bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); title = ''

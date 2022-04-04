@@ -969,6 +969,84 @@ class tiling_handler(list):
 
 		#return np.max(N_templates_list)
 
+	def create_tiling_from_list(self, boundaries_list, V_tile, metric_func, use_ray = False, verbose = True):
+		"""
+		Creates a tiling of the space, starting from a list of rectangles.
+		Each rectangle in `boundaries_list` is treated separately and if `use_ray is set to `True` they run in parallel.
+		
+		This function is useful to create a new tiling which covers disconnected regions or to heavily parallelize the computation.
+		
+		The generated tiling will **overwrite** any previous tiling (i.e. the tiling will be emptied before exectuting).
+
+		Parameters
+		----------
+
+		boundaries_list: list
+			A list of boundaries for a coarse tiling. Each box will have its own independent hierarchical tiling
+			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube.
+			Each element can also be a (2,D) `np.ndarray`.
+			If a single `np.ndarray` is given
+			
+
+		V_tile: float
+			Maximum volume for the tile. The volume is normalized by 0.1^D.
+			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
+			
+		metric_func: function
+			A function that accepts theta and returns the metric.
+			A common usage would be:
+			
+			::
+			
+				metric_obj = mbank.metric.cbc_metric(**args)
+				metric_func = metric_obj.get_metric
+			
+				
+		use_ray: bool
+			Whether to use ray to parallelize
+
+		verbose: bool
+			whether to print to screen the output
+		
+		Returns
+		-------
+					
+		self: tiling_handler 
+			A list of tiles ready to be used for the bank generation
+		"""
+			#emptying the tiling & initializing ray
+		self.clear()
+		if use_ray:
+			ray.init()
+		
+			#checking on boundaries_list
+		if not isinstance(boundaries_list, list):
+			if isinstance(boundaries_list, np.ndarray):
+				if boundaries_list.ndim ==2 and boundaries_list.shape[0]==2: boundaries_list = [boundaries_list]
+				else: raise ValueError("If `boundaries_list` is an array, must have shape (2,D)")
+			else:
+				raise ValueError("Wrong value for the entry `boundaries_list`")
+
+		t_ray_list = []
+		
+		for i, b in enumerate(boundaries_list):
+			temp_t_obj = tiling_handler() #This must be emptied at every iteration!! Otherwise, it gives lots of troubles :(
+			if use_ray:
+				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
+							V_tile, metric_func, verbose = verbose , worker_id = i) )
+			else:
+				self.extend(temp_t_obj.create_tiling(b, V_tile, metric_func, verbose = verbose, worker_id = None)) #adding the newly computed templates to the tiling object
+			
+		if use_ray:
+			t_ray_list = ray.get(t_ray_list)
+			ray.shutdown()
+			if verbose: print("All ray jobs are done")
+			t_obj = tiling_handler()
+			for t in t_ray_list: self.extend(t)
+		
+		return self
+
+
 	@ray.remote
 	def create_tiling_ray(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
 		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
@@ -976,7 +1054,7 @@ class tiling_handler(list):
 	
 	def create_tiling(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
 		"""
-		Create a tiling within the boundaries by a hierarchical iterative splitting. The iteration is continued until the threshold `V_tile` is obtained.
+		Create a tiling within a rectangle using a hierarchical iterative splitting method. The iteration is continued until the threshold `V_tile` is obtained.
 		If there is already a tiling, the splitting will be continued.
 		
 		Parameters
@@ -986,7 +1064,7 @@ class tiling_handler(list):
 			shape: (2,D) -
 			Boundaries of the space to tile.
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
-			Boundaries are ignored if the tili
+			If the tiling is non empty and not consistent with the boundaries, a warning will be raised but the boundaries will be ignored
 
 		V_tile: float/tuple
 			Maximum volume for the tile. The volume is normalized by 0.1^D.
@@ -1015,13 +1093,16 @@ class tiling_handler(list):
 				Return this object filled with the desired tiling
 		
 		"""
-			#TODO: make sure that this works also with a full tiling...
-			
 		dist = 0.1
 		if isinstance(V_tile, tuple): V_tile, dist = V_tile
 		
 		boundaries = tuple([np.array(b) for b in boundaries])
 		D = boundaries[0].shape[0]
+		
+		##
+		# In this context, a tile is (Rectangle, Metric, is_ok)
+		# is_ok checks whether the tile is ready to be returned to the user or shall be splitted more
+		##
 		
 		####
 		#Defining the initial list of tiles. It will be updated accordingly to the splitting algorithm
@@ -1032,7 +1113,7 @@ class tiling_handler(list):
 			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
 
 			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist))]
+			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist) <= V_tile)]
 
 			#else the tiling is already full! We do:
 			#	- a consistency check of the boundaries
@@ -1042,8 +1123,7 @@ class tiling_handler(list):
 			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
 				print(centers, start_rect.min_distance_point(centers), start_rect)
-				quit()
-			tiles_list = [(R, M, self.N_templates(R, M, dist)) for R, M in self.__iter__()]
+			tiles_list = [(R, M, self.N_templates(R, M, dist) <= V_tile) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
 		
@@ -1096,7 +1176,7 @@ class tiling_handler(list):
 				#loops on tiles an updating tiles_list
 			for t in tiles_list:
 
-				if t[2] <= V_tile:
+				if t[2]:
 					if verbose: V_covered += t[0].volume()
 					continue
 				
@@ -1104,9 +1184,9 @@ class tiling_handler(list):
 				
 				metric_0 = metric_func(get_center(nt[0]))
 				metric_2 = metric_func(get_center(nt[2]))
-				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist)),
-								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist)),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist)) ]
+				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile),
+								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile),
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile) ]
 				
 				
 					#replacing the old tile with the new ones
@@ -1123,9 +1203,8 @@ class tiling_handler(list):
 		
 		self.clear() #empty whatever was in the old tiling
 		self.extend( [tile(t[0],t[1]) for t in tiles_list] )
-		#self.extend( [{'rect':t[0], 'metric':t[1]} for t in tiles_list] ) #nicer interface?
 		
-		#self.update_KDTree()
+		self.update_KDTree()
 		
 		return self
 	
@@ -1212,7 +1291,43 @@ class tiling_handler(list):
 		samples = np.concatenate([
 					np.random.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) ).astype(dtype)
 					for t_id, c in zip(tiles_rand_id, counts)], axis = 0)
-		return samples		
+		return samples
+
+
+	def split_tiling(self, d, split):
+		"""
+		Produce two tilings by splitting the parameter space along dimension `d`. The splitting is done by the threshold `split`.
+		It is roughly the equivalent for a tiling to `scipy.spatial.Rectangle.split`.
+		
+		Parameters
+		----------
+			d: int
+				Axis to split the tiling along.
+
+			split: float
+				Threshold value for the splitting along axis `d`
+		
+		Returns
+		-------
+			left: tiling_handler
+				Tiling covering the space `<threshold` the given axis
+			
+			right: tiling_handler
+				Tiling covering the space `>threshold` the given axis
+		"""
+		left, right = tiling_handler(), tiling_handler()
+		
+		for R, M in self.__iter__():
+			if R.maxes[d]<split: #the tile fits in the left tiling
+				left.append(tile(R,M))
+			elif R.mins[d]>split: #the tile fits in the right tiling
+				right.append(tile(R,M))
+			else:
+				R_left, R_right = R.split(d, split)
+				left.append(tile(R_left, M))
+				right.append(tile(R_right, M))
+		return left, right
+
 	
 	def save(self, filename):
 		"""

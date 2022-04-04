@@ -23,7 +23,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml
+from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -87,6 +87,8 @@ class cbc_bank():
 		self.var_handler = variable_handler()
 		self.variable_format = variable_format
 		self.templates = None #empty bank
+		
+		assert self.variable_format in self.var_handler.valid_formats, "Wrong variable format given"
 		
 		if isinstance(filename, str):
 			self.load(filename)
@@ -211,7 +213,7 @@ class cbc_bank():
 			signl_inspiral_table.append(row)
 			
 		#xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(signl_inspiral_table)
-		ligolw_process.set_process_end_time(process)
+		#ligolw_process.set_process_end_time(process)
 		xmldoc.childNodes[-1].appendChild(signl_inspiral_table)
 		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
 		xmldoc.unlink()
@@ -326,21 +328,21 @@ class cbc_bank():
 		Returns
 		-------
 					
-		tile_id_population: list 
-			A list of list, where each element of index i ``tile_id_population[i]`` keeps the ids of the templates inside tile i
+		new_templates: np.ndarray
+			The templates generated (already added to the bank)
 
 		"""
 		assert placing_method in self.placing_methods, ValueError("Wrong placing method '{}' selected. The methods available are: ".format(placing_method, self.placing_methods))
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
-		if placing_method in ['geometric', 'geo_stochastic'] :
-			coarse_boundaries = np.min([t_[0].mins for t_ in t_obj], axis = 0) #(D,)
-			coarse_boundaries = np.stack([coarse_boundaries, np.max([t_[0].maxes for t_ in t_obj], axis = 0)], axis =0) #(2,D)
+		if placing_method in ['geometric', 'geo_stochastic', 'random'] :
+			coarse_boundaries = np.stack([np.min([t_[0].mins for t_ in t_obj], axis = 0),
+					np.max([t_[0].maxes for t_ in t_obj], axis = 0)],
+					axis =0) #(2,D)
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 		new_templates = []
-		tile_id_population = [] #for each tile, this stores the templates inside it
 
 		if placing_method in ['stochastic', 'random', 'uniform']: it = iter(())		
 		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
@@ -380,7 +382,6 @@ class cbc_bank():
 			elif placing_method == 'tile_stochastic':
 				new_templates_ = place_stochastically_in_tile(dist, t)
 		
-			tile_id_population.append([i for i in range(len(new_templates), len(new_templates)+ len(new_templates_)) ])
 			new_templates.extend(new_templates_)
 
 		if placing_method == 'uniform':
@@ -390,85 +391,37 @@ class cbc_bank():
 			
 		if placing_method == 'random':
 				#FIXME: this method is too slow for being feasible on large banks
-			N_points = 100*t_obj.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
-			N_points = min(N_points, int(1e7))
-			new_templates = place_random(dist, t_obj, N_points = int(N_points), tolerance = 0.0001)
-			#tile_id_population = list(t.get_tile(new_templates))
+			N_points = lambda t: 1000*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points_max = int(5e5)
+			N_points_tot = N_points(t_obj)
+
+			if N_points_tot >N_points_max:
+				thresholds = plawspace(coarse_boundaries[0,0], coarse_boundaries[1,0], -8./3., int(N_points_tot/N_points_max)+2)[1:-1]
+				partition = partition_tiling(thresholds, 0, t_obj)
+				print("Thresholds: ",thresholds)
+			else:
+				partition = [t_obj]
+
+			print(N_points_tot, len(partition))
+			new_templates = []
+			if verbose: it = tqdm(partition, desc = 'Loops on the partitions for random placement')
+			else: it = partition
+			for p in it:
+				#TODO: make this a ray function? Too much memory expensive, probably...
+				new_templates_ = place_random(dist, p, N_points = int(N_points(p)), tolerance = 0.0001)
+				new_templates.extend(new_templates_)
 			
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
 					empty_iterations = 200/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
-			#tile_id_population = list(t.get_tile(new_templates))
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)
-		return tile_id_population #shall I save it somewhere??	
+		return new_templates
 
-	def generate_tiling(self, metric_obj, boundaries_list, V_tile, use_ray = False, verbose = True):
-		"""
-		Creates a tiling of the space, starting from a coarse tiling.
-		
-		Parameters
-		----------
-		
-		metric_obj: cbc_metric
-			A ``cbc_metric`` object to compute the match with
-
-		boundaries_list: list
-			A list of boundaries for a coarse tiling. Each box will have its own independent hierarchical tiling
-			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube.
-			Each element can also be a (2,D) `np.ndarray`.
-			If a single `np.ndarray` is given
-			
-
-		V_tile: float
-			Maximum volume for the tile. The volume is normalized by 0.1^D.
-			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
-					
-		use_ray: bool
-			Whether to use ray to parallelize
-
-		verbose: bool
-			whether to print to screen the output
-		
-		Returns
-		-------
-					
-		tiling: tiling_handler 
-			A list of tiles ready to be used for the bank generation
-		"""
-			#checking on boundaries_list
-		if not isinstance(boundaries_list, list):
-			if isinstance(boundaries_list, np.ndarray):
-				if boundaries_list.ndim ==2 and boundaries_list.shape[0]==2: boundaries_list = [boundaries_list]
-				else: raise ValueError("If `boundaries_list` is an array, its shape must be (2,D)")
-			else:
-				raise ValueError("Wrong value for the entry `boundaries_list`")
-
-		t_obj = tiling_handler() #empty tiling handler
-		t_ray_list = []
-		
-		for i, b in enumerate(boundaries_list):
-			temp_t_obj = tiling_handler() #This must be emptied at every iteration!! Otherwise, it gives lots of troubles :(
-			if use_ray:
-				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
-							V_tile, metric_obj.get_metric, verbose = verbose , worker_id = i) )
-			else:
-				t_obj += temp_t_obj.create_tiling(b, V_tile, metric_obj.get_metric, verbose = verbose, worker_id = None) #adding the newly computed templates to the tiling object
-			
-		if use_ray:
-			t_ray_list = ray.get(t_ray_list)
-			ray.shutdown()
-			if verbose: print("All ray jobs are done")
-			t_obj = tiling_handler()
-			for t in t_ray_list:
-				t_obj += t
-		
-		return t_obj
-			
-	def generate_bank(self, metric_obj, avg_match, boundaries, grid_list, V_tile, placing_method = 'geometric', use_ray = False):
+	def generate_bank(self, metric_obj, avg_match, boundaries, V_tile, placing_method, grid_list = None, use_ray = False):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -492,6 +445,7 @@ class cbc_bank():
 		grid_list: list
 			A list of ints, each representing the number of coarse division of the space.
 			If use ray option is set, the subtiling of each coarse division will run in parallel
+			If None, no prior splitting will be made.
 		
 		V_tile: float
 			Maximum volume for the tile. The volume is normalized by 0.1^D.
@@ -508,59 +462,38 @@ class cbc_bank():
 		
 		tiling: tiling_handler 
 			A list of tiles used for the bank generation
-		
-		tile_id_population: list 
-			A list of list. 
-			``tile_id_population[i]`` keeps the ids of the templates inside tile i
-			
 		"""
-		#TODO: add an option to avoid the hierarchical tiling??
 			##
-			#Initialization
+			#Initialization & various checks
 		assert avg_match<1. and avg_match>0., "`avg_match` should be in the range (0,1)!"
 		if avg_match <0.9:
 			warnings.warn("Average match is set to be smaller than 0.9. Although the code will work, this can give unreliable results as the metric match approximation is less accurate.")
 		dist = avg_dist(avg_match, self.D) #desired average distance in the metric space between templates
 		
-		if use_ray: ray.init()
-		
 		if self.variable_format.startswith('m1m2_'):
 			raise RuntimeError("The current placing method does not support m1m2 format for the masses")
 		
+		if grid_list is None: grid_list = [1 for i in range(self.D)]
 		assert len(grid_list) == self.D, "Wrong number of grid sizes. Expected {}; given {}".format(self.D, len(grid_list))
 		
 			###
 			#creating a proper grid list for a coarse boundary creation
-		grid_list_ = []
-		for i in range(self.D):
-			if i ==0:
-					#placing m_tot or M_chirp according the scaling relation: mc**(-8/3)*l ~ const.
-					#(but maybe it is better to use geomspace)
-				g_list = plawspace(boundaries[0,i], boundaries[1,i], -8./3., grid_list[i]+1) #power law spacing
-				#g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #linear spacing
-			else:
-				g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1)
-			grid_list_.append( g_list )
-		grid_list = grid_list_
-		
-		lower_boxes, upper_boxes = get_boundary_box(grid_list)
-		boundaries_list = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
+		boundaries_list = split_boundaries(boundaries, grid_list, use_plawspace = True)
 		
 			###
 			#creating the tiling
-		t_obj = self.generate_tiling(metric_obj, boundaries_list, V_tile, use_ray = use_ray )	
+		t_obj = tiling_handler() #empty tiling handler
+		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_obj.get_metric, use_ray = use_ray )	
 		
 			##
 			#placing the templates
 			#(if there is KeyboardInterrupt, the tiling is returned anyway)
 		try:
-			tile_id_population = self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+			self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
 		except KeyboardInterrupt:
-			tile_id_population = None
-			plot_folder	= None
 			self.templates = None
 		
-		return t_obj, tile_id_population
+		return t_obj
 				
 	def enforce_boundaries(self, boundaries):
 		"""
@@ -594,12 +527,9 @@ class cbc_bank():
 ###########################
 
 
-	def generate_bank_MCMC(self, metric_obj, N_templates, boundaries, fitting_factor = None, n_walkers = 100, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
-		#FIXME: shall I also compute the minimum match as a stopping condition? Right now, I am not using it because the FF is needed to correct the bank at later stages... In future, things can change!
-		#FIXME: the sampling does not work well in the equal mass region (perhaps the probability is low?)
-		#FIXME: qualitatively, there are some differences between sbank and mbank. Understand why: sampler or PDF?
+	def generate_bank_MCMC(self, metric_obj, N_templates, boundaries, n_walkers = 100, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
 		"""
-		Fills the bank with a MCMC (uses emcee package).
+		Fills the bank with a MCMC (uses `emcee` package, not in the `mbank` dependencies).
 		
 		``This function is not up to date!!``
 		
@@ -611,19 +541,13 @@ class cbc_bank():
 		
 		N_templates: int
 			Number of new templates to add.
-			If fitting_factor is specified, this option has no effect and an indefinite number of new templates will be added
 		
 		boundaries: np.ndarray
 			shape: (2,4)/(2,2) -
 			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``.
 			If None, no boundaries are implemented
-			
-		fitting_factor: (float, int)
-			A tuple of (max_FF, N_injs)
-			If not None, the fitting factor of the bank will be computed with N_injs.
-			Whenever the bank fitting factor is below max_FF, the bank generation will end
-		
+
 		n_walkers: int
 			Number of independent walkers during the chain
 		
@@ -693,6 +617,8 @@ class cbc_bank():
 					tau = tau_list[-1]
 					break
 			if verbose: print("")
+
+
 			###########
 			#doing the actual sampling
 		#FIXME: this eventually should have a check on the FF

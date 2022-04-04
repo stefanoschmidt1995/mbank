@@ -65,7 +65,7 @@ parser.add_argument(
 	help="Output directory in which the bank will be saved. If default is used, the bank name will be appended.")
 parser.add_argument(
 	"--run-name", default = 'cbc_mbank',
-	help="Name for the bank output file")
+	help="Name for the bank and tiling output file")
 parser.add_argument(
 	"--grid-size", default = None, type=int_tuple_type,
 	help="Number of grid points for each dimension. The number of grid must match the number extra dimensions. If None, the grid size will be a set of ones")
@@ -233,13 +233,10 @@ if format_info['mass_format'] == 'm1m2':
 
 if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
 	
-	t_obj, tile_id_population = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
-		grid_list = args.grid_size, placing_method = args.placing_method, use_ray = args.use_ray)
+	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
+		placing_method = args.placing_method, grid_list = args.grid_size, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
-
-	with open(args.run_dir+'tile_id_population_{}.pkl'.format(args.run_name), 'wb') as filehandler:
-		pickle.dump(tile_id_population, filehandler)
 
 if bank.templates is None:
 	print("No templates were added to the bank: the bank is not saved")

@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+"""
+mbank_merge
+-----------
+
+It merges the mbank output products: banks and tiling.
+Banks must be saved in dat or xml format.
+Tiling objects mustbe saved in the npy format, as produces by `tiling_handler.load()`.
+
+To merge the 3 banks into a single merged_banks.xml you can type:
+
+	mbank_merge --bank --variable-format your-format --out-name merged_banks.xml bank_1.xml bank_2.xml bank_3.xml
+
+To merge 3 tiling you can type:
+
+	mbank_merge --tiling --out-name merged_tiling.npy tiling_1.npy tiling_2.npy tiling_3.npy
+
+Make sure that the mbank is properly installed.
+To know which options are available:
+
+	mbank_merge --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import warnings
+
+from mbank import cbc_bank, tiling_handler
+
+import argparse
+import os
+
+##### Creating parser
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--tiling",  default = False, action='store_true',
+	help="Whether the files to be merged are tiling files")
+parser.add_argument(
+	"--bank",  default = False, action='store_true',
+	help="Whether the files to be merged are bank files")
+parser.add_argument(
+	"--variable-format", default = None, type = str,
+	help="Variable format for the bank files to merge")
+parser.add_argument(
+	"--out-name", type = str,
+	help="Name of the file to store the merged inputs")
+
+
+args, filenames = parser.parse_known_args()
+
+######################################################
+######################################################
+######################################################
+
+if not (args.tiling or args.bank):
+	raise ValueError("You must specify either the --bank or the --tiling option")
+
+if args.bank:
+	assert args.variable_format is not None, "If --bank is set, a variable format must be set"
+	if args.out_name is None: args.out_name = 'merged_bank.dat'
+	input_file_type = 'bank'
+	bank = cbc_bank(args.variable_format)
+if args.tiling:
+	if args.out_name is None: args.out_name = 'merged_tiling.npy'
+	input_file_type = 'tiling'
+	tiling = tiling_handler()
+
+print("Saving merged {} to file {}".format(input_file_type, args.out_name))
+
+	##
+	# Loops on given input files
+
+for f in filenames:
+	if args.bank:
+		temp_bank = cbc_bank(args.variable_format, f)
+		bank.add_templates(temp_bank.templates)
+		del temp_bank
+	if args.tiling:
+		temp_tiling = tiling_handler(f)
+		tiling.extend(temp_tiling)
+		del temp_tiling
+
+if args.bank: bank.save_bank(args.out_name)
+if args.tiling: tiling.save(args.out_name)
+
+print("Merged {} has {} {}".format(input_file_type, 
+	len(bank.templates) if args.bank else len(tiling),
+	'templates' if args.bank else 'tiles'
+	))
+
+
+
+
+
+
+
+
+
+
+
+
+

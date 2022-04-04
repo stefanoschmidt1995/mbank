@@ -94,7 +94,7 @@ bank = cbc_bank(args.variable_format)
 
 t_obj = tiling_handler(args.tiling_file)
 
-tile_id_population = bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, verbose = True)
+bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, verbose = True)
 
 	######
 	#	Plotting & saving
@@ -104,9 +104,6 @@ print("Generated bank with {} templates".format(len(bank.templates)))
 print("Saving bank to {}".format(args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
 bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name))
-
-with open(args.run_dir+'tile_id_population_{}.pkl'.format(args.run_name), 'wb') as filehandler:
-	pickle.dump(tile_id_population, filehandler)
 
 if args.plot:
 	dist = avg_dist(args.mm, bank.D) if bank.D == 2 else None

@@ -300,6 +300,7 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 
 	return f, PSD	
 
+
 ####################################################################################################################
 def compute_avg_metric_dist(bank, tiling, N_neigh_templates = 10, metric_obj = None):
 	"""
@@ -905,7 +906,7 @@ def plawspace(start, stop, exp, N_points):
 	points = np.power(points, 1/exp)
 	
 	points[0]=start
-	if N_points>1: points[1] = stop
+	if N_points>1: points[-1] = stop
 	
 	return points
 
@@ -1027,38 +1028,76 @@ def place_stochastically(avg_dist, t_obj, bank, empty_iterations = 200, seed_ban
 	nothing_new = np.zeros((len(t_obj),), dtype = int)
 	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
 	
-	#TODO: keyboard interrupt and returns the new templates...
-	for _ in t_:
-		#bank.templates = new_templates #updating bank
-		
-			#checking for stopping conditions and updating for empty tiles
-		where_to_remove = (nothing_new > empty_iterations)
-		tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
-		nothing_new = np.delete(nothing_new, np.where(where_to_remove))
+	try:
+		for _ in t_:
+			#bank.templates = new_templates #updating bank
+			
+				#checking for stopping conditions and updating for empty tiles
+			where_to_remove = (nothing_new > empty_iterations)
+			tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
+			nothing_new = np.delete(nothing_new, np.where(where_to_remove))
 
-		t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
-		if len(tiles_to_use) == 0: break
-		
-		id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
-		tile_id = tiles_to_use[id_tiles_to_use] #id of the tile in the tiling list
-		
-		proposal = np.random.uniform(t_obj[tile_id][0].mins, t_obj[tile_id][0].maxes, (1, len(t_obj[tile_id][0].maxes)))
-		
-		diff = new_templates - proposal #(N_templates, D)
-		
-		L_t = np.linalg.cholesky(t_obj[tile_id][1]) #(D,D)
-		match = np.max(1- np.sum(np.square(np.matmul(diff, L_t)), axis =1))
-		
-			#slower alternative with eisum
-		#match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, t_obj[tile_id][1], diff)) #()
+			t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
+			if len(tiles_to_use) == 0: break
+			
+			id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
+			tile_id = tiles_to_use[id_tiles_to_use] #id of the tile in the tiling list
+			
+			proposal = np.random.uniform(t_obj[tile_id][0].mins, t_obj[tile_id][0].maxes, (1, len(t_obj[tile_id][0].maxes)))
+			
+			diff = new_templates - proposal #(N_templates, D)
+			
+			L_t = np.linalg.cholesky(t_obj[tile_id][1]) #(D,D)
+			match = np.max(1- np.sum(np.square(np.matmul(diff, L_t)), axis =1))
+			
+				#slower alternative with eisum
+			#match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, t_obj[tile_id][1], diff)) #()
 
-		if (match < MM)>0:
-			new_templates = np.concatenate([new_templates, proposal], axis =0)
-			nothing_new[id_tiles_to_use] = 0
-		else:
-			nothing_new[id_tiles_to_use] +=1
-
+			if (match < MM)>0:
+				new_templates = np.concatenate([new_templates, proposal], axis =0)
+				nothing_new[id_tiles_to_use] = 0
+			else:
+				nothing_new[id_tiles_to_use] +=1
+	except KeyboardInterrupt:
+		pass
+	
 	return new_templates
+
+
+def partition_tiling(thresholds, d, t_obj):
+	"""
+	Given a tiling, it partitions the tiling given a list of thresholds. The splitting is performed along axis `d`.
+	
+	Parameters
+	----------
+		thresholds: list
+			list of trhesholds for the partitioning
+		
+		d: int
+			Axis to split the tiling along.
+		
+		t_obj: tiling_handler
+			Tiling to partion
+	
+	Returns
+	-------
+		partitions: list
+			List of tiling handlers making the partitions
+	"""
+	if not isinstance(thresholds, list): thresholds = list(thresholds)
+	thresholds.sort()
+	
+	partitions = []
+	
+	t_obj_ = t_obj
+	
+	for threshold in thresholds:
+		temp_t_obj, t_obj_ = t_obj_.split_tiling(d, threshold)
+		partitions.append(temp_t_obj)
+	partitions.append(t_obj_)
+	
+	return partitions
+
 
 #@do_profile(follow=[])
 def place_random(dist, t_obj, N_points, tolerance = 0.01):
@@ -1105,8 +1144,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01):
 	new_templates = []
 	
 	bar_str = 'Loops on tiles ({}/{} livepoints killed | {} templates placed)'
-	it = tqdm(dummy_iterator(), desc = bar_str.format(N_points -len(livepoints), N_points, len(new_templates)))
-	livepoints_id = [i for i in range(len(livepoints))]
+	it = tqdm(dummy_iterator(), desc = bar_str.format(N_points -len(livepoints), N_points, len(new_templates)), leave = True)
 	
 	for _ in it:
 		id_point = np.random.randint(len(livepoints))
@@ -1142,7 +1180,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01):
 		del point
 			
 		if len(livepoints) == 0: break
-		if len(new_templates) %1 ==0: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
+		if len(new_templates) %2 ==0: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
 	
 	new_templates = np.column_stack([new_templates])
 	#if len(livepoints)>0: new_templates = np.concatenate([new_templates, livepoints], axis =0) #adding the remaining livepoints
@@ -1571,6 +1609,47 @@ def get_boundary_box(grid_list):
 	upper_grids = np.column_stack(upper_grids)
 	
 	return lower_grids, upper_grids
+	
+	
+def split_boundaries(boundaries, grid_list, use_plawspace = True):
+	"""
+	Splits a boundary rectangle by dividing each dimension into a number of evenly spaced segments defined by each entry `grid_list`.
+	
+	If option `plawspace` is set, the segments will be evenly distributed acconrding to a pwer law with exponent `-8/3`
+	
+	Parameters
+	----------
+		boundaries: np.ndarray
+			shape: (2,D) -
+			Boundaries of the space to split.
+			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
+		
+		grid_list: list
+			A list of ints, each representing the number of coarse division of the space.
+		
+		use_plawspace: bool
+			Whether to use a power law spacing for the first variable
+
+	Returns
+	-------
+		boundaries_list: list
+			A list of boundaries arrays obtained after the splitting, each with shape `(2,D)`
+	"""
+	D = boundaries.shape[1]
+	grid_list_ = []
+	for i in range(D):
+		if i ==0:
+				#placing m_tot or M_chirp according the scaling relation: mc**(-8/3)*l ~ const.
+			if use_plawspace: g_list = plawspace(boundaries[0,i], boundaries[1,i], -8./3., grid_list[i]+1) #power law spacing
+			else: g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1) #linear spacing
+		else:
+			g_list = np.linspace(boundaries[0,i], boundaries[1,i], grid_list[i]+1)
+		grid_list_.append( g_list )
+	grid_list = grid_list_
+		
+	lower_boxes, upper_boxes = get_boundary_box(grid_list)
+	boundaries_list = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
+	return boundaries_list
 
 ##########################################################################################
 #TODO: use this function every time you read an xml!!!
@@ -1738,7 +1817,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 				#appending row
 			sim_inspiral_table.append(row)
 
-		ligolw_process.set_process_end_time(process)
+		#ligolw_process.set_process_end_time(process)
 		xmldoc.childNodes[-1].appendChild(sim_inspiral_table)
 		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
 		xmldoc.unlink()

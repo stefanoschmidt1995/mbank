@@ -673,13 +673,13 @@ def get_ellipse(metric, center, dist, **kwargs):
 
 	eig, eig_vals = np.linalg.eig(metric)
 	w, h = 2*np.sqrt(dist**2/eig)
-	angle = 180-np.arccos(eig_vals[0,0])*180/np.pi 
+	angle = np.arctan2(eig_vals[1,0], eig_vals[0,0])*180/np.pi
 	ellipse = matplotlib.patches.Ellipse(center, w, h, angle, **kwargs)
 
 	return ellipse	
 
 
-def plot_tiles_templates(t_obj, templates, variable_format, var_handler, dist_ellipse = None, save_folder = None, show = False):
+def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, show = False):
 	"""
 	Make some plots of the templates and the tiling.
 		
@@ -697,6 +697,15 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, dist_el
 			
 		var_handler: variable_handler
 			A variable handler object to handle the labels. Can be instantiated with `mbank.handlers.variable_handler()`
+		
+		injections: np.ndarray
+			shape: (N,D) -
+			An extra set of injections to plot. If `None`, no extra points will be plotted.
+		
+		inj_cmap: np.ndarray
+			shape: (N,) -
+			A colouring value for each injection, tipically the match with the bank. If None, no colouring will be done.
+			The argument is ignored if `injections = None`
 		
 		dist_ellipse: float
 			The distance for the match countour ellipse to draw. If `None`, no contour will be drawn.
@@ -771,6 +780,21 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, dist_el
 
 	if isinstance(save_folder, str): plt.savefig(save_folder+'tiling.png', transparent = False)
 
+		#Plotting the injections, if it is the case
+	if isinstance(injections, np.ndarray):
+		inj_cmap = 'r' if inj_cmap is None else inj_cmap
+		plt.suptitle('Templates + tiling of the bank & {} injections'.format(injections.shape[0]), fontsize = fs+10)
+		for ax_ in combinations(range(templates.shape[1]), 2):
+			currentAxis = axes[ax_[1]-1, ax_[0]]
+			ax_ = list(ax_)
+			cbar_vals = currentAxis.scatter(injections[:,ax_[0]], injections[:,ax_[1]],
+				s = 20, marker = 's', c= inj_cmap)
+		if not isinstance(inj_cmap, str):
+			cbar_ax = fig.add_axes([0.95, 0.15, 0.015, 0.7])
+			fig.colorbar(cbar_vals, cax=cbar_ax)
+		if isinstance(save_folder, str): plt.savefig(save_folder+'injections.png', transparent = False)
+
+
 		#Plotting the ellipses, if it is the case
 	if isinstance(dist_ellipse, float):
 		plt.suptitle('Templates + tiling + ellipses of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
@@ -780,6 +804,8 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, dist_el
 			for i, templ in enumerate(templates):
 				metric_projected = project_metric(t_obj[id_tile_templates[i]][1], ax_)
 				currentAxis.add_patch(get_ellipse(metric_projected, templ[ax_], dist_ellipse))
+			#if ax_[0]!=0: currentAxis.set_xlim([-10,10]) #DEBUG
+			#currentAxis.set_ylim([-10,10]) #DEBUG
 		if isinstance(save_folder, str): plt.savefig(save_folder+'ellipses.png', transparent = False)
 	
 		#Plot an histogram
@@ -1102,7 +1128,8 @@ def partition_tiling(thresholds, d, t_obj):
 #@do_profile(follow=[])
 def place_random(dist, t_obj, N_points, tolerance = 0.01):
 	"""
-	Given a tiling object, it covers the volume with points and covers them with templates...
+	Given a tiling object, it covers the volume with points and covers them with templates.
+	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
 	
 	Parameters
 	----------

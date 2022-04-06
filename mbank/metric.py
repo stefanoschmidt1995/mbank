@@ -275,7 +275,7 @@ class cbc_metric(object):
 		
 		return res
 	
-	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-5):
+	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-1):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -305,6 +305,10 @@ class cbc_metric(object):
 		"""
 		#Take home message, to get a really nice metric:
 		# - The order of the integration is crucial. You can set this adaptively, depending on total mass
+		# - The espilon is EVEN MORE CRUCIAL
+		#FIXME: find a nice way to set some defaults for the finite difference step! Maybe hardcode it inside the variable_handler?
+		#FIXME: assert boundaries when computing gradients... Maybe find a preprocessing for the vars that makes every variable unbounded?
+		
 		assert order in [None, 1,2,4,6,8], "Wrong order '{}' for the finite difference scheme given: options are 'None' or '{}'".format(order, [1,2,4,6,8])
 
 		def get_WF(theta_value, df_):
@@ -315,7 +319,7 @@ class cbc_metric(object):
 		delta_ij = lambda i,j: 1 if i ==j else 0
 		grad_h_list = []
 		epsilon_list = [epsilon for _ in range(12)]
-		epsilon_list[0] = epsilon_list[0]/5 #the first variable needs a smaller step?
+		epsilon_list[0] = epsilon_list[0]/10 #the first variable needs a smaller step?
 		
 		def get_order(M):
 			#TODO:fix the thresholds

@@ -12,10 +12,35 @@ from itertools import combinations, permutations, product
 import pickle
 import os, sys
 
+import pycbc.types
+import pycbc.filter
+
 #########################################
+
+class psd_pycbc():
+
+	def __init__(self, metric_obj):
+		self.f, self.PSD = metric_obj.f_grid, metric_obj.PSD
+		self.df = self.f[1]-self.f[0]
+		self.PSD_pycbc = pycbc.types.timeseries.FrequencySeries(self.PSD, self.df)
+
+	def get_match_pycbc(self, theta1, theta2, mmetric):
+		WF1 = mmetric.get_WF(theta1, approximant)
+		WF2 = mmetric.get_WF(theta2, approximant)
+
+		WF1 = pycbc.types.timeseries.FrequencySeries(WF1, self.df) 
+		WF2 = pycbc.types.timeseries.FrequencySeries(WF2, self.df) 
+		
+		
+		match = WF1.match(WF2, self.PSD_pycbc)[0]
+		
+		return match
+
 
 def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap = False):
 	"Given a metric object and some boundaries, it draws random points and for each point it draws a random point at constant metric distance. The metric distance will be then compared with the actual distance. The output is stored on a dict"
+	
+	pycbc_match_obj = psd_pycbc(metric_obj)
 	
 		#initializing out_dict
 	out_dict = {'theta1': np.zeros((N_points,metric_obj.D)),
@@ -56,10 +81,12 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				#theta2 = theta2[np.where(np.all(np.abs(theta2-theta1)<1, axis =1))[0][0],:]
 					#storing to out_dict
 				out_dict['theta2'][i,:,j] = theta2
-				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap)
-				print(i, MM, out_dict[MM][i],
-						metric_obj.metric_match(theta1, theta2, overlap=True), metric_obj.match(theta1, theta2, overlap=True),
-						metric_obj.metric_match(theta1, theta2, overlap=False), metric_obj.match(theta1, theta2, overlap=False))
+				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap) #mbank
+				#out_dict[MM][i] = pycbc_match_obj.get_match_pycbc(theta1, theta2, metric_obj) #pycbc
+				#print(i, MM, out_dict[MM][i],
+				#		metric_obj.metric_match(theta1, theta2, overlap=True), metric_obj.match(theta1, theta2, overlap=True),
+				#		metric_obj.metric_match(theta1, theta2, overlap=False), metric_obj.match(theta1, theta2, overlap=False),
+				#		pycbc_match_obj.get_match_pycbc(theta1, theta2, metric_obj))
 			else:
 				out_dict['theta2'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
@@ -160,24 +187,23 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 200
-	variable_format = 'Mq_s1z_s2z'
+	N_points = 2000
 	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	ifo = 'H1'
 	approximant = 'IMRPhenomPv2'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = True
+	load = False
 	overlap = (run_name.find('overlap')>-1)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 	
-	boundaries = np.array([[10, 1.],[30, 5.]]) #Mq_nonspinning
+	boundaries = np.array([[10, 1.],[30, 5.]]); variable_format = 'Mq_nonspinning' #Mq_nonspinning
 	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.99, np.pi]]) #Mq_s1xz
 	#boundaries = np.array([[10, 1., 0., 0., 0.],[30, 5., 0.99, np.pi, np.pi]]) #Mq_s1xz_iota
 	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.99, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
-	boundaries = np.array([[20, 1., -0.99, -0.99],[30, 5., 0.99, 0.99]]) #Mq_s1z_s2z
+	#boundaries = np.array([[10, 1., -0.99, -0.99],[30., 5., 0.99, 0.99]]) ; variable_format = 'Mq_s1z_s2z'#Mq_s1z_s2z
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

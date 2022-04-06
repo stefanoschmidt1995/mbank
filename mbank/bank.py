@@ -390,15 +390,16 @@ class cbc_bank():
 			new_templates = t_obj.sample_from_tiling(N_templates)
 			
 		if placing_method == 'random':
-				#FIXME: this method is too slow for being feasible on large banks
-			N_points = lambda t: 1000*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
-			N_points_max = int(5e5)
+				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
+			N_points = lambda t: 10*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points_max = int(1e6)
 			N_points_tot = N_points(t_obj)
 
 			if N_points_tot >N_points_max:
 				thresholds = plawspace(coarse_boundaries[0,0], coarse_boundaries[1,0], -8./3., int(N_points_tot/N_points_max)+2)[1:-1]
 				partition = partition_tiling(thresholds, 0, t_obj)
-				print("Thresholds: ",thresholds)
+				print("\tThresholds: ",thresholds)
+				print("\tN_points: ", [int(N_points(p)) for p in partition])
 			else:
 				partition = [t_obj]
 
@@ -408,6 +409,7 @@ class cbc_bank():
 			else: it = partition
 			for p in it:
 				#TODO: make this a ray function? Too much memory expensive, probably...
+				#new_templates_ = [np.array([1,2, 0.1, 0.])]
 				new_templates_ = place_random(dist, p, N_points = int(N_points(p)), tolerance = 0.0001)
 				new_templates.extend(new_templates_)
 			

@@ -33,7 +33,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match, load_PSD
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match, load_PSD, plot_tiles_templates
 from mbank.utils import updates_args_from_ini, read_xml
 
 from itertools import combinations, permutations
@@ -155,7 +155,6 @@ if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
 if isinstance(args.psd, str): args.psd = args.run_dir+args.psd if args.psd.find('/') <0 else args.psd
 
 plot_folder = None
-if args.show: args.plot = True
 if args.plot: plot_folder = args.run_dir
 
 
@@ -263,27 +262,27 @@ with open(args.run_dir+save_name, 'wb') as filehandler:
 #with open(args.run_dir+save_name, 'rb') as filehandler:
 #	injection_stat_dict = pickle.load( filehandler)
 
+	######
+	#	Making some plots & printing percentiles
+	######
 
-	######
-	#	Making some plots
-	######
+	#projecting over the template manifold
+projected_injs = var_handler.get_theta(injections_full, args.variable_format) #(N,D)
+	
+	#histogram for the overall match
+	
+best_matches = injection_stat_dict['match']
+best_matches[best_matches<=0] = 0.01
+
+full_match = args.full_match or args.full_match_symphony
+if full_match: print("Metric match percentiles [50, 5, 1]: ", np.percentile(best_matches_metric, [50, 5,1]))	
+print("{} match percentiles [50, 5, 1]: ".format("'Full'" if full_match else 'Metric'), np.percentile(best_matches, [50, 5,1]))
+
 if args.plot:
 	#TODO: make a single plotting function!!!
 	#just call utils.plot_tiles_templates
 	
-		#projecting over the template manifold
-	projected_injs = var_handler.get_theta(injections_full, args.variable_format) #(N,D)
-	
-		#histogram for the overall match
-	
-	best_matches = injection_stat_dict['match']
-	best_matches[best_matches<=0] = 0.01
-
-	full_match = args.full_match or args.full_match_symphony
-	if full_match: print("Metric match percentiles [50, 5, 1]: ", np.percentile(best_matches_metric, [50, 5,1]))	
-	print("{} match percentiles [50, 5, 1]: ".format("'Full'" if full_match else 'Metric'), np.percentile(best_matches, [50, 5,1]))
 	fs = 15
-	
 		###
 		# Histogram
 		###
@@ -310,64 +309,9 @@ if args.plot:
 		###
 		# Colored plots
 		###
-	fig, axes = plt.subplots(projected_injs.shape[1]-1, projected_injs.shape[1]-1, figsize = (15,15))
-	plt.suptitle("Injections for {}\nPoints worse than the 50th percentile".format(os.path.basename(args.bank_file)), fontsize = fs+10)
-	if projected_injs.shape[1]-1 == 1:
-		axes = np.array([[axes]])
-	for i,j in permutations(range(projected_injs.shape[1]-1), 2):
-		if i<j:	axes[i,j].remove()
-	
-	for ax_ in combinations(range(projected_injs.shape[1]), 2):
-		currentAxis = axes[ax_[1]-1, ax_[0]]
-		ax_ = list(ax_)
-		
-		#fig = plt.figure()
-		currentAxis.scatter(*bank.templates[:,ax_].T, s = 2, marker = 'x', c= 'r', alpha = 0.4)
-		cbar_vals = currentAxis.scatter(projected_injs[ids_to_plot,ax_[0]], projected_injs[ids_to_plot,ax_[1]],
-				s = 20, marker = 'o', c= best_matches[ids_to_plot])
-		if ax_[0] == 0:
-			currentAxis.set_ylabel(var_handler.labels(args.variable_format, latex = True)[ax_[1]], fontsize = fs)
-		else:
-			currentAxis.set_yticks([])
-		if ax_[1] == projected_injs.shape[1]-1:
-			currentAxis.set_xlabel(var_handler.labels(args.variable_format, latex = True)[ax_[0]], fontsize = fs)
-		else:
-			currentAxis.set_xticks([])
-		
-		for t in t_obj:
-			d = t[0].maxes- t[0].mins
-			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
-		
-		currentAxis.tick_params(axis='x', labelsize=fs)
-		currentAxis.tick_params(axis='y', labelsize=fs)
-	
-	cbar_ax = fig.add_axes([0.95, 0.15, 0.015, 0.7])
-	fig.colorbar(cbar_vals, cax=cbar_ax)
-	#plt.subplots_adjust(wspace=0, hspace=0, bottom = 0.05, right = 0.92, left = 0.05, top = 0.97)
-	plt.savefig(args.run_dir+'injections_scatter.png', transparent = False)
-	
+	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler,
+				injections = projected_injs[ids_to_plot,:], inj_cmap =best_matches[ids_to_plot] ,
+				dist_ellipse = None, save_folder = args.run_dir, show = False)
 	if args.show: plt.show()
+	quit()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-	
-	

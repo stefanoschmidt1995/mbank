@@ -105,6 +105,7 @@ class variable_handler(object):
 	
 	For example, valid formats are: ``mceta_s1xz_s2z_e_iotaphi``, ``m1m2_nonspinning_e``, ``Mq_s1xz_s2z_iotaphi``, ``m1m2_s1z_s2z``
 	"""
+	#TODO: hard code here the values of epsilons?
 
 	def __init__(self):
 		"Initialization. Creates a dict of dict with all the info for each format" 

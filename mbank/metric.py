@@ -17,7 +17,10 @@ import matplotlib.pyplot as plt
 import lal 
 import lalsimulation as lalsim
 
+import warnings
+
 from .handlers import variable_handler
+from .utils import clip_eigenvalues #should you move this function inside here?
 
 #############DEBUG LINE PROFILING
 try:
@@ -275,7 +278,10 @@ class cbc_metric(object):
 		
 		return res
 	
-	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-1):
+	def log_pdf_gauss(self, theta, boundaries = None):
+		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
+	
+	def get_WF_grads(self, theta, approx, order = None, epsilon = None):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -293,8 +299,9 @@ class cbc_metric(object):
 			Order of the finite difference scheme for the gradient computation.
 			If None, some defaults values will be set, depending on the total mass.
 		
-		epsilon: float
-			Size of the jump for the finite difference scheme
+		epsilon: list
+			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+			If `None`, some reasonable defaults will be used
 
 		Returns
 		-------
@@ -314,12 +321,21 @@ class cbc_metric(object):
 		def get_WF(theta_value, df_):
 			#return self.get_WF_lal(theta_value, approx, df_)[0].data.data
 			return self.get_WF(theta_value)
+
+			#setting epsilon value
+		if epsilon is None:
+			epsilon = 1e-4#0.1
+		if isinstance(epsilon, float):
+			epsilon_list = [epsilon for _ in range(12)]
+			epsilon_list[0] = epsilon_list[0]/10 #the first variable needs a smaller step?
+		elif isinstance(epsilon, (list, np.ndarray)):
+			epsilon_list = epsilon
+		else:
+			raise ValueError("epsilon should be a list or a float")
 		
 		 	#doing finite difference methods
 		delta_ij = lambda i,j: 1 if i ==j else 0
 		grad_h_list = []
-		epsilon_list = [epsilon for _ in range(12)]
-		epsilon_list[0] = epsilon_list[0]/10 #the first variable needs a smaller step?
 		
 		def get_order(M):
 			#TODO:fix the thresholds
@@ -497,7 +513,7 @@ class cbc_metric(object):
 				#lal WF evaluated in the given f_grid
 			hp, hc = self.get_WF_lal(theta[i,:], approx)
 			
-				#trimming the WF to the proper PSD
+				#trimming the WF to the proper PSD (this amounts to enforcing the high frequency cutoff)
 			hp = hp.data.data[:self.PSD.shape[0]]
 			hc = hc.data.data[:self.PSD.shape[0]]
 
@@ -512,7 +528,7 @@ class cbc_metric(object):
 		else: return h
 	
 	
-	def get_metric(self, theta, overlap = False, order = None):
+	def get_metric(self, theta, overlap = False, order = None, epsilon = None):
 		"""
 		Returns the metric.
 		
@@ -530,6 +546,10 @@ class cbc_metric(object):
 		order: int
 			Order of the finite difference scheme for the gradient computation.
 			If None, some defaults values will be set, depending on the total mass.
+
+		epsilon: list
+			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+			If `None`, some reasonable defaults will be used
 
 		Returns
 		-------
@@ -556,7 +576,7 @@ class cbc_metric(object):
 
 		### scalar product in FD
 		h = self.get_WF(theta, approx = self.approx) #(N,D)
-		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order) #(N,D, K)
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon) #(N,D, K)
 		
 		h_W = h / np.sqrt(self.PSD) #whithened WF
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
@@ -593,6 +613,8 @@ class cbc_metric(object):
 		if squeeze:
 			metric = np.squeeze(metric)
 
+		#metric = clip_eigenvalues(metric, 1e-2) #FIXME: understand whether you really want this!
+
 		return metric
 	
 	def WF_symphony_match(self, h1, h2, overlap = False):
@@ -624,6 +646,7 @@ class cbc_metric(object):
 			Array containing the symphony match of the given WFs
 			
 		"""
+		#TODO: insert the zero padding to the frequency series also here (if it makes sense...)
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
 		
 			#whithening and normalizing
@@ -637,6 +660,7 @@ class cbc_metric(object):
 		s_WN = (s_WN.T/np.sqrt(sigmasq(s_WN))).T #normalizing s
 	
 			#computing frequency series, time series and denominator
+			#TODO: pad with zeros the frequency series here!!
 		SNR_fs_p = np.multiply(np.conj(s_WN), h1p_WN) #(N,D) #frequency series
 		SNR_fs_c = np.multiply(np.conj(s_WN), h1c_WN) #(N,D) #frequency series
 		
@@ -691,11 +715,15 @@ class cbc_metric(object):
 			
 		"""
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
+
+			##
+			# The whithened WF will be zero until kmin. No need to remove it (except maybe for speed up)
+			# kmin = int(self.f_min / self.delta_f)
 		
-			#whithening and normalizing			
+			#whithening and normalizing	
 		h1_WN = (h1/np.sqrt(self.PSD)) #whithened WF
 		h2_WN = (h2/np.sqrt(self.PSD)) #whithened WF
-			
+		
 		h1_WN = (h1_WN.T/np.sqrt(sigmasq(h1_WN))).T #normalizing WF
 		h2_WN = (h2_WN.T/np.sqrt(sigmasq(h2_WN))).T #normalizing WF
 	
@@ -705,10 +733,15 @@ class cbc_metric(object):
 			overlap = np.abs(np.sum(SNR_fs, axis =-1))
 			return overlap
 		
+			#padding the frequency series with zeros: this mimick pycbc correlate
+			#Is it really required?
+		D = SNR_fs.shape[-1]
+		pad_zeros = np.zeros(SNR_fs.shape)
+		SNR_fs = np.concatenate([pad_zeros[...,:D//2], SNR_fs, pad_zeros[...,D//2:]], axis = -1)
+
 		SNR_ts = np.fft.ifft(SNR_fs, axis =-1)*SNR_fs.shape[-1]
-
 		match = np.max(np.abs(SNR_ts), axis = -1)
-
+		
 		return match
 	
 	
@@ -753,7 +786,7 @@ class cbc_metric(object):
 			Array containing the match of the given WFs
 			
 		"""
-		#FIXME: this function agrees with pycbc but disagree with sbank!! WFT?? Time alignment is the way!
+		#FIXME: the atleast_2d shouldn't be necessary...
 		theta1 = np.asarray(theta1)
 		theta2 = np.asarray(theta2)
 		squeeze = ((theta1.ndim == 1) and (theta2.ndim == 1))
@@ -869,9 +902,85 @@ class cbc_metric(object):
 		return np.abs(accuracy)
 		
 	
-	def get_points_atmatch(self, N_points, theta, match, overlap = False):
+	def get_points_at_match(self, N_points, theta, match, metric = None, overlap = False):
 		"""
-		Given a central theta point, it computes ``N_points`` random point with a given metric match.
+		Given a central theta point, it computes ``N_points`` couples of random points with constant metric match. The metric is evaluated at `theta`, hence the couple of points returned will be symmetric w.r.t. to theta and their distance from theta will be `dist/2`.
+		
+		The match is related to the distance between templates in the metric as:
+		
+		.. math::
+		
+			dist = sqrt(1-match)
+		
+		The returned points `points1`, `points2` will be such that
+		
+		::
+		
+			m_obj.metric_match(*m_obj.get_points_at_match(N_points, center, match = match))
+		
+		is equal to match
+		
+		
+		Parameters
+		----------
+		
+		N_points: int
+			Number of random couples to be drawn
+		
+		theta: np.ndarray
+			shape: (D,) -
+			Parameters of the central point. The dimensionality depends on ``self.variable_format``
+
+		match: float
+			Match between the randomly drawn points and the central point ``theta``.
+			The metric distance between such points and the center is ``d = sqrt(1-M)``
+		
+		metric: np.ndarray
+			shape: (D,D) -
+			Metric to use for the match (if None, it will be computed from scratch)
+		
+		overlap: bool
+			Whether to compute the overlap between WFs (rather than the match)
+			In this case, the time maximization is not performed
+
+		Returns
+		-------
+		
+		points1: np.ndarray
+			shape: (N,D) -
+			N points close to the center. Each will have a constant metric distance from its counterpart in `points2`
+		
+		points2: np.ndarray
+			shape: (N,D) -
+			N points close to the center. Each will have a constant metric distance from its counterpart in `points1`
+			
+		"""
+		dist = np.sqrt(1-match)
+		if not isinstance(metric, np.ndarray): metric = self.get_metric(theta, overlap)
+		assert metric.shape == (self.D, self.D)
+		
+		L = np.linalg.cholesky(metric).T
+		L_inv = np.linalg.inv(L)
+		
+		theta_prime = np.matmul(L, theta)
+		
+			#picking N_points random directions
+		n_hat = np.random.normal(0,1, (N_points, self.D)) #(N,D)
+		n_hat = (n_hat.T / np.linalg.norm(n_hat, axis=1)).T
+		
+		points1 = theta_prime + n_hat*dist/2.
+		points2 = theta_prime - n_hat*dist/2.
+		
+		points1 = np.matmul(points1, L_inv.T)		
+		points2 = np.matmul(points2, L_inv.T)
+		
+		return points1, points2
+	
+	
+	def get_points_on_ellipse(self, N_points, theta, match, metric = None, overlap = False):
+		"""
+		Given a central theta point, it computes ``N_points`` random point on the ellipse of constant match center in theta.
+		The points returned will have approximately the the given metric match, although the actual metric match may differ as the metric is evaluated at `theta` and not at the baricenter of the points in question.
 		The match is related to the distance between templates in the metric as:
 		
 		.. math::
@@ -886,11 +995,16 @@ class cbc_metric(object):
 		
 		theta: np.ndarray
 			shape: (D,) -
-			Parameters of the central point. The dimensionality depends on ``self.variable_format``
+			Parameters of the central point the metric is evaluated at (i.e. the center of the ellipse).
+			The dimensionality depends on ``self.variable_format``
 
 		match: float
 			Match between the randomly drawn points and the central point ``theta``.
 			The metric distance between such points and the center is ``d = sqrt(1-M)``
+		
+		metric: np.ndarray
+			shape: (D,D) -
+			Metric to use for the match (if None, it will be computed from scratch)
 		
 		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
@@ -904,7 +1018,8 @@ class cbc_metric(object):
 			Points with distance dist from the center
 		"""
 		dist = np.sqrt(1-match)
-		metric = self.get_metric(theta, overlap)
+		if not isinstance(metric, np.ndarray): metric = self.get_metric(theta, overlap)
+		assert metric.shape == (self.D, self.D)
 		
 		L = np.linalg.cholesky(metric).T
 		L_inv = np.linalg.inv(L)
@@ -928,3 +1043,8 @@ class cbc_metric(object):
 			plt.show()
 		
 		return points
+	
+	
+	
+	
+		

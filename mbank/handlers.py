@@ -76,6 +76,7 @@ class variable_handler(object):
 	Valid formats for spins are:
 	
 	- ``nonspinning``: no spins are considered (only two masses), D = 0
+	- ``s1z``: only the z spin component of most massive BH is considered, D = 3
 	- ``s1z_s2z``: only the z components of the spins are considered (no precession), D = 2
 	- ``s1xz``: spin components assigned to one BH in plane xz, D = 2
 	- ``s1xyz``: spin components assigned to one BH, D = 3
@@ -112,12 +113,12 @@ class variable_handler(object):
 		
 			#hard coding valid formats for masses, spins, eccentricity and angles
 		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
-		self.s_formats = ['nonspinning', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
+		self.s_formats = ['nonspinning', 's1z', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
 		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
 		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
 		
 			#hard coding dimensions for each format
-		D_spins = {'nonspinning':0, 's1z_s2z':2, 's1xz':2, 's1xyz':3, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
+		D_spins = {'nonspinning':0, 's1z':1, 's1z_s2z':2, 's1xz':2, 's1xyz':3, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
 		D_ecc = {'':0, 'e':1, 'emeanano':2} #dimension of each eccentric format
 		D_angles = {'':0, 'iota':1, 'iotaphi':2} #dimension of each angle format
 
@@ -144,7 +145,58 @@ class variable_handler(object):
 			
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
 		
+		self.constraints = {'M':(0.,np.inf), 'q': (1, np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
+				'mass1':(0, np.inf), 'mass2':(0, np.inf),
+				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
+				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
+				'theta1':(0., np.pi), 'phi1':(-np.pi, np.pi),
+				'theta2':(0., np.pi), 'phi1':(-np.pi, np.pi),
+				'iota': (0.,np.pi), 'phi': (-np.inf, np.inf),
+				'e': (0., 1.), 'meanano': (0, 1.)
+				} #allowed ranges for each label
+				
+		
 		return
+
+	def is_theta_ok(self, theta, variable_format, raise_error = False):
+		"""
+		Given a value of theta, it checks whether it is an acceptable value for the given spin format.
+		It calls `get_BBH_components` internally.
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D) -
+			Parameters of the BBHs. The dimensionality depends on variable_format
+		
+		variable_format: string
+			How to handle the BBH variables.
+		
+		raise_error: bool
+			Whether to raise a ValueError if theta is not acceptable
+		
+		Returns
+		-------
+			is_ok: bool
+				`True` if `theta` is an acceptable value. `False` otherwise
+		"""
+		labels = self.labels(variable_format, latex = False)
+		theta = np.atleast_2d(theta)
+		
+		is_ok = True
+		if raise_error: bad_labels = []
+		
+		for i, l in enumerate(labels):
+			is_ok_l = np.all(self.constraints[l][0]<theta[...,i]<self.constraints[l][1])
+			is_ok = is_ok and is_ok_l
+			if not is_ok_l and raise_error: bad_labels.append(l)
+		
+		if raise_error and not is_ok:
+			raise ValueError("The given theta does not have an acceptable value for the quantities: {}".format(*bad_labels))
+		
+		return is_ok
+
 
 	def switch_BBH(self, theta, variable_format):
 		"""
@@ -176,6 +228,8 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] =='s1z':
+			pass #s1z is always on the larger spin
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
 			theta[ids,2], theta[ids,3] = theta[ids,3], theta[ids,2] #switching spins
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
@@ -226,6 +280,9 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 's1z':
+			if latex: labels.extend([r'$s_{1z}$'])
+			else: labels.extend(['s1z'])
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
 			if latex: labels.extend([r'$s_{1z}$', r'$s_{2z}$'])
 			else: labels.extend(['s1z', 's2z'])
@@ -346,6 +403,8 @@ class variable_handler(object):
 			#starting a case swich
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 's1z':
+			theta.append(BBH_components[:,4])
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
 			theta.append(BBH_components[:,4])
 			theta.append(BBH_components[:,7])
@@ -445,6 +504,8 @@ class variable_handler(object):
 			#dealing with spins
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 's1z':
+			s1z = theta[:,2]
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
 			s1z, s2z = theta[:,2], theta[:,3]
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
@@ -883,7 +944,7 @@ class tiling_handler(list):
 			
 		"""
 		centers = np.stack( [t.center for t in self.__iter__()], axis =0)
-		return centers
+		return np.atleast_2d(centers)
 
 	def update_KDTree(self):
 		"""
@@ -1199,8 +1260,6 @@ class tiling_handler(list):
 				pbar.refresh()
 
 		if verbose: pbar.close()
-		#plot_tiles(tiles_list, boundaries)
-		#plt.show()
 		
 		self.clear() #empty whatever was in the old tiling
 		self.extend( [tile(t[0],t[1]) for t in tiles_list] )

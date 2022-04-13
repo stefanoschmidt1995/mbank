@@ -230,6 +230,8 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 		#setting spin boundaries
 	if format_info['spin_format'] == 'nonspinning':
 		boundaries = np.array([[M_range[0], q_range[0]],[M_range[1], q_range[1]]])
+	elif format_info['spin_format'] == 's1z':
+		boundaries = np.array([[M_range[0], q_range[0], s1_range[0]],[M_range[1], q_range[1], s1_range[1]]])
 	elif format_info['spin_format'] == 's1z_s2z':
 		boundaries = np.array([[M_range[0], q_range[0], s1_range[0], s2_range[0]],[M_range[1], q_range[1], s1_range[1], s2_range[1]]])
 	elif format_info['spin_format'] == 's1xz':
@@ -741,7 +743,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 	else: ids_ = range(templates.shape[0])
 	
 	size_template = [20 if templates.shape[0] < 10000 else 2][0]
-	centers = np.array([ (t[0].maxes + t[0].mins)/2. for t in t_obj])
+	centers = t_obj.get_centers()
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (15,15))
 	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	if templates.shape[1]-1 == 1:
@@ -864,24 +866,44 @@ def project_metric(metric, axes):
 	
 	return proj_metric
 
-####################################################################################################################
-
-def plot_tiles(tiles_list, boundaries):
-	fig1 = plt.figure()
-	ax1 = fig1.add_subplot(111)
-	plt.ylim((boundaries[0][1], boundaries[1][1]))
-	plt.xlim((boundaries[0][0], boundaries[1][0]))
+def clip_eigenvalues(metric, min_eig = 5e-2):
+	"""
+	Given a metric, it sets to `min_eig` the eigenvalues of the metric which are lower than `min_eig`.
 	
-	for t in tiles_list:
-		min_, max_ = t[0].mins, t[0].maxes
-		center = (min_+max_)/2.
-		ax1.scatter(*center[:2], c = 'r')
-	return
+	Parameters
+	----------
+		metric: np.ndarray
+			shape: (D,D)/(N,D,D) - 
+			A D dimensional metric
+		
+		min_eig: float
+			The minimum value for the eigenvalues. The metric will be changed accordingly
+	
+	Returns
+	-------
+		trimmed_metric: np.ndarray
+			shape: (D,D)/(N,D,D) - 
+			The clipped-eigenvalues D dimensional metric
+	"""
+	#TODO: shall this moved to metric.py?
+	#TODO: find a nice way to put thresholds here!!
 
-@ray.remote
-def get_templates_ray(bank_obj, metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose = False):
-	#TODO: this function is garbage!! Shall I keep it?
-	return bank_obj.get_templates(metric_obj, avg_dist, lower_boxes, upper_boxes, lower_boxes_i, upper_boxes_i, p_disc, verbose)
+	metric = np.asarray(metric)
+	eigval, eigvec = np.linalg.eig(metric)
+	print(eigval) #DEBUG
+	
+	#eigval[eigval<min_eig] = min_eig
+	eigval[eigval<min_eig] = np.maximum(10*eigval[eigval<min_eig], min_eig)
+	
+	print(eigval) #DEBUG
+
+	if metric.ndim <3:
+		return np.linalg.multi_dot([eigvec, np.diag(eigval), eigvec.T]) #for 2D matrices
+	else:
+		return np.einsum('ijk,ik,ilk->ijl', eigvec, eigval, eigvec) #for 1x2D matrices
+
+
+####################################################################################################################
 
 def get_cube_corners(boundaries):
 	"""

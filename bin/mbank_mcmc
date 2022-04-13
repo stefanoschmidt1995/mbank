@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 """
-mbank_run
----------
+mbank_mcmc
+----------
 
-A script to run mbank for generating a bank
+A script to sample points from the PDF defined by the metric. It uses 
 
-To generate a bank:
+To sample from:
 
 	mbank_run --options-you-like
 
@@ -19,15 +19,12 @@ To know which options are available:
 	mbank_run --help
 """
 import numpy as np
-import matplotlib.pyplot as plt
-import sys
-import pickle
-import lal.series
-from ligo.lw.utils import load_filename
 
-from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank import cbc_metric, cbc_bank
+from mbank.handlers import tile, variable_handler, tiling_handler
+from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, plot_tiles_templates, get_boundaries_from_ranges
 
+from scipy.spatial import Rectangle
 import argparse
 import os
 
@@ -43,8 +40,14 @@ parser.add_argument(
 	"--variable-format", required = False,
 	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
 parser.add_argument(
-	"--mm", required = False, type = float, default = 0.97,
-	help="Minimum match for the bank (a.k.a. average distance between templates)")
+	"--n-samples", required = False, type = int,
+	help="Number of samples to be drawn from the MCMC")
+parser.add_argument(
+	"--n-walkers", required = False, type = int, default =1,
+	help="Number of walkers for the MCMC. If a chain-file is set, the file should has enough walkers")
+parser.add_argument(
+	"--chain-file",  required = False,
+	help="Path to a chain file. If given, this will be the input of the MCMC and the burn-in phase will not be performed.")
 parser.add_argument(
 	"--psd",  required = False,
 	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
@@ -67,9 +70,6 @@ parser.add_argument(
 	"--run-name", default = 'cbc_mbank',
 	help="Name for the bank and tiling output file")
 parser.add_argument(
-	"--grid-size", default = None, type=int_tuple_type,
-	help="Number of grid points for each dimension. The number of grid must match the number extra dimensions. If None, the grid size will be a set of ones")
-parser.add_argument(
 	"--f-min",  default = 10., type=float,
 	help="Minium frequency for the scalar product")
 parser.add_argument(
@@ -78,12 +78,6 @@ parser.add_argument(
 parser.add_argument(
 	"--approximant", default = None,
 	help="LAL approximant for the bank generation")
-parser.add_argument(
-	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
-	help="Which placing method to use for each tile")
-parser.add_argument(
-	"--v-tile", default = 200, type = float,
-	help="Maximum volume for each tile. The volume is normalized by 0.1^D. This is equivalent to the number of templates in each tile, assuming a constant reference metric distance between them of 0.1.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
@@ -140,8 +134,8 @@ for f in filenames:
 	#	Interpreting the parser and initializing variables
 	######
 
-if (args.psd is None) or (args.mm is None) or (args.variable_format is None):
-	raise ValueError("The arguments mm, psd and variable_format must be set!")
+if (args.psd is None) or (args.n_samples is None) or (args.variable_format is None):
+	raise ValueError("The arguments n-samples, psd and variable-format must be set!")
 
 var_handler = variable_handler()
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
@@ -150,8 +144,6 @@ if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.r
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
-
-if args.grid_size is None: args.grid_size = tuple([1 for i in range(var_handler.D(args.variable_format))])
 
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range
@@ -207,28 +199,29 @@ print("## Running: ", args.run_name)
 	######
 bank = cbc_bank(args.variable_format)
 
-if format_info['mass_format'] == 'm1m2':
-	raise NotImplementedError("Currently no template placement is implemented for the mass format m1m2.")
-
-if format_info['mass_format'] == 'Mq' or format_info['mass_format'] == 'mceta':
+bank.generate_bank_mcmc(m, args.n_samples, boundaries = boundaries, n_walkers = args.n_walkers,
+		thin_factor = None, #FIXME: should you expose this to the user?
+		load_chain = args.chain_file,
+		save_chain = args.run_dir+'chain_{}_{}.dat'.format(args.run_name, args.n_walkers),
+		use_ray = args.use_ray, verbose = True)
 	
-	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
-		placing_method = args.placing_method, grid_list = args.grid_size, use_ray = args.use_ray)
-	
-	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 
-if bank.templates is None:
-	print("No templates were added to the bank: the bank is not saved")
-	quit()
-
-print("Generated bank with {} templates and {} tiles".format(len(bank.templates), len(t_obj)))
-print("Saving bank to {}".format(args.run_dir))
+print("Saving {} samples to bank file {}".format(bank.templates.shape[0], args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
-bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); title = ''
+bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo)
+
+import matplotlib.pyplot as plt
+plt.figure()
+plt.scatter(*np.random.multivariate_normal([10,10], np.eye(bank.templates.shape[1]), 100000).T, s = 1, c= 'r', alpha = 0.5)
+plt.scatter(*bank.templates.T, s = 2)
+plt.show()
+quit()
 
 if args.plot:
-	dist = avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
+	t_obj = tiling_handler()
+	t_obj.extend([tile(Rectangle(boundaries[0,:], boundaries[1,:]),
+			m.get_metric(np.mean(boundaries, axis =1)))])
+	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = None, save_folder = plot_folder, show = args.show)
 
 
 

@@ -18,9 +18,6 @@ from tqdm import tqdm
 
 import ray
 
-	#for older versions of the code...
-#import emcee
-
 import scipy.spatial
 
 from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries
@@ -529,11 +526,16 @@ class cbc_bank():
 ###########################
 
 
-	def generate_bank_MCMC(self, metric_obj, N_templates, boundaries, n_walkers = 100, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
+	def generate_bank_mcmc(self, metric_obj, N_templates, boundaries, n_walkers = 100, use_ray = False, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
 		"""
-		Fills the bank with a MCMC (uses `emcee` package, not in the `mbank` dependencies).
+		Fills the bank with a Markov Chain Monte Carlo (MCMC) method.
+		The MCMC sample from the probability distribution function induced by the metric:
 		
-		``This function is not up to date!!``
+		.. math::
+		
+			p(theta) \propto \sqrt(|M(theta)|)
+		
+		The function uses `emcee` package, not in the `mbank` dependencies.
 		
 		Parameters
 		----------
@@ -542,51 +544,64 @@ class cbc_bank():
 			A cbc_metric objec to compute the PDF to distribute the templates
 		
 		N_templates: int
-			Number of new templates to add.
+			Number of new templates to sample from the PDF
 		
 		boundaries: np.ndarray
-			shape: (2,4)/(2,2) -
-			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
-			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``.
-			If None, no boundaries are implemented
+			shape: (2,D) -
+			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 
 		n_walkers: int
-			Number of independent walkers during the chain
+			Number of independent walkers during the chain. If `use_ray` option is `True`, they will be run in parellel.
+		
+		use_ray: bool
+			Whether to use `ray` to parallelize the sampling
 		
 		thin_factor: int
 			How many MC steps to discard before selecting one.
-			This value is computed authomatically based on the autocorrelation: it is recommended not to set it by hand 
+			If `None` it is computed authomatically based on the autocorrelation: this is the recommended behaviour 
 		
 		load_chain: str
 			Path to a file where the position of each walker is stored, togheter with integrated aucorellation tau.
-			The file must keep a np.array of dimensions (n_walkers, 2/4). The first line of the file is intended to be the autocorrelation time for each variable. If it is not provided, a standard value of 4 (meaning a thin step of 2) is assumed.
-			If not None, the sampler will start from there and the burn-in phase will not be required.
+			The file must keep a np.array of dimensions (n_walkers, D). The first line of the file is intended to be the autocorrelation time for each variable. If it is not provided, a standard value of 4 (meaning a thin step of 2) is assumed.
+			If set, the sampler will start from there and the burn-in phase will not be required.
 		
 		save_chain: str
 			If not None, it saves the path in which to save the status of the sampler.
-			The file saved is ready to be given to load chain
+			The file saved is ready to be loaded with option `load_chain`
 		
 		verbose: bool
 			whether to print to screen the output
 		"""
-		ndim = np.array([2,4])[[self.nonspinning, not self.nonspinning]][0]
-		sampler = emcee.EnsembleSampler(n_walkers, ndim, metric_obj.log_pdf, args=[boundaries], vectorize = True)
-		n_burnin = 0
+		try:
+			import emcee
+		except ModuleNotFoundError:
+			raise ModuleNotFoundError("Unable to sample from the metric PDF as package `emcee` is not installed. Please try `pip install emcee`")
 		
-		if load_chain is not None:
+		burnin_steps = lambda tau: int(2 * np.max(tau)) if burnin else 0.
+		
+			#initializing the sampler
+		sampler = emcee.EnsembleSampler(n_walkers, self.D, metric_obj.log_pdf_gauss, args=[boundaries], vectorize = True)
+		
+			#tau is a (D,) vector holding the autocorrelation for each variable
+			#it is used to estimate the thin factor
+		
+		if isinstance(load_chain, str):
 			#this will output an estimate of tau and a starting chain. The actual sampling will start straight away
 			burnin = False
 			loaded_chain = np.loadtxt(load_chain)
-			if loaded_chain.shape[0] == n_walkers:
+			if loaded_chain.shape[0]<n_walkers:
+				raise RuntimeError("The given input file does not have enough walkers. Required {} but given {}".format(n_walkers, loaded_chain.shape[0]))
+			elif loaded_chain.shape[0] == n_walkers:
 				start = loaded_chain
-				tau = 4 + np.zeros((ndim,))
+				tau = 4 + np.zeros((self.D,))
 			else:
-				tau, start = loaded_chain[0,:], loaded_chain[1:,:]
+				tau, start = loaded_chain[0,:], loaded_chain[1:self.D+1,:]
 			print('tau', tau)
-			assert start.shape == (n_walkers, ndim), "Wrong shape for the starting chain. Unable to continue"
+			assert start.shape == (n_walkers, self.D), "Wrong shape for the starting chain. Unable to continue"
 		else:
 			burnin = True
-			start = np.random.uniform(*boundaries, (n_walkers, ndim))
+			n_burnin = 0
+			start = np.random.uniform(*boundaries, (n_walkers, self.D))
 		
 			###########
 			#This part has two purposes:
@@ -598,7 +613,7 @@ class cbc_bank():
 			tau_list = []
 			step = 30
 
-			def dummy_generator(): #dummy generator for having an infinite loop: only required for tqdm (is there a better way for doing this)
+			def dummy_generator(): #dummy generator for having an infinite loop
 				while True: yield
 			
 			if verbose:
@@ -608,7 +623,6 @@ class cbc_bank():
 
 			for _ in it_obj:
 				n_burnin += step
-				#if verbose: print("\tIteration ", n_burnin//step)
 				state = sampler.run_mcmc(start, nsteps = step, progress = False, tune = False)
 				start = state.coords #very important! The chain will start from here
 						
@@ -623,40 +637,33 @@ class cbc_bank():
 
 			###########
 			#doing the actual sampling
-		#FIXME: this eventually should have a check on the FF
-			
-			#first estimate of thin
 		if thin_factor is None:
 			thin = max(int(0.5 * np.min(tau)),1)
 		else:
 			thin = thin_factor
 		
-		print('Thin, burn-in: ', thin, int(2 * np.max(tau)))
-
-		n_steps = int((N_templates*thin)/n_walkers) - int(n_burnin) #steps left to do...
-		print("Steps done/ steps new", n_burnin, n_steps)
 		
-			#remember to start from a proper position!!!!! You idiot!!		
+		if verbose: print('Thin factor: {} | burn-in: {} '.format( thin, burnin_steps(tau)))
+
+		n_steps = int((N_templates*thin)/n_walkers) - int(n_burnin) + burnin_steps(tau) #steps left to do...
+		if verbose: print("Steps done: {} | Steps to do: {}".format(n_burnin, n_steps))
+		
 		if n_steps > 0:
-			state = sampler.run_mcmc(start, n_steps, progress = verbose, tune = False)
+			state = sampler.run_mcmc(start, n_steps, progress = verbose, tune = True)
 	
-		tau = sampler.get_autocorr_time(tol = 0)
-		
-			#setting burn-in steps (if not set yet...)
-		burnin_steps = 0
-		if burnin:
-			burnin_steps = int(2 * np.max(tau))
-
-		#The lines commented below look useless
 			#FIXME: understand whether you want to change the thin factor... it is likely it is underestimated during the burn-in phase
-		if thin_factor is None:
+			#On the other hand, it makes difficult to predict how many steps you will need
+			#updating thin factor
+		if thin_factor is None and False:
+			tau = sampler.get_autocorr_time(tol = 0)
 			thin = max(int(0.5 * np.min(tau)),1)
-			print('##updated thin## Thin, burn-in: ', thin, burnin_steps)
+			if verbose: print('Updated -- Thin factor: {} | burn-in: {} '.format( thin, burnin_steps(tau)))
 
-		chain = sampler.get_chain(discard = burnin_steps, thin = thin, flat=True)[-N_templates:,:]
+		print(sampler.chain.shape)
+		chain = sampler.get_chain(discard = burnin_steps(tau), thin = thin, flat=True)[-N_templates:,:]
 		
-		if save_chain is not None:
-			chain_to_save = state.coords #(n_walkers, 4)/(n_walkers, 2)
+		if isinstance(save_chain, str):
+			chain_to_save = state.coords #(n_walkers, D)
 			to_save = np.concatenate([tau[None,:], chain_to_save], axis = 0)
 			np.savetxt(save_chain, to_save)
 

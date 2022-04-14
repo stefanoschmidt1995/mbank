@@ -353,7 +353,7 @@ class cbc_bank():
 
 				#some sanity checks on the metric eigenvalues
 			if np.any(eigs < 0):
-				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed. You may improve the stability of the computation by increasing the order of differentiation.")
+				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed.")
 			
 			abs_det = np.abs(np.prod(eigs))
 			if abs_det < 1e-50: #checking if the determinant is close to zero...
@@ -413,7 +413,7 @@ class cbc_bank():
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
 			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
-					empty_iterations = 200/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
+					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
 
 		new_templates = np.stack(new_templates, axis =0)

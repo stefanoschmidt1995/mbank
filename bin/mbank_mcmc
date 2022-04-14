@@ -3,20 +3,21 @@
 mbank_mcmc
 ----------
 
-A script to sample points from the PDF defined by the metric. It uses 
+A script to sample points from the PDF defined by the metric.
+It uses `emcee` package, which is not among the package dependencies, so make sure it
 
 To sample from:
 
-	mbank_run --options-you-like
+	mbank_mcmc --options-you-like
 
 You can also load (some) options from an ini-file:
 
-	mbank_run --some-options other_options.ini
+	mbank_mcmc --some-options other_options.ini
 
 Make sure that the mbank is properly installed.
 To know which options are available:
 
-	mbank_run --help
+	mbank_mcmc --help
 """
 import numpy as np
 

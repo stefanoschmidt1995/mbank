@@ -885,8 +885,6 @@ def clip_eigenvalues(metric, min_eig = 5e-2):
 			shape: (D,D)/(N,D,D) - 
 			The clipped-eigenvalues D dimensional metric
 	"""
-	#TODO: shall this moved to metric.py?
-	#TODO: find a nice way to put thresholds here!!
 
 	metric = np.asarray(metric)
 	eigval, eigvec = np.linalg.eig(metric)

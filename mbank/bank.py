@@ -114,7 +114,7 @@ class cbc_bank():
 		placing_methods: list
 			The available methods for placing the templates
 		"""
-		return ['uniform', 'geometric', 'iterative', 'stochastic', 'geo_stochastic','tile_stochastic', 'random']
+		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'geo_stochastic', 'tile_stochastic']
 	
 	def load(self, filename):
 		"""
@@ -309,7 +309,8 @@ class cbc_bank():
 		placing_method: str
 			The placing method to set templates in each tile. It can be:
 			
-			- `uniform`	-> Uniform drawing in each hyper-rectangle
+			- `uniform`	-> Uniform drawing in each hyper-rectangle, according to the volume
+			- `qmc`	-> Quasi Monte Carlo drawing in each hyper-rectangle, according to the volume
 			- `geometric` -> Geometric placement
 			- `iterative` -> Each tile is split iteratively until the number of templates in each subtile is equal to one
 			- `stochastic` -> Stochastic placement
@@ -341,7 +342,7 @@ class cbc_bank():
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 		new_templates = []
 
-		if placing_method in ['stochastic', 'random', 'uniform']: it = iter(())		
+		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
 		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
 		else: it = t_obj
 
@@ -381,26 +382,26 @@ class cbc_bank():
 		
 			new_templates.extend(new_templates_)
 
-		if placing_method == 'uniform':
+		if placing_method in ['uniform', 'qmc']:
 			vol_tot, _ = t_obj.compute_volume()
 			N_templates = int( vol_tot/(dist**self.D) )+1
-			new_templates = t_obj.sample_from_tiling(N_templates)
+			new_templates = t_obj.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 			
 		if placing_method == 'random':
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
-			N_points = lambda t: 10*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+			N_points = lambda t: 25*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 			N_points_max = int(1e6)
 			N_points_tot = N_points(t_obj)
 
 			if N_points_tot >N_points_max:
 				thresholds = plawspace(coarse_boundaries[0,0], coarse_boundaries[1,0], -8./3., int(N_points_tot/N_points_max)+2)[1:-1]
 				partition = partition_tiling(thresholds, 0, t_obj)
-				print("\tThresholds: ",thresholds)
-				print("\tN_points: ", [int(N_points(p)) for p in partition])
+				#print("\tThresholds: ",thresholds)
+				#print("\tN_points: ", [int(N_points(p)) for p in partition])
 			else:
 				partition = [t_obj]
 
-			print(N_points_tot, len(partition))
+			#print(N_points_tot, len(partition))
 			new_templates = []
 			if verbose: it = tqdm(partition, desc = 'Loops on the partitions for random placement')
 			else: it = partition

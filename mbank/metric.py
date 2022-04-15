@@ -620,7 +620,7 @@ class cbc_metric(object):
 			#ids = range(len(eigval))
 
 				#Some checks on the eigenvalues
-			print("eigval: ", eigval) #DEBUG
+			#print("eigval: ", eigval) #DEBUG
 			if np.any(eigval < 0):
 				msg = "The hessian at theta = {} has a negative eigenvalue! This is pathological: you may fix this by increasing the order of differentiation.".format(center)
 				raise ValueError(msg)
@@ -662,18 +662,17 @@ class cbc_metric(object):
 					eigval[id_] = max(eig_num, 1e-3) #shall you put this cutoff?
 
 				else:
-					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to a reference value of 5e-2.".format(id_, center))
-					eigval[id_] = 1e-3
+					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
+					eigval[id_] = max(1e-3, eigval[id_])
 
-			print("eigval: ", eigval) #DEBUG
+			#print("eigval: ", eigval) #DEBUG
 			metric.append(np.linalg.multi_dot([eigvec, np.diag(eigval), eigvec.T]))
 
 		metric = np.stack(metric, axis = 0)
 		if squeeze:	metric = np.squeeze(metric)
 		
-		print(theta, np.sqrt(np.linalg.det(metric))) #DEBUG
-		#print("params: ", overlap, order, epsilon, min_eigenvalue, target_match) #DEBUG
-		print(self.approx)
+		#print(theta, np.sqrt(np.linalg.det(metric))) #DEBUG
+		#print(self.approx) #DEBUG
 
 		return metric
 

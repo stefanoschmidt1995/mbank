@@ -35,10 +35,7 @@ def plot_metric_accuracy(filenames, savefile = None):
 		#ax.title('{}'.format(out_dict['variable_format']))
 		next(ax._get_lines.prop_cycler)
 		for MM in out_dict['MM_list']:
-			if out_dict['variable_format'] == 'Mq_nonspinning':
-				bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
-			else:
-				bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], 5)), 0, nbins)
+			bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
 			ax.hist(out_dict[MM], bins = bins, histtype='step')
 			ax.axvline(MM, c = 'k', ls = 'dotted')
 		ax.set_xscale('log')
@@ -47,8 +44,8 @@ def plot_metric_accuracy(filenames, savefile = None):
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
 	axes[-1].tick_params(axis = 'x', labelleft = True)
-	axes[-1].set_xticks([0.9+0.01*i for i in range(10)], labels = [], minor = True)
-	axes[-1].set_xlim([0.9,1.01])
+	axes[-1].set_xticks([0.94+0.01*i for i in range(6)], labels = [], minor = True)
+	axes[-1].set_xlim([0.94,1.01])
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 	plt.show()
@@ -61,7 +58,7 @@ if __name__ == '__main__':
 
 		#metric accuracy plots
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
-				'metric_accuracy/paper_Mq_s1z_s2z.pkl', 'metric_accuracy/paper_Mq_s1xz.pkl']
+				'metric_accuracy/paper_Mq_s1z_s2z.pkl']#, 'metric_accuracy/paper_Mq_s1xz.pkl']
 	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
 

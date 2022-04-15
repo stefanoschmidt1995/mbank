@@ -248,7 +248,7 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 		raise RuntimeError("Boundaries current not implemented for the required format of spins {}: apologies :(".format(format_info['spin_format']))
 
 	if format_info['e']:
-		boundaries = np.concatenate([boundaries, [[e_range[0]], [e_range[0]]]], axis =1)
+		boundaries = np.concatenate([boundaries, [[e_range[0]], [e_range[1]]]], axis =1)
 	if format_info['meanano']:
 		boundaries = np.concatenate([boundaries, [[meanano_range[0]], [meanano_range[1]]]], axis =1)
 	if format_info['iota']:

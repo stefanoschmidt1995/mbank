@@ -36,7 +36,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, 
 	for i, V_tile in enumerate(V_tile_list):
 		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, V_tile)
 			#getting the tiling
-		if load_tiling:
+		if load_tiling and os.path.exists(filename):
 			del t
 			t = tiling_handler(filename)
 		else:
@@ -49,7 +49,8 @@ def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, 
 				#generating the bank
 			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, V_tile, MM)
 			b = cbc_bank(variable_format)
-			if load_bank: b.load(bank_name)
+			if load_bank and os.path.exists(bank_name):
+				b.load(bank_name)
 			else: 
 				b.place_templates(t, MM, placing_method = placing_method, verbose = True)
 				b.save_bank(bank_name)
@@ -162,16 +163,16 @@ if __name__ == '__main__':
 	load_tiling = True
 	load_bank = True
 
-	MM_list = [0.92, 0.95, 0.97]#, 0.99]
+	MM_list = [0.92, 0.95, 0.97, 0.99]
 	
-	V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
+	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
-	#V_tile_list = [1000, 100, 10, 5, 2, 1, 0.2]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
-	#V_tile_list = [120, 100, 10, 5, 1, 0.2]; variable_format =  'Mq_nonspinning' #for nonspinning
+	V_tile_list = [10000, 5000, 1000, 500, 100, 70]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
+	#V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
 	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
 	
 			#setting ranges
-	M_range = (50, 100)
+	M_range = (30, 50)
 	q_range = (1,5)
 	s_range = (-0.99, 0.99)
 	e_range = (0., 0.5)

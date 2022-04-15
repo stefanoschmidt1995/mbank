@@ -43,7 +43,8 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 	pycbc_match_obj = psd_pycbc(metric_obj)
 	
 		#initializing out_dict
-	out_dict = {'theta1': np.zeros((N_points,metric_obj.D)),
+	out_dict = {'center': np.zeros((N_points,metric_obj.D)),
+				'theta1': np.zeros((N_points,metric_obj.D, len(MM_list))),
 				'theta2': np.zeros((N_points,metric_obj.D, len(MM_list))),
 				'MM_list': MM_list,
 				'overlap': overlap,
@@ -56,38 +57,32 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 		out_dict[MM] = np.zeros((N_points,))
 	
 	for i in tqdm(range(N_points), desc='Drawing points'):
-		theta1 = np.random.uniform(*boundaries)
-		out_dict['theta1'][i,:] = theta1
+		center = np.random.uniform(*boundaries)
+		out_dict['center'][i,:] = center
 
 		for j, MM in enumerate(MM_list):
 				#extracting random points
-			theta2 = np.squeeze(metric_obj.get_points_atmatch(10000, theta1, MM , overlap))
-			ids_ = np.all(np.logical_and(theta2>boundaries[0,:], theta2<boundaries[1,:]), axis = 1)
+			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , overlap)
+			ids_2 = np.all(np.logical_and(theta2>boundaries[0,:], theta2<boundaries[1,:]), axis = 1)
+			ids_1 = np.all(np.logical_and(theta1>boundaries[0,:], theta1<boundaries[1,:]), axis = 1)
+			ids_ = np.logical_and(ids_1, ids_2) #(N,)
 
 			if np.any(ids_)>0:
+				theta1 = theta1[ids_,:]
 				theta2 = theta2[ids_,:]
 
-				dists = np.linalg.norm(theta2-theta1, axis =1)
 
-				#true_matches = metric_obj.match(theta1, theta2, overlap=overlap)
-				#plt.figure()
-				#plt.scatter(np.linalg.norm(theta2-theta1, axis =1), true_matches)
-				#plt.yscale('log')
-				#plt.axhline(MM, c='r')
-				#plt.axvline(1., c='r')
-				#plt.show()
+				dists = np.linalg.norm(theta2-theta1, axis =1)
 				
-				theta2 = theta2[np.argmin(dists),:]
-				#theta2 = theta2[np.where(np.all(np.abs(theta2-theta1)<1, axis =1))[0][0],:]
+				theta1 = theta1[0,:]
+				theta2 = theta2[0,:]
+
 					#storing to out_dict
 				out_dict['theta2'][i,:,j] = theta2
+				out_dict['theta1'][i,:,j] = theta1
 				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap) #mbank
-				#out_dict[MM][i] = pycbc_match_obj.get_match_pycbc(theta1, theta2, metric_obj) #pycbc
-				#print(i, MM, out_dict[MM][i],
-				#		metric_obj.metric_match(theta1, theta2, overlap=True), metric_obj.match(theta1, theta2, overlap=True),
-				#		metric_obj.metric_match(theta1, theta2, overlap=False), metric_obj.match(theta1, theta2, overlap=False),
-				#		pycbc_match_obj.get_match_pycbc(theta1, theta2, metric_obj))
 			else:
+				out_dict['theta1'][i,:,j] = np.nan
 				out_dict['theta2'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
 			
@@ -104,14 +99,15 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 	plt.title('{}'.format(out_dict['variable_format']))
 	next(ax._get_lines.prop_cycler)
 	for MM in out_dict['MM_list']:
-		bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], 5)), 0, 50)
+		bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .5)), 0, 50)
 		plt.hist(out_dict[MM], bins = bins, histtype='step')
 		plt.axvline(MM, c = 'k', ls = '-')
 	plt.xscale('log')
 	plt.xlabel('$1-MM$')
 
 	ax.set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
-	ax.set_xticks([0.9+0.01*i for i in range(10)], labels = [], minor = True)
+	#ax.set_xticks([0.9+0.01*i for i in range(10)], labels = [], minor = True)
+	ax.set_xticks([0.94+0.01*i for i in range(6)], labels = [], minor = True)
 #	ax.set_xticklabels([str(MM) for MM in out_dict['MM_list']])
 
 	if savefile is not None: plt.savefig(savefile)	
@@ -199,11 +195,11 @@ if __name__ == '__main__':
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 	
-	boundaries = np.array([[10, 1.],[30, 5.]]); variable_format = 'Mq_nonspinning' #Mq_nonspinning
-	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.99, np.pi]]) #Mq_s1xz
-	#boundaries = np.array([[10, 1., 0., 0., 0.],[30, 5., 0.99, np.pi, np.pi]]) #Mq_s1xz_iota
-	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.99, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
+	#boundaries = np.array([[10, 1.],[30, 5.]]); variable_format = 'Mq_nonspinning' #Mq_nonspinning
 	#boundaries = np.array([[10, 1., -0.99, -0.99],[30., 5., 0.99, 0.99]]) ; variable_format = 'Mq_s1z_s2z'#Mq_s1z_s2z
+	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.99, np.pi]]); variable_format = 'Mq_s1xz'#Mq_s1xz
+	boundaries = np.array([[10, 1., 0.1, 0., -0.99],[30, 5., 0.99, np.pi, 0.99]]); variable_format = 'Mq_s1xz_s2z'#Mq_s1xz_s2z
+	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.99, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

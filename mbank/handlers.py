@@ -1318,7 +1318,7 @@ class tiling_handler(list):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
-	def sample_from_tiling(self, N_samples, seed = None, dtype = np.float64):
+	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
 		
@@ -1330,6 +1330,9 @@ class tiling_handler(list):
 			seed: int
 				Seed for the random points. If `None` no seed will be set
 			
+			qmc: int
+				Whether to use a quasi-Monte carlo method to sample points inside a tile. It uses `scipy.stats.qmc`
+			
 			dtype: type
 				Data type for the sampling (default np.float64)
 		
@@ -1339,18 +1342,24 @@ class tiling_handler(list):
 				shape: (N_samples, D) - 
 				`N_samples` samples drawn from the tiling
 		"""
-		if isinstance(seed, int): np.random.seed(seed)
+		D = self[0][1].shape[0]
+		gen = np.random.default_rng(seed = seed)
+		if qmc: sampler = scipy.stats.qmc.LatinHypercube(d=D, seed = gen)
+
 		tot_vols, vols = self.compute_volume()
 		vols = np.array(vols)/tot_vols #normalizing volumes
 		
-		tiles_rand_id = np.random.choice(len(vols), N_samples, replace = True, p = vols)
+		
+		tiles_rand_id = gen.choice(len(vols), N_samples, replace = True, p = vols)
 		tiles_rand_id, counts = np.unique(tiles_rand_id, return_counts = True)
 		
-		D = self[0][1].shape[0]
-		
-		samples = np.concatenate([
-					np.random.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) ).astype(dtype)
-					for t_id, c in zip(tiles_rand_id, counts)], axis = 0)
+		if qmc:
+			samples = [	sampler.random(n=c)*(self[t_id][0].maxes-self[t_id][0].mins)+self[t_id][0].mins
+						for t_id, c in zip(tiles_rand_id, counts)]
+		else:
+			samples = [	gen.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) )
+						for t_id, c in zip(tiles_rand_id, counts)]
+		samples = np.concatenate(samples, axis = 0, dtype = dtype)
 		return samples
 
 

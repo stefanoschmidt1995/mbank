@@ -362,6 +362,9 @@ Some proposals are randomly drawn from the parameter space. They are accepted as
 This implements the standard approach to template placing \cite{}. It has similar properties as the {\it random} method but it is very slow to run, which makes its use unfeasible for large banks ($O(100K)$ templates).
 \paragraph{Geo-Stochastic}\label{par:geostochastic}
 The outcome of the {\it geometric} placement is set as a seed bank for the {\it stochastic} method. This make sure that the boundaries are properly covered, as well as some ``holes" left by the placement. This method provides very good injection recovery and it is mildly fast to run. However, it tends to strongly overcover the parameter space (especially for a small number of tile).
+\paragraph{Tile-Stochastic/Tile-random}\label{par:tilerandom_stochastic}
+Such methods perform the stochastic and random placement algorithm respectively by considering each tile separetely.
+They are faster than stochastic and random methods but they tend to over-cover the space. If the tiles are large (i.e. a large number of tempaltes per tile is expected), the errors introduced by considering the tiles separeately becomes negligible.
 
 \begin{table*}[t!]
 	\centering
@@ -381,6 +384,8 @@ The outcome of the {\it geometric} placement is set as a seed bank for the {\it 
 	 {\bf Stochastic} & Good coverage and injection recovery & Unfeasible for large bank & very slow \\
 	 \cdashline{1-4}
 	 {\bf Geo-Stochastic} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers\end{tabular}  & slow \\
+ 	 {\bf Tile-Stochastic} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
+ 	 {\bf Tile-Random} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
 	 \hline
 	 \end{tabular}
 	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...} \stefano{This table doesn't look nice}}
@@ -402,6 +407,7 @@ The outcome of the {\it geometric} placement is set as a seed bank for the {\it 
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
+THIS SECTION IS READY TO BE WRITTEN!
 \begin{figure}[h]
 	\includegraphics{metric_accuracy}
 	\caption{Metric accuracy, for different variable formats \sarah{what are the different colors here?}}
@@ -412,6 +418,8 @@ Histogram with the actual match for points with a constant metric match
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
+THINK OF SOME PLOTS TO PUT HERE!
+
 \begin{figure}[h]
 	\includegraphics{tiling_accuracy_test}
 	\caption{Tiling accuracy}
@@ -421,6 +429,8 @@ Histogram with the actual match for points with a constant metric match
 Compute the match computed with the tiling vs the actual match.
 
 \subsection{Comparison with \texttt{sbank} }
+
+IDENTIFY A TEST BANK! (AND PREPARE IT)
 
 \begin{figure}[h]
 	\includegraphics{bank_scaling_nonprecessing_geometric}

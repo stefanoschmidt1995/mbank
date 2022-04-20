@@ -159,7 +159,7 @@ def plot(out_dict, run_name, folder_name = None):
 
 if __name__ == '__main__':
 	
-	load = False
+	load = True
 	load_tiling = True
 	load_bank = True
 
@@ -183,7 +183,7 @@ if __name__ == '__main__':
 	approximant = 'IMRPhenomPv2'
 	f_min, f_max = 10., 1024.
 	N_injs, N_neigh_templates = 1000, 30
-	full_match = False
+	full_match = True
 	
 	m_obj = cbc_metric(variable_format,
 			PSD = load_PSD(psd, False, ifo),

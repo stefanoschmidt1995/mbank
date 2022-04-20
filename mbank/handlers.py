@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches
 import warnings
 import itertools
+import collections
 
 	#ligo.lw imports for xml files: pip install python-ligo-lw
 from ligo.lw import utils as lw_utils
@@ -867,6 +868,7 @@ class tile(tuple):
 			metric: np.ndarray
 				shape (D,D)
 		"""
+		#FIXME: check here can be done a bit better...
 		if metric is None:  rectangle, metric = rectangle
 		if isinstance(rectangle, np.ndarray) or isinstance(rectangle, list):
 			rectangle = np.asarray(rectangle)
@@ -901,7 +903,7 @@ class tile(tuple):
 	def D(self):
 		return self.metric.shape[0]
 
-class tiling_handler(list):
+class tiling_handler(list, collections.abc.MutableSequence):
 	"""
 	Class for a tiling with I/O helpers.
 	A tiling is a list of tiles that cover a larger space.
@@ -917,20 +919,36 @@ class tiling_handler(list):
 		[(rect_1, metric_1), (rect_2, metric_2), ..., (rect_N, metric_N)]
 	"""
 	
-	def __init__(self, filename = None):
+	def __init__(self, ini = None):
 		"""
 		Initializes the tiling handler.
 		
 		Parameters
 		----------
-			filename: str
-				Optional filename. If it is given, the tiling handler is loaded from it.
-				The file shall be the same format as produced by ``tiling_handler.save()``
+			ini: str/list
+				Optional initialization.
+				If a string is given, it is understood as the file the tiling handler is loaded from. The file shall be the same format as produced by ``tiling_handler.save()``
+				If a list is given, it is understood as a list of tiles and the list will be initialized accordingly. Providing a single tile/tuple is also possible.
 		"""
-		super().__init__()
+		list.__init__(self)
 		self.lookup_table = None
-		if isinstance(filename, str): self.load(filename)
+
+		if ini is None: return
+		if isinstance(ini, tuple): ini = [ini]
+		if isinstance(ini, str): self.load(ini)
+		elif isinstance(ini, list):
+			for t in ini:
+				assert len(t)==2, "The elements in the input list have the wrong length. They should be broadcastable to a tile object, representing a tuple (Rectangle, Metric)"
+				self.append(tile(*t))
+		else:
+			msg = "Type of ini argument not understood (expected list or tuple). The tiling_handler is initialized empty."
+			warnings.warn(msg)
 		return
+	
+	def __getitem__(self, key):
+		item = list.__getitem__(self, key)
+		if isinstance(item, tuple): return item
+		else: return tiling_handler(item)
 	
 	def get_centers(self):
 		"""

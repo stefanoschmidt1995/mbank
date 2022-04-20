@@ -304,7 +304,11 @@ if args.plot:
 
 	plt.savefig(args.run_dir+'FF_hist.png', transparent = False)
 
-	ids_to_plot = np.where(best_matches<np.percentile(best_matches, 50))[0]
+	if isinstance(args.mm, (float, int)):
+		ids_to_plot = np.where(best_matches<args.mm)[0]
+	else:
+		ids_to_plot = np.where(best_matches<np.percentile(best_matches, 50))[0]
+
 
 		###
 		# Colored plots

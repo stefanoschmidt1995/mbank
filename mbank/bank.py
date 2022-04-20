@@ -114,7 +114,7 @@ class cbc_bank():
 		placing_methods: list
 			The available methods for placing the templates
 		"""
-		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'geo_stochastic', 'tile_stochastic']
+		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'tile_random', 'geo_stochastic', 'tile_stochastic']
 	
 	def load(self, filename):
 		"""
@@ -161,7 +161,8 @@ class cbc_bank():
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(self.templates, self.variable_format)
 		
 		if np.any(e != 0.):
-			warnings.warn("Currently xml format does not support eccentricity... The saved bank '{}' will have zero eccentricity".format(filename))
+			msg = "Currently xml format does not support eccentricity... The saved bank '{}' will have zero eccentricity".format(filename)
+			warnings.warn(msg)
 		
 			#preparing the doc
 			#See: https://git.ligo.org/RatesAndPopulations/lvc-rates-and-pop/-/blob/master/bin/lvc_rates_injections#L168
@@ -317,6 +318,7 @@ class cbc_bank():
 			- `geo_stochastic` -> Geometric placement + stochastic placement
 			- `tile_stochastic` -> Stochastic placement for each tile separately
 			- `random` -> The volume is covered with some point that are killed by placing the templates
+			- `tile_random` -> Random placement for each tile separately
 		
 			Those methods are listed in `cbc_bank.placing_methods`
 		
@@ -365,7 +367,7 @@ class cbc_bank():
 			#N_templates = min(1,t_obj.N_templates(*t, dist)) #Computed by tiling_handler
 			#new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
 			
-			if placing_method == 'geometric' or placing_method == 'geo_stochastic':
+			if placing_method in ['geometric', 'geo_stochastic']:
 					#if stochastic option is set, we create a first guess for stochastic placing method 
 				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
 				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
@@ -378,7 +380,12 @@ class cbc_bank():
 				
 				new_templates_ = temp_t_obj.get_centers()
 			elif placing_method == 'tile_stochastic':
-				new_templates_ = place_stochastically_in_tile(dist, t)
+				new_templates_ = place_stochastically_in_tile(avg_match, t)
+			elif placing_method == 'tile_random':
+				N_points = lambda t: 25*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
+				temp_t_ = tiling_handler(t)
+s				new_templates_ = place_random(dist, temp_t_ , N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
+				if new_templates_.shape[0] == 0: print(new_templates_.shape)
 		
 			new_templates.extend(new_templates_)
 
@@ -408,12 +415,13 @@ class cbc_bank():
 			for p in it:
 				#TODO: make this a ray function? Too much memory expensive, probably...
 				#new_templates_ = [np.array([1,2, 0.1, 0.])]
-				new_templates_ = place_random(dist, p, N_points = int(N_points(p)), tolerance = 0.0001)
+				new_templates_ = place_random(dist, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
 				new_templates.extend(new_templates_)
+			#FIXME: dist in random is avg_dist or np.sqrt(1-avg_match)? Check this!
 			
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
-		if placing_method == 'geo_stochastic' or placing_method == 'stochastic':
-			new_templates = place_stochastically(dist, t_obj, cbc_bank(self.variable_format),
+		if placing_method in ['geo_stochastic', 'stochastic']:
+			new_templates = place_stochastically(avg_match, t_obj, cbc_bank(self.variable_format),
 					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
 
@@ -578,10 +586,10 @@ class cbc_bank():
 		except ModuleNotFoundError:
 			raise ModuleNotFoundError("Unable to sample from the metric PDF as package `emcee` is not installed. Please try `pip install emcee`")
 		
-		burnin_steps = lambda tau: int(2 * np.max(tau)) if burnin else 0.
+		burnin_steps = lambda tau: int(2 * np.max(tau)) if burnin else 0
 		
 			#initializing the sampler
-		sampler = emcee.EnsembleSampler(n_walkers, self.D, metric_obj.log_pdf_gauss, args=[boundaries], vectorize = True)
+		sampler = emcee.EnsembleSampler(n_walkers, self.D, metric_obj.log_pdf, args=[boundaries], vectorize = True)
 		
 			#tau is a (D,) vector holding the autocorrelation for each variable
 			#it is used to estimate the thin factor
@@ -596,14 +604,13 @@ class cbc_bank():
 				start = loaded_chain
 				tau = 4 + np.zeros((self.D,))
 			else:
-				tau, start = loaded_chain[0,:], loaded_chain[1:self.D+1,:]
+				tau, start = loaded_chain[0,:], loaded_chain[1:n_walkers+1,:]
 			print('tau', tau)
-			assert start.shape == (n_walkers, self.D), "Wrong shape for the starting chain. Unable to continue"
+			assert start.shape == (n_walkers, self.D), "Wrong shape for the starting chain. Expected {} but given {}. Unable to continue".format((n_walkers, self.D), start.shape)
 		else:
 			burnin = True
-			n_burnin = 0
 			start = np.random.uniform(*boundaries, (n_walkers, self.D))
-		
+		n_burnin = 0		
 			###########
 			#This part has two purposes:
 			#	- Give a first estimation for tau parameters (required to decide the size of burn-in steps and the thin step)
@@ -646,11 +653,14 @@ class cbc_bank():
 		
 		if verbose: print('Thin factor: {} | burn-in: {} '.format( thin, burnin_steps(tau)))
 
-		n_steps = int((N_templates*thin)/n_walkers) - int(n_burnin) + burnin_steps(tau) #steps left to do...
+		n_steps = int((N_templates*thin)/n_walkers) - int(n_burnin) + burnin_steps(tau) + thin #steps left to do...
 		if verbose: print("Steps done: {} | Steps to do: {}".format(n_burnin, n_steps))
 		
 		if n_steps > 0:
-			state = sampler.run_mcmc(start, n_steps, progress = verbose, tune = True)
+			try:
+				state = sampler.run_mcmc(start, n_steps, progress = verbose, tune = True)
+			except KeyboardInterrupt:
+				pass
 	
 			#FIXME: understand whether you want to change the thin factor... it is likely it is underestimated during the burn-in phase
 			#On the other hand, it makes difficult to predict how many steps you will need

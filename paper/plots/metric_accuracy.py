@@ -190,7 +190,7 @@ if __name__ == '__main__':
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = False
+	load = True
 	overlap = (run_name.find('overlap')>-1)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]

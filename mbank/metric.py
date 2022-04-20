@@ -252,29 +252,29 @@ class cbc_metric(object):
 			shape: (N,) -
 			Logarithm of the pdf, ready to use for sampling
 		"""
-		theta = np.array(theta)
+		theta = np.asarray(theta)
 		
 		if theta.ndim == 1:
 			theta = theta[None,:]
 			reshape = True
 		else:
 			reshape = False
-		ids_ok = np.full((theta.shape[0],), True)
+		
 		if isinstance(boundaries,np.ndarray):
-			if boundaries.shape != (2,self.format_D[self.variable_format]):
-				raise ValueError("Wrong shape of boundaries given: expected (2,{}), given {}".format(self.format_D[self.variable_format], boundaries.shape))
+			if boundaries.shape != (2,self.D):
+				raise ValueError("Wrong shape of boundaries given: expected (2,{}), given {}".format(self.D, boundaries.shape))
 			
 			ids_ok = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+		else:
+			ids_ok = np.full((theta.shape[0],), True)
 			
-			#TODO: you might want to implement in the boundaries, the fact that m1>=m2!
 		
 		res = np.zeros((theta.shape[0],)) -10000000
 		
-		det = self.get_metric_determinant(theta[ids_ok,:])
-		
-		det = np.log(np.abs(det))*0.5 #log(sqrt(|det|))
-		
-		res[ids_ok] = det
+		if np.any(ids_ok):
+			det = self.get_metric_determinant(theta[ids_ok,:])
+			det = np.log(np.abs(det))*0.5 #log(sqrt(|det|))
+			res[ids_ok] = det
 		
 		return res
 	

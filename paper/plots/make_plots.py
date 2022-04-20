@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
 		#metric accuracy plots
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
-				'metric_accuracy/paper_Mq_s1z_s2z.pkl']#, 'metric_accuracy/paper_Mq_s1xz.pkl']
+				'metric_accuracy/paper_Mq_s1z_s2z.pkl', 'metric_accuracy/paper_Mq_s1xz_s2z.pkl']
 	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
 

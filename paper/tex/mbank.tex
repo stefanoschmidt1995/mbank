@@ -9,6 +9,7 @@ superscriptaddress,10pt]{revtex4-1}
 \usepackage{enumitem}
 \usepackage{bm}
 \usepackage{afterpage}
+\usepackage{float}
 \usepackage{graphicx}
 \graphicspath{{img/}} %setting img path
 \usepackage{psfrag}
@@ -295,7 +296,7 @@ Setting a threshold value on $V_{tile}$ makes sure that all the tiles cover appr
 
 As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. \stefano{shall we implement this??? Given the new random approach it shouldn't be too difficult...}
 
-\begin{algorithm}[t!]
+\begin{algorithm}[t]
 \caption{Tiling generation function}
 \flushleft
 \hspace*{\algorithmicindent} \textbf{Input}: A tile $\mathcal{T} = \left(R, M\right)$ \\
@@ -319,6 +320,32 @@ As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non 
 \end{algorithmic}
 \label{alg:tiling}
 \end{algorithm}
+
+\begin{table*}[t!]
+	\centering
+	\setlength\extrarowheight{1pt}
+	 \begin{tabular}{l c c c} 
+	 \hline
+	 \phantom{Method} & Pros & Cons & Speed \\
+	 \hline
+	 {\bf Uniform} & Useful for quick tests & Poor coverage & very fast \\
+	 \cdashline{1-4}
+	 {\bf Iterative} & Good injection recovery & \begin{tabular}{@{}c@{}} Overcovers \\ No boundaries \end{tabular}  & fast \\
+	 \cdashline{1-4}
+	 {\bf Random} & Good coverage and injection recovery & --- & slow \\
+	 \cdashline{1-4}
+	 {\bf Geometric} & Good injection recovery & \begin{tabular}{@{}c@{}c@{}} Tiling dependent \\ Overcovers \\ No boundaries \end{tabular}  & fast \\
+ 	 \cdashline{1-4}
+	 {\bf Stochastic} & Good coverage and injection recovery & Unfeasible for large bank & very slow \\
+	 \cdashline{1-4}
+	 {\bf Geo-Stochastic} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers\end{tabular}  & slow \\
+ 	 {\bf Tile-Stochastic} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
+ 	 {\bf Tile-Random} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
+	 \hline
+	 \end{tabular}
+	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...} \stefano{This table doesn't look nice}}
+ 	 \label{tab:placing_methods}
+\end{table*}
 
 \subsection{Template placing} \label{sec:template_placing}
 
@@ -366,32 +393,6 @@ The outcome of the {\it geometric} placement is set as a seed bank for the {\it 
 Such methods perform the stochastic and random placement algorithm respectively by considering each tile separetely.
 They are faster than stochastic and random methods but they tend to over-cover the space. If the tiles are large (i.e. a large number of tempaltes per tile is expected), the errors introduced by considering the tiles separeately becomes negligible.
 
-\begin{table*}[t!]
-	\centering
-	\setlength\extrarowheight{1pt}
-	 \begin{tabular}{l c c c} 
-	 \hline
-	 \phantom{Method} & Pros & Cons & Speed \\
-	 \hline
-	 {\bf Uniform} & Useful for quick tests & Poor coverage & very fast \\
-	 \cdashline{1-4}
-	 {\bf Iterative} & Good injection recovery & \begin{tabular}{@{}c@{}} Overcovers \\ No boundaries \end{tabular}  & fast \\
-	 \cdashline{1-4}
-	 {\bf Random} & Good coverage and injection recovery & --- & slow \\
-	 \cdashline{1-4}
-	 {\bf Geometric} & Good injection recovery & \begin{tabular}{@{}c@{}c@{}} Tiling dependent \\ Overcovers \\ No boundaries \end{tabular}  & fast \\
- 	 \cdashline{1-4}
-	 {\bf Stochastic} & Good coverage and injection recovery & Unfeasible for large bank & very slow \\
-	 \cdashline{1-4}
-	 {\bf Geo-Stochastic} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers\end{tabular}  & slow \\
- 	 {\bf Tile-Stochastic} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
- 	 {\bf Tile-Random} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
-	 \hline
-	 \end{tabular}
-	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...} \stefano{This table doesn't look nice}}
- 	 \label{tab:placing_methods}
-\end{table*}
-
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
@@ -408,7 +409,7 @@ They are faster than stochastic and random methods but they tend to over-cover t
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
 THIS SECTION IS READY TO BE WRITTEN!
-\begin{figure}[h]
+\begin{figure}[t]
 	\includegraphics{metric_accuracy}
 	\caption{Metric accuracy, for different variable formats \sarah{what are the different colors here?}}
 	\label{fig:metric_accuracy}
@@ -419,21 +420,24 @@ Histogram with the actual match for points with a constant metric match
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
 THINK OF SOME PLOTS TO PUT HERE!
+\blindtext
 
-\begin{figure}[h]
-	\includegraphics{tiling_accuracy_test}
-	\caption{Tiling accuracy}
-	\label{fig:tiling_accuracy}
-\end{figure}
+%\afterpage{%
+\begin{figure*}[t!]
+	\centering
+	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
+	\caption{Placing validation}
+	\label{fig:placing_validation}
+\end{figure*}
+%\clearpage
+%}
 
-Compute the match computed with the tiling vs the actual match.
-
+%\newpage
 \subsection{Comparison with \texttt{sbank} }
-
 IDENTIFY A TEST BANK! (AND PREPARE IT)
 
 \begin{figure}[h]
-	\includegraphics{bank_scaling_nonprecessing_geometric}
+	\includegraphics{jafar}
 	\caption{Scaling for the bank, compared with sbank}
 	\label{fig:bank_scaling}
 \end{figure}
@@ -459,8 +463,16 @@ This could be the bank we use for precessing searches.
 \subsection{An eccentric bank}
 This could be a nonspinning, eccentric bank. It should have 500K templates for a reasonable range of masses.
 
+
 \section{Final remarks and future prospects} \label{sec:conclusion}
 Usual stuff
+\blindtext
+\blindtext
+\blindtext
+\blindtext
+\blindtext
+\blindtext
+\blindtext
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ACKNOWLEDGMENTS
         \begin{acknowledgments}

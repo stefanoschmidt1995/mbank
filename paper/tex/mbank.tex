@@ -332,15 +332,15 @@ As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non 
 	 \cdashline{1-4}
 	 {\bf Iterative} & Good injection recovery & \begin{tabular}{@{}c@{}} Overcovers \\ No boundaries \end{tabular}  & fast \\
 	 \cdashline{1-4}
-	 {\bf Random} & Good coverage and injection recovery & --- & slow \\
+	 {\bf Random} & Good coverage and injection recovery & Needs large memory & slow \\
 	 \cdashline{1-4}
 	 {\bf Geometric} & Good injection recovery & \begin{tabular}{@{}c@{}c@{}} Tiling dependent \\ Overcovers \\ No boundaries \end{tabular}  & fast \\
  	 \cdashline{1-4}
 	 {\bf Stochastic} & Good coverage and injection recovery & Unfeasible for large bank & very slow \\
 	 \cdashline{1-4}
 	 {\bf Geo-Stochastic} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers\end{tabular}  & slow \\
- 	 {\bf Tile-Stochastic} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
- 	 {\bf Tile-Random} & WRITEME &  \begin{tabular}{@{}c@{}} WRITEME \\ WRITEME\end{tabular}  & slow \\
+	 \cdashline{1-4}
+ 	 {\bf Tile-Stochastic}/{\bf Tile-Random} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers \end{tabular}  & fast \\
 	 \hline
 	 \end{tabular}
 	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...} \stefano{This table doesn't look nice}}
@@ -438,7 +438,7 @@ IDENTIFY A TEST BANK! (AND PREPARE IT)
 
 \begin{figure}[h]
 	\includegraphics{jafar}
-	\caption{Scaling for the bank, compared with sbank}
+	\caption{Here we may put a plot of the number of templates as a function of $N_{tiles}$. But it may look very messy, and perhaps not too informative. Maybe just put $MM = 0.97$ and set a series for each method; although in this way you will never show the scaling with the $MM$.}
 	\label{fig:bank_scaling}
 \end{figure}
 

@@ -159,7 +159,7 @@ def plot(out_dict, run_name, folder_name = None):
 
 if __name__ == '__main__':
 	
-	load = True
+	load = False
 	load_tiling = True
 	load_bank = True
 
@@ -168,7 +168,7 @@ if __name__ == '__main__':
 	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
 	V_tile_list = [10000, 5000, 1000, 500, 100, 70]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
-	#V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
+	V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
 	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
 	
 			#setting ranges

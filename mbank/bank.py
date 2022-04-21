@@ -342,6 +342,7 @@ class cbc_bank():
 					axis =0) #(2,D)
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
+		N_points = lambda t: 25*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D) #total number of points according to volume placement
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
@@ -382,10 +383,8 @@ class cbc_bank():
 			elif placing_method == 'tile_stochastic':
 				new_templates_ = place_stochastically_in_tile(avg_match, t)
 			elif placing_method == 'tile_random':
-				N_points = lambda t: 25*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 				temp_t_ = tiling_handler(t)
-s				new_templates_ = place_random(dist, temp_t_ , N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
-				if new_templates_.shape[0] == 0: print(new_templates_.shape)
+				new_templates_ = place_random(np.sqrt(1-avg_match), temp_t_, N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
 		
 			new_templates.extend(new_templates_)
 
@@ -396,7 +395,6 @@ s				new_templates_ = place_random(dist, temp_t_ , N_points = int(N_points(temp_
 			
 		if placing_method == 'random':
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
-			N_points = lambda t: 25*t.compute_volume()[0] / np.power(dist, self.D) #total number of points according to volume placement
 			N_points_max = int(1e6)
 			N_points_tot = N_points(t_obj)
 
@@ -414,16 +412,15 @@ s				new_templates_ = place_random(dist, temp_t_ , N_points = int(N_points(temp_
 			else: it = partition
 			for p in it:
 				#TODO: make this a ray function? Too much memory expensive, probably...
-				#new_templates_ = [np.array([1,2, 0.1, 0.])]
-				new_templates_ = place_random(dist, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
+					#The template volume for random is sqrt(1-MM) (not dist)
+				new_templates_ = place_random(np.sqrt(1-avg_match), p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
 				new_templates.extend(new_templates_)
-			#FIXME: dist in random is avg_dist or np.sqrt(1-avg_match)? Check this!
 			
-		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 		if placing_method in ['geo_stochastic', 'stochastic']:
 			new_templates = place_stochastically(avg_match, t_obj, cbc_bank(self.variable_format),
 					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
 					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
+		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)

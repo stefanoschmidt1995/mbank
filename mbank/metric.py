@@ -662,7 +662,8 @@ class cbc_metric(object):
 					eigval[id_] = max(eig_num, 1e-3) #shall you put this cutoff?
 
 				else:
-					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
+					#FIXME: understand why this fails so often...
+					#warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
 					eigval[id_] = max(1e-3, eigval[id_])
 
 			#print("eigval: ", eigval) #DEBUG

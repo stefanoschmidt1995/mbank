@@ -620,7 +620,7 @@ class cbc_metric(object):
 			#ids = range(len(eigval))
 
 				#Some checks on the eigenvalues
-			#print("eigval: ", eigval) #DEBUG
+			print("eigval: ", eigval) #DEBUG
 			if np.any(eigval < 0):
 				msg = "The hessian at theta = {} has a negative eigenvalue! This is pathological: you may fix this by increasing the order of differentiation.".format(center)
 				raise ValueError(msg)
@@ -634,9 +634,9 @@ class cbc_metric(object):
 			for id_ in ids:
 				
 					#optimizing the value of epsilon (takes lot of time!)
-				res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-4, 0.),
-						method='brent', options={'xtol': 1e-2, 'maxiter': 100})
-				#print(res)
+				res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-5, 0.),
+						#method='brent', options={'xtol': 1e-2, 'maxiter': 100})
+						method='bounded', options={'xatol': 1e-2, 'maxiter': 100})
 				#res = scipy.optimize.minimize(loss_epsilon, x0 = [np.log10(0.5)], bounds=[(-3, 0)], tol = 1e-3) #bad idea!
 		
 					#computing the eigenvalue
@@ -663,10 +663,11 @@ class cbc_metric(object):
 
 				else:
 					#FIXME: understand why this fails so often...
-					#warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
+					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
+					print("DIOMERDA")
 					eigval[id_] = max(1e-3, eigval[id_])
 
-			#print("eigval: ", eigval) #DEBUG
+			print("eigval: ", eigval) #DEBUG
 			metric.append(np.linalg.multi_dot([eigvec, np.diag(eigval), eigvec.T]))
 
 		metric = np.stack(metric, axis = 0)

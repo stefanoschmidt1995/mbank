@@ -289,13 +289,15 @@ if args.plot:
 	plt.figure(figsize = (15,15))
 	plt.title("Injection recovery for bank {}".format(os.path.basename(args.bank_file)), fontsize = fs+10)
 	N_bins = 30
-	logbins = np.logspace(np.log10(np.percentile(best_matches, [.5])[0]),np.log10(max(best_matches)), N_bins)
 	plt.gca().tick_params(axis='x', labelsize=fs)
 	plt.gca().tick_params(axis='y', labelsize=fs)
+	logbins = np.logspace(np.log10(np.percentile(best_matches, .5)),np.log10(max(best_matches)), N_bins)
 	plt.hist(best_matches, bins = logbins, density = True,
 				color = 'orange' if full_match else 'blue',
 				label = 'match' if full_match else 'metric match')
-	if full_match: plt.hist(best_matches_metric, bins = logbins, histtype='step',
+	if full_match:
+		logbins_metric = np.logspace(np.log10(np.percentile(best_matches_metric, .5)),np.log10(max(best_matches_metric)), N_bins)
+		plt.hist(best_matches_metric, bins = logbins_metric, histtype='step',
 				density = True, color = 'blue', label = 'metric match')
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG

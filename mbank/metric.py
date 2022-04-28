@@ -281,7 +281,7 @@ class cbc_metric(object):
 	def log_pdf_gauss(self, theta, boundaries = None):
 		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
 	
-	def get_WF_grads(self, theta, approx, order = None, epsilon = None):
+	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-5):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -301,7 +301,6 @@ class cbc_metric(object):
 		
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
-			If `None`, some reasonable defaults will be used
 
 		Returns
 		-------
@@ -323,8 +322,6 @@ class cbc_metric(object):
 			return self.get_WF(theta_value)
 
 			#setting epsilon value
-		if epsilon is None:
-			epsilon = 1e-5
 		if isinstance(epsilon, float):
 			epsilon_list = [epsilon for _ in range(12)]
 			epsilon_list[0] = epsilon_list[0]/10 #the first variable needs a smaller step?
@@ -527,7 +524,7 @@ class cbc_metric(object):
 		else: return h
 	
 	#@do_profile(follow = [])
-	def get_metric(self, theta, overlap = False, order = None, epsilon = None, target_match = 0.97):
+	def get_metric(self, theta, overlap = False, order = None, epsilon = 1e-5, target_match = 0.97):
 		"""
 		Returns the metric computed with the Hessian matrix + eigenvalues recalculation.
 		
@@ -548,7 +545,6 @@ class cbc_metric(object):
 
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
-			If `None`, some reasonable defaults will be used
 		
 		target_match: float
 			Target match for the eigenvalues fixing
@@ -589,7 +585,7 @@ class cbc_metric(object):
 				return None
 	
 		def loss_epsilon(log10_epsilon):
-			"Loss funcion to compute the proper value of epsilon"
+			"Loss function to compute the proper value of epsilon"
 			theta_ = which_theta(10**log10_epsilon)
 			if theta_ is None: return 10000
 			WF_ = self.get_WF(theta_, self.approx, plus_cross = False)
@@ -603,8 +599,9 @@ class cbc_metric(object):
 		if theta.ndim ==1:
 			theta = theta[None,:]
 			squeeze = True
+
 		metric_hessian = self.get_hessian_metric(theta, overlap = overlap, order = order, epsilon = epsilon) #(N,D,D)
-		#if squeeze:	metric_hessian = np.squeeze(metric_hessian)
+		#if squeeze: metric_hessian = np.squeeze(metric_hessian)
 		#return metric_hessian
 		
 			###
@@ -620,7 +617,7 @@ class cbc_metric(object):
 			#ids = range(len(eigval))
 
 				#Some checks on the eigenvalues
-			print("eigval: ", eigval) #DEBUG
+			#print("old eigval: ", eigval) #DEBUG
 			if np.any(eigval < 0):
 				msg = "The hessian at theta = {} has a negative eigenvalue! This is pathological: you may fix this by increasing the order of differentiation.".format(center)
 				raise ValueError(msg)
@@ -659,15 +656,15 @@ class cbc_metric(object):
 					#match_ = self.WF_match(WF_, WF_center, overlap = overlap)
 					
 					eig_num = (1-match_)/epsilon_eigval**2
-					eigval[id_] = max(eig_num, 1e-3) #shall you put this cutoff?
+					#eigval[id_] = max(eig_num, 1e-3) #This cutoff is garbage! It produces unphysical results
+					eigval[id_] = eig_num
 
 				else:
 					#FIXME: understand why this fails so often...
-					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}. Setting it to 1e-3 if lower than this threshold.".format(id_, center))
-					print("DIOMERDA")
-					eigval[id_] = max(1e-3, eigval[id_])
+					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}.")
+					#eigval[id_] = max(1e-3, eigval[id_]) #Trim the eigenvalues in case of failure?
 
-			print("eigval: ", eigval) #DEBUG
+			#print("new eigval: ", eigval) #DEBUG
 			metric.append(np.linalg.multi_dot([eigvec, np.diag(eigval), eigvec.T]))
 
 		metric = np.stack(metric, axis = 0)
@@ -678,8 +675,119 @@ class cbc_metric(object):
 
 		return metric
 
+	def get_numerical_hessian_metric(self, theta, overlap = False, epsilon = 1e-5):
+		"""
+		Returns the metric computed with the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.
+		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function `cbc_metric.get_hessian_metric`.
+		In particular the step size epsilon must be tuned carefully and the results are really sensible on this choice.
+		Uses package `numdifftools`, not among the dependencies.
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
 
-	def get_hessian_metric(self, theta, overlap = False, order = None, epsilon = None):
+		epsilon: float
+			Size of the jump for the finite difference scheme.
+			If `None`, it will be authomatically computed.
+		
+		Returns
+		-------
+		
+		metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric Hessian in the given parameters
+		"""
+		##
+		# Defining a match functions
+		
+		def match_t(x):
+			t, theta_ = x[0], x[1:]
+			WF2 = self.get_WF(theta_, self.approx)*np.exp(-1j*2*np.pi*self.f_grid*t)
+			return self.WF_match(WF1, WF2, overlap) #WF1 is in global scope
+		
+		###
+		# Loss function
+		def loss_epsilon(log10_epsilon, axis, center):
+			"Loss function to compute the proper value of epsilon"
+			target_match = 0.97 #FIXME: this is not a good place to set this
+			theta_ = np.array(center)
+			theta_[axis] = center[axis]+10**log10_epsilon
+			if axis >0:
+				if not self.var_handler.is_theta_ok(theta_[1:], self.variable_format): theta_[axis] = center[axis]-10**log10_epsilon
+				if not self.var_handler.is_theta_ok(theta_[1:], self.variable_format): return 1000.
+			match = match_t(theta_)
+			res = np.square(target_match - match)
+			return res
+		
+		
+		##
+		# Try to import numdifftools (in a future version, this may be in the package dependencies)	
+		
+		try:
+			import numdifftools as nd
+		except ImportError:
+			raise ImportError("Cannot compute numerical metric as package `numdifftools` is not installed")
+		
+		##
+		# Preprocessing theta
+		
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim ==1:
+			theta = theta[None,:]
+			squeeze = True
+
+		##		
+		# Dealing with epsilon
+		if not (isinstance(epsilon, float) or epsilon is None):
+			raise ValueError("epsilon should be a float or None")
+	
+		##
+		# Computing the metric
+		
+		metric = []
+		for theta_i in theta:
+			WF1 = self.get_WF(theta_i, self.approx) #used by
+			center = np.array([0, *theta_i])
+
+			#setting epsilon (if it's the case)
+			if epsilon is None:			
+				epsilon_list = np.full(center.shape, 1e-5)
+			
+				for ax in range(self.D+1):
+					res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-10, 0.), args = (ax, center),
+						#method='brent', options={'xtol': 1e-2, 'maxiter': 100})
+						method='bounded', options={'xatol': 1e-2, 'maxiter': 100})
+					if res.success and res.fun != 1000.:
+						epsilon_list[ax] = 10**res.x
+				#print(theta_i, epsilon_list)
+			
+	
+			#Computing the hessian
+			step = epsilon if isinstance(epsilon, float) else epsilon_list
+			H = 0.5*nd.Hessian(match_t, step = step)(center)
+	
+			H = H[1:,1:] - np.outer(H[0,1:], H[0,1:])/H[0,0]
+			H = -H
+			
+			#enforcing positive eigenvalues
+			eigval, eigvec = np.linalg.eig(H)
+			H = np.linalg.multi_dot([eigvec, np.diag(np.abs(eigval)), eigvec.T])
+	
+			metric.append(H)
+		
+		metric = np.stack(metric, axis = 0)
+		if squeeze:	metric = np.squeeze(metric)
+		return metric
+
+	def get_hessian_metric(self, theta, overlap = False, order = None, epsilon = 1e-5):
 		"""
 		Returns the metric computed with the Hessian matrix.
 		
@@ -700,7 +808,6 @@ class cbc_metric(object):
 
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
-			If `None`, some reasonable defaults will be used
 
 		Returns
 		-------

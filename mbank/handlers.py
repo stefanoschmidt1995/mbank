@@ -146,7 +146,7 @@ class variable_handler(object):
 			
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
 		
-		self.constraints = {'M':(0.,np.inf), 'q': (1, np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
+		self.constraints = {'M':(0.,np.inf), 'q': (0., np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
@@ -189,11 +189,11 @@ class variable_handler(object):
 		if raise_error: bad_labels = []
 		
 		for i, l in enumerate(labels):
-			is_ok_l = np.all(self.constraints[l][0]<theta[...,i]<self.constraints[l][1])
-			is_ok = is_ok and is_ok_l
-			if not is_ok_l and raise_error: bad_labels.append(l)
+			is_ok_l = np.logical_and( self.constraints[l][0]<theta[...,i], theta[...,i]<self.constraints[l][1])
+			is_ok = np.logical_and(is_ok, is_ok_l)
+			if not np.all(is_ok_l) and raise_error: bad_labels.append(l)
 		
-		if raise_error and not is_ok:
+		if raise_error and not np.all(is_ok):
 			raise ValueError("The given theta does not have an acceptable value for the quantities: {}".format(*bad_labels))
 		
 		return is_ok

@@ -710,7 +710,7 @@ class cbc_metric(object):
 		def match_t(x):
 			t, theta_ = x[0], x[1:]
 			WF2 = self.get_WF(theta_, self.approx)*np.exp(-1j*2*np.pi*self.f_grid*t)
-			return self.WF_match(WF1, WF2, overlap) #WF1 is in global scope
+			return self.WF_match(WF1, WF2, False) #WF1 is in global scope
 		
 		###
 		# Loss function
@@ -774,12 +774,14 @@ class cbc_metric(object):
 			step = epsilon if isinstance(epsilon, float) else epsilon_list
 			H = 0.5*nd.Hessian(match_t, step = step)(center)
 	
-			H = H[1:,1:] - np.outer(H[0,1:], H[0,1:])/H[0,0]
+			if overlap: H = H[1:,1:]
+			else: H = H[1:,1:] - np.outer(H[0,1:], H[0,1:])/H[0,0]
 			H = -H
 			
-			#enforcing positive eigenvalues
+			#enforcing positive eigenvalues (WTF??)
 			eigval, eigvec = np.linalg.eig(H)
 			H = np.linalg.multi_dot([eigvec, np.diag(np.abs(eigval)), eigvec.T])
+			#H = self.get_hessian_metric(theta, overlap = overlap, order = None, epsilon = step[1:]) #Using the WF gradients for this...
 	
 			metric.append(H)
 		
@@ -1232,10 +1234,11 @@ class cbc_metric(object):
 		return points1, points2
 	
 	
-	def get_points_on_ellipse(self, N_points, theta, match, metric = None, overlap = False):
+	def get_points_on_ellipse(self, N_points, theta, match, metric = None, inside = False, overlap = False):
 		"""
 		Given a central theta point, it computes ``N_points`` random point on the ellipse of constant match center in theta.
 		The points returned will have approximately the the given metric match, although the actual metric match may differ as the metric is evaluated at `theta` and not at the baricenter of the points in question.
+		If the option ``inside`` is set to ``True``, the points will be inside the ellipse, i.e. they will have a metric match larger than the given ``match``.
 		The match is related to the distance between templates in the metric as:
 		
 		.. math::
@@ -1285,7 +1288,10 @@ class cbc_metric(object):
 		v = np.random.normal(0, 1, (N_points, theta.shape[0]))
 		norm = 1.0 / np.linalg.norm(v, axis = 1) #(N_points,)
 		
-		points_prime = theta_prime + dist*(v.T*norm).T
+		if inside: r = np.random.uniform(0.,1., norm.shape)
+		else: r = 1.
+		
+		points_prime = theta_prime + dist*(v.T*norm*r).T
 		
 		points = np.matmul(points_prime, L_inv.T)
 		

@@ -220,7 +220,7 @@ It is not trivial to make a good guess of the appropriate value of the metric. I
 
 \begin{equation} \label{eq:metric_optmization}
 	M(\theta) = \argmin_{M^\prime} \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_{target}\}} \hspace{-3.8em}
-		\dvol{\theta^\prime}{D}  \left[ d(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j
+		\dvol{\theta^\prime}{D}  \left[ d^2(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j
 		\right]^2
 \end{equation}
 where the integration extends on a D-ball with radius $d_{target}$ centered around theta. The value $d_{target}$ controls the range of validity of the approximation.

@@ -342,7 +342,8 @@ class cbc_bank():
 					axis =0) #(2,D)
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
-		N_points = lambda t: 25*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D) #total number of points according to volume placement
+			#total number of points according to volume placement
+		N_points = lambda t: [25 if self.D == 2 else 250][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
@@ -417,9 +418,9 @@ class cbc_bank():
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'stochastic']:
-			new_templates = place_stochastically(avg_match, t_obj, cbc_bank(self.variable_format),
+			new_templates = place_stochastically(avg_match, t_obj,
 					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
-					seed_bank = new_templates if placing_method == 'geo_stochastic' else None)
+					seed_bank =  None if placing_method == 'stochastic' else new_templates)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 
 		new_templates = np.stack(new_templates, axis =0)

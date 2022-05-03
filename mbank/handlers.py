@@ -71,6 +71,7 @@ class variable_handler(object):
 	Valid format for the two masses are:
 	
 	- ``Mq``: Total mass and q
+	- ``logMq``: Log10 of total mass and q
 	- ``mceta``: chirp mass and eta
 	- ``m1m2``: mass1 and mass2
 	
@@ -113,7 +114,7 @@ class variable_handler(object):
 		"Initialization. Creates a dict of dict with all the info for each format" 
 		
 			#hard coding valid formats for masses, spins, eccentricity and angles
-		self.m_formats = ['m1m2', 'Mq', 'mceta'] #mass layouts
+		self.m_formats = ['m1m2', 'Mq', 'logMq', 'mceta'] #mass layouts
 		self.s_formats = ['nonspinning', 's1z', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
 		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
 		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
@@ -146,7 +147,7 @@ class variable_handler(object):
 			
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
 		
-		self.constraints = {'M':(0.,np.inf), 'q': (0., np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
+		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (0., np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
@@ -219,7 +220,7 @@ class variable_handler(object):
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
 			ids = np.where(theta[:,0]<theta[:,1])[0]
 			theta[ids,0], theta[ids,1] = theta[ids,1], theta[ids,0] #switching masses
-		elif self.format_info[variable_format]['mass_format'] == 'Mq':
+		elif self.format_info[variable_format]['mass_format'] in ['Mq', 'logMq']:
 			ids = np.where(theta[:,1]<1)[0]
 			theta[ids,1] = 1./theta[ids,1] #switching masses
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
@@ -275,6 +276,9 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			if latex: labels = [r'$M$', r'$q$']
 			else: labels = ['M', 'q']
+		elif self.format_info[variable_format]['mass_format'] == 'logMq':
+			if latex: labels = [r'$\log_{10}M$', r'$q$']
+			else: labels = ['logM', 'q']
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
 			if latex: labels = [r'$\mathcal{M}_c$', r'$\eta$']
 			else: labels = ['Mc', 'eta']
@@ -397,6 +401,9 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			q = np.maximum(BBH_components[:,1] / BBH_components[:,0], BBH_components[:,0] / BBH_components[:,1])
 			theta = [BBH_components[:,0] + BBH_components[:,1], q]
+		elif self.format_info[variable_format]['mass_format'] == 'logMq':
+			q = np.maximum(BBH_components[:,1] / BBH_components[:,0], BBH_components[:,0] / BBH_components[:,1])
+			theta = [np.log10(BBH_components[:,0] + BBH_components[:,1]), q]
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
 			eta = np.divide(BBH_components[:,1] * BBH_components[:,0], np.square(BBH_components[:,0] + BBH_components[:,1]) )
 			theta = [(BBH_components[:,0] + BBH_components[:,1])*np.power(eta, 3./5.), eta]
@@ -489,6 +496,10 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			m1, m2 = theta[:,0]*theta[:,1]/(1+theta[:,1]), theta[:,0]/(1+theta[:,1])
 			m1, m2 = np.maximum(m1, m2), np.minimum(m1, m2) #this is to make sure that m1>m2, also if q is less than 1
+		elif self.format_info[variable_format]['mass_format'] == 'logMq':
+			M = 10**theta[:,0]
+			m1, m2 = M*theta[:,1]/(1+theta[:,1]), M/(1+theta[:,1])
+			m1, m2 = np.maximum(m1, m2), np.minimum(m1, m2) #this is to make sure that m1>m2, also if q is less than 1
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
 				#see https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py#L215
 			M = theta[:,0] / np.power(theta[:,1], 3./5.)
@@ -576,6 +587,8 @@ class variable_handler(object):
 			mchirp = np.power(theta[:,0]*theta[:,1], 3./5.) / np.power(theta[:,0]+theta[:,1], 1./5.)
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			mchirp = theta[:,0] * np.power(theta[:,1]/np.square(theta[:,1]+1), 3./5.)
+		elif self.format_info[variable_format]['mass_format'] == 'logMq':
+			mchirp = 10**theta[:,0] * np.power(theta[:,1]/np.square(theta[:,1]+1), 3./5.)
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
 			mchirp = theta[:,0]
 
@@ -605,7 +618,7 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['mass_format'] =='m1m2':
 			q = np.maximum(theta[:,1]/theta[:,0], theta[:,0]/theta[:,1])
-		elif self.format_info[variable_format]['mass_format'] == 'Mq':
+		elif self.format_info[variable_format]['mass_format'] in ['Mq', 'logMq']:
 			q = theta[:,1]
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':
 			q = theta[:,1] #FIXME: compute this properly! 
@@ -991,8 +1004,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		points = np.atleast_2d(np.asarray(points))
 
 		if self.lookup_table is None: self.update_KDTree()
-		_, id_tile = self.lookup_table.query(points, k=1)
-		return id_tile
+		_, id_tiles = self.lookup_table.query(points, k=1)
+		return id_tiles
 
 		distance_points = []
 		for R, _ in self.__iter__():

@@ -106,8 +106,7 @@ bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
 bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name))
 
 if args.plot:
-	dist = avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	#dist = avg_dist(0.97, bank.D) ; print("DEBUG ELLIPSES ARE PLOTTED!!")#DEBUG
+	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
 	plot_tiles_templates(t_obj, bank.templates, args.variable_format, variable_handler(), dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
 

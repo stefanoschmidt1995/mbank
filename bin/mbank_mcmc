@@ -173,7 +173,7 @@ format_info = var_handler.format_info[args.variable_format]
 if format_info['mass_format'] == 'm1m2':
 	var1_min, var1_max = m_min, m_max
 	var2_min, var2_max = m_min, m_max
-elif format_info['mass_format'] == 'Mq':
+elif format_info['mass_format'] in ['Mq', 'logMq']:
 	var1_min, var1_max = mtot_min, mtot_max
 	var2_min, var2_max = q_min, q_max
 elif format_info['mass_format'] == 'mceta':

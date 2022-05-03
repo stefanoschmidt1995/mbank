@@ -211,6 +211,7 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 		M_range, q_range, s1_range, s2_range, theta_range, phi_range, iota_range, ref_phase_range, e_range, meanano_range: tuple
 			Ranges for each physical quantity. They will be used whenever required by the `variable_format`
 			If `mchirpeta` mass format is set, `M_range` and `q_range` are interpreted as mchirp and eta respectively.
+			If `logMq` mass format is set, `M_range` is still interpreted as the mass and *not* the log mass.
 	
 	Returns
 	-------
@@ -226,6 +227,9 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 	if format_info['spin_format'] == 'fullspins':
 		if s1_range[0]< 0: s1_range = (0, s1_range[1])
 		if s2_range[0]< 0: s2_range = (0, s2_range[1])
+	
+	if format_info['mass_format'] == 'logMq':
+		M_range = np.log10(np.asarray(M_range))
 		
 		#setting spin boundaries
 	if format_info['spin_format'] == 'nonspinning':
@@ -1040,15 +1044,12 @@ def place_stochastically(minimum_match, t_obj, bank, empty_iterations = 200, see
 		t_obj: tiling_handler
 			A tiling object to compute the match with
 		
-		bank: cbc_bank
-			A ``cbc_bank`` object. The bank will be filled with the new templates generated
-		
 		empty_iterations: int
 			Number of consecutive templates that are not accepted before the placing algorithm is terminated
 			
 		seed_bank: np.ndarray
 			shape: (N,D) -
-			A set of templates that provides a first guess for the bank.
+			A set of templates that provides a first guess for the bank
 	
 	Returns
 	-------
@@ -1078,8 +1079,6 @@ def place_stochastically(minimum_match, t_obj, bank, empty_iterations = 200, see
 	
 	try:
 		for _ in t_:
-			#bank.templates = new_templates #updating bank
-			
 				#checking for stopping conditions and updating for empty tiles
 			where_to_remove = (nothing_new > empty_iterations)
 			tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
@@ -1105,7 +1104,7 @@ def place_stochastically(minimum_match, t_obj, bank, empty_iterations = 200, see
 				new_templates = np.concatenate([new_templates, proposal], axis =0)
 				nothing_new[id_tiles_to_use] = 0
 			else:
-				nothing_new[id_tiles_to_use] +=1
+				nothing_new[id_tiles_to_use] += 1
 	except KeyboardInterrupt:
 		pass
 	
@@ -1207,6 +1206,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 			break
 			
 		diff = livepoints - point #(N,D)
+		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric
 		
 		id_ = t_obj.get_tile(point)[0]
 		metric = t_obj[id_][1]

@@ -281,7 +281,7 @@ class cbc_metric(object):
 	def log_pdf_gauss(self, theta, boundaries = None):
 		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
 	
-	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-5):
+	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-6):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -338,9 +338,10 @@ class cbc_metric(object):
 			#TODO:fix the thresholds
 			if isinstance(order, int): return order
 			if M>50.: order_ = 1
-			if M<=50. and M>10.: order_ = 2
-			if M<=10. and M>1.: order_ = 4
-			if M<=1.: order_ = 6
+			if M<=50. and M>10.: order_ = 4
+			if M<=10. and M>1.: order_ = 6
+			if M<=1.: order_ = 8
+			#print(M, order_) #DEBUG
 			return order_
 		
 		for theta_ in theta:
@@ -448,6 +449,7 @@ class cbc_metric(object):
 			raise RuntimeError("Approximant {} is TD: only FD approximants are supported".format(approx)) #must be FD approximant
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(theta, self.variable_format)
 		#print("mbank pars - {}: ".format(self.variable_format),m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
+		#warnings.warn("Set non-zero spins!"); s1z = s1z + 0.4; s2z = s2z -0.7
 		
 		try:
 			hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
@@ -524,9 +526,52 @@ class cbc_metric(object):
 		else: return h
 	
 	#@do_profile(follow = [])
-	def get_metric(self, theta, overlap = False, order = None, epsilon = 1e-5, target_match = 0.97):
+	def get_metric(self, theta, overlap = False, metric_type = 'hessian', **kwargs):
 		"""
-		Returns the metric computed with the Hessian matrix + eigenvalues recalculation.
+		Returns the metric. Depending on ``metric_type``, it uses different approximations.
+		It can accept any argument of the underlying function, specified by ``metric_type``
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		metric_type: str
+			How to compute the metric. Available options are:
+				- 'hessian': Computes the hessian (calls ``cbc_metric.get_hessian``)
+				- 'timmed_hessian': Trims the hessian eigenvalues (calls ``cbc_metric.get_trimmed_hessian``)
+				- 'numerical_hessian': computes the numerical hessian with finite difference methods (uses package ``numdifftools`` and calls ``cbc_metric.get_numerical_hessian``)
+
+		Returns
+		-------
+		
+		metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric in the given parameters
+			
+		"""
+		#TODO: allow to implement a custom metric function...
+		metric_dict ={
+			'hessian': self.get_hessian,
+			'trimmed_hessian': self.get_trimmed_hessian,
+			'numerical_hessian': self.get_numerical_hessian
+			}
+		
+		if metric_type not in metric_dict.keys():
+			msg = "Unknown metric_type '{}' given. It must be one of {}".format(metric_type, list(metric_dict.keys()))
+			raise ValueError(msg)
+		
+		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
+		
+	def get_trimmed_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, target_match = 0.97):
+		"""
+		Returns the hessian with the adjusted eigenvalues.
 		
 		Parameters
 		----------
@@ -587,7 +632,7 @@ class cbc_metric(object):
 		def loss_epsilon(log10_epsilon):
 			"Loss function to compute the proper value of epsilon"
 			theta_ = which_theta(10**log10_epsilon)
-			if theta_ is None: return 10000
+			if theta_ is None: return np.inf
 			WF_ = self.get_WF(theta_, self.approx, plus_cross = False)
 			res = np.square(target_match - self.WF_match(WF_, WF_center, overlap = overlap))
 			return res
@@ -600,7 +645,7 @@ class cbc_metric(object):
 			theta = theta[None,:]
 			squeeze = True
 
-		metric_hessian = self.get_hessian_metric(theta, overlap = overlap, order = order, epsilon = epsilon) #(N,D,D)
+		metric_hessian = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon) #(N,D,D)
 		#if squeeze: metric_hessian = np.squeeze(metric_hessian)
 		#return metric_hessian
 		
@@ -614,7 +659,7 @@ class cbc_metric(object):
 				#we just change the eigenvalues for which the expected jump to achieve the target_match is larger than 1. They are unphyisical. For the "nice" eigenvalues, expected_epsilon tends to agree with actual_epsilon
 			expected_epsilons = np.sqrt((1-target_match)/eigval)
 			ids = np.where( expected_epsilons >= 1.)[0]
-			#ids = range(len(eigval))
+			ids = range(len(eigval))
 
 				#Some checks on the eigenvalues
 			#print("old eigval: ", eigval) #DEBUG
@@ -641,7 +686,7 @@ class cbc_metric(object):
 					epsilon_eigval = 10**res.x
 					match_ = np.sqrt(res.fun)+target_match #approximated result in some cases (but ok-ish)
 
-					if False:
+					if not True:
 						print(id_, epsilon_eigval, np.sqrt((1-target_match)/eigval[id_]))
 						plt.figure()
 						plt.title(self.approx)
@@ -675,12 +720,12 @@ class cbc_metric(object):
 
 		return metric
 
-	def get_numerical_hessian_metric(self, theta, overlap = False, epsilon = 1e-5):
+	def get_numerical_hessian(self, theta, overlap = False, epsilon = 1e-5, target_match = 0.97):
 		"""
-		Returns the metric computed with the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.
+		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.
 		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function `cbc_metric.get_hessian_metric`.
 		In particular the step size epsilon must be tuned carefully and the results are really sensible on this choice.
-		Uses package `numdifftools`, not among the dependencies.
+		Uses package ``numdifftools``, not among the dependencies.
 		
 		Parameters
 		----------
@@ -696,6 +741,9 @@ class cbc_metric(object):
 		epsilon: float
 			Size of the jump for the finite difference scheme.
 			If `None`, it will be authomatically computed.
+		
+		target_match: float
+			Target match for the authomatic epsilon computation. Only applies is epsilon is None.
 		
 		Returns
 		-------
@@ -716,13 +764,13 @@ class cbc_metric(object):
 		# Loss function
 		def loss_epsilon(log10_epsilon, axis, center):
 			"Loss function to compute the proper value of epsilon"
-			target_match = 0.97 #FIXME: this is not a good place to set this
-			theta_ = np.array(center)
-			theta_[axis] = center[axis]+10**log10_epsilon
-			if axis >0:
-				if not self.var_handler.is_theta_ok(theta_[1:], self.variable_format): theta_[axis] = center[axis]-10**log10_epsilon
-				if not self.var_handler.is_theta_ok(theta_[1:], self.variable_format): return 1000.
-			match = match_t(theta_)
+			theta_p, theta_m = np.array(center), np.array(center)
+			theta_p[axis] = center[axis]+10**log10_epsilon
+			theta_m[axis] = center[axis]-10**log10_epsilon
+			if not (self.var_handler.is_theta_ok(theta_p, self.variable_format)
+				and self.var_handler.is_theta_ok(theta_m, self.variable_format)):
+					return np.inf
+			match = match_t(theta_p)
 			res = np.square(target_match - match)
 			return res
 		
@@ -746,8 +794,8 @@ class cbc_metric(object):
 
 		##		
 		# Dealing with epsilon
-		if not (isinstance(epsilon, float) or epsilon is None):
-			raise ValueError("epsilon should be a float or None")
+		if not (isinstance(epsilon, (float, list, np.ndarray)) or epsilon is None):
+			raise ValueError("epsilon should be a float, list or None")
 	
 		##
 		# Computing the metric
@@ -771,7 +819,7 @@ class cbc_metric(object):
 			
 	
 			#Computing the hessian
-			step = epsilon if isinstance(epsilon, float) else epsilon_list
+			step = epsilon if epsilon is not None else epsilon_list/2. #/2 because numdifftools uses a second order accurate finite difference scheme
 			H = 0.5*nd.Hessian(match_t, step = step)(center)
 	
 			if overlap: H = H[1:,1:]
@@ -789,9 +837,9 @@ class cbc_metric(object):
 		if squeeze:	metric = np.squeeze(metric)
 		return metric
 
-	def get_hessian_metric(self, theta, overlap = False, order = None, epsilon = 1e-5):
+	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
 		"""
-		Returns the metric computed with the Hessian matrix.
+		Returns the Hessian matrix.
 		
 		Parameters
 		----------
@@ -1074,7 +1122,7 @@ class cbc_metric(object):
 		
 		.. math::
 		
-			match(theta1, theta2) = 1 + M_ij(theta1) (theta1 - theta2)_i (theta1 - theta2)_j
+			match(theta1, theta2) = 1 - M_ij(theta1) (theta1 - theta2)_i (theta1 - theta2)_j
 		
 		Parameters
 		----------
@@ -1103,18 +1151,13 @@ class cbc_metric(object):
 			Array containing the metric approximated match of the given WFs
 			
 		"""
-		theta1 = np.array(theta1)
-		theta2 = np.array(theta2)
-		assert theta1.shape == theta2.shape, "Shapes of the two inputs should be the same!"
+		theta1 = np.asarray(theta1)
+		theta2 = np.asarray(theta2)
+		assert theta1.shape[-1] == theta2.shape[-1] == self.D, "Dimension of theta must be D = {}".format(self.D)
 		squeeze = False
 		if theta1.ndim ==1:
 			theta1 = theta1[None,:]
-			theta2 = theta2[None,:]
 			squeeze = True
-		
-			#do you need this??
-		theta1 = theta1[:,:self.D]
-		theta2 = theta2[:,:self.D]
 
 		delta_theta = theta2 - theta1  #(N,D)
 		

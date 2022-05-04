@@ -720,7 +720,7 @@ class cbc_metric(object):
 
 		return metric
 
-	def get_numerical_hessian(self, theta, overlap = False, epsilon = 1e-5, target_match = 0.97):
+	def get_numerical_hessian(self, theta, overlap = False, epsilon = 1e-6, target_match = 0.97):
 		"""
 		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.
 		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function `cbc_metric.get_hessian_metric`.
@@ -806,11 +806,12 @@ class cbc_metric(object):
 			center = np.array([0, *theta_i])
 
 			#setting epsilon (if it's the case)
+			#FIXME: this does not work!!
 			if epsilon is None:			
 				epsilon_list = np.full(center.shape, 1e-5)
 			
 				for ax in range(self.D+1):
-					res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-10, 0.), args = (ax, center),
+					res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-10, -1), args = (ax, center),
 						#method='brent', options={'xtol': 1e-2, 'maxiter': 100})
 						method='bounded', options={'xatol': 1e-2, 'maxiter': 100})
 					if res.success and res.fun != 1000.:
@@ -819,8 +820,12 @@ class cbc_metric(object):
 			
 	
 			#Computing the hessian
-			step = epsilon if epsilon is not None else epsilon_list/2. #/2 because numdifftools uses a second order accurate finite difference scheme
-			H = 0.5*nd.Hessian(match_t, step = step)(center)
+			step = epsilon if epsilon is not None else epsilon_list #/2 because numdifftools uses a second order accurate finite difference scheme
+			H_function = nd.Hessian(match_t, base_step = 1e-2,
+				num_steps=40, step_ratio=2, num_extrap=16) #adaptive method from https://git.ligo.org/chad-hanna/manifold/-/blob/main/manifold/metric.py#L273
+			#H_function = nd.Hessian(match_t, step = step)
+					
+			H = 0.5*H_function(center)
 	
 			if overlap: H = H[1:,1:]
 			else: H = H[1:,1:] - np.outer(H[0,1:], H[0,1:])/H[0,0]
@@ -828,8 +833,7 @@ class cbc_metric(object):
 			
 			#enforcing positive eigenvalues (WTF??)
 			eigval, eigvec = np.linalg.eig(H)
-			H = np.linalg.multi_dot([eigvec, np.diag(np.abs(eigval)), eigvec.T])
-			#H = self.get_hessian_metric(theta, overlap = overlap, order = None, epsilon = step[1:]) #Using the WF gradients for this...
+			#H = np.linalg.multi_dot([eigvec, np.diag(np.abs(eigval)), eigvec.T])
 	
 			metric.append(H)
 		

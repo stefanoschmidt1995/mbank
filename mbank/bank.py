@@ -396,7 +396,7 @@ class cbc_bank():
 			
 		if placing_method == 'random':
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
-			N_points_max = int(1e6)
+			N_points_max = int(1e4)
 			N_points_tot = N_points(t_obj)
 
 			if N_points_tot >N_points_max:

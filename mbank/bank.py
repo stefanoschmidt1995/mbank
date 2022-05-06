@@ -343,7 +343,7 @@ class cbc_bank():
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 			#total number of points according to volume placement
-		N_points = lambda t: [25 if self.D == 2 else 250][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
+		N_points = lambda t: [25 if self.D == 2 else 25][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
@@ -396,7 +396,7 @@ class cbc_bank():
 			
 		if placing_method == 'random':
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
-			N_points_max = int(1e4)
+			N_points_max = int(1e6)
 			N_points_tot = N_points(t_obj)
 
 			if N_points_tot >N_points_max:
@@ -488,8 +488,11 @@ class cbc_bank():
 		
 			###
 			#creating the tiling
+		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False,
+									#metric_type = 'hessian')
+									metric_type = 'parabolic_fit_hessian', target_match = 0.999, N_epsilon_points = 5)
 		t_obj = tiling_handler() #empty tiling handler
-		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_obj.get_metric, use_ray = use_ray )	
+		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_fun, max_depth = 8, use_ray = use_ray )	
 		
 			##
 			#placing the templates

@@ -14,6 +14,7 @@ mbank.metric
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize
+import itertools
 
 import lal 
 import lalsimulation as lalsim
@@ -560,7 +561,8 @@ class cbc_metric(object):
 		metric_dict ={
 			'hessian': self.get_hessian,
 			'trimmed_hessian': self.get_trimmed_hessian,
-			'numerical_hessian': self.get_numerical_hessian
+			'numerical_hessian': self.get_numerical_hessian,
+			'parabolic_fit_hessian': self.get_parabolic_fit_hessian
 			}
 		
 		if metric_type not in metric_dict.keys():
@@ -568,10 +570,106 @@ class cbc_metric(object):
 			raise ValueError(msg)
 		
 		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
+	
+	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 10, log_epsilon_range = (-7, -2), full_output = False):
+		"""
+		Returns the hessian with the adjusted eigenvalues.
+		The eigenvalues are adjusted by fitting a parabola on the match along each direction.
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		target_match: float
+			Target match for the eigenvalues fixing. Maximum range for the optimization problem
+		
+		N_epsilon_points: int
+			Number of points to evaluate the match along each dimension
+		
+		log_epsilon_range: tuple
+			Tuple of floats. They represent the range in the log10(epsilon) to explore
+		
+		full_output: bool
+			Whether to return (together with the metric) a list of array, one for each dimension. The arrays have rows ``(step, match)``
+		
+
+		Returns
+		-------
+		
+		metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric in the given parameters
+
+		parabolae : list
+			List of array being used to compute the eigenvalues along each dimension.
+			
+		"""
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim ==1:
+			theta = theta[None,:]
+			squeeze = True
+		
+		metric_hessian = self.get_hessian(theta, overlap = overlap, order = None) #(N,D,D)
+		parabolae = []
+		metric = []
+
+		for center, metric_ in zip(theta, metric_hessian):
+			WF1 = self.get_WF(center, self.approx)
+			det = 1.
+			eigvals, eigvecs = np.linalg.eig(metric_)
+			parabolae_ = []
+			new_eigvals = []
+			
+				#recomputing the eigenvalues by parabolic fitting
+			for d, eigvec in enumerate(eigvecs.T):
+				epsilon_list = np.logspace(*log_epsilon_range, N_epsilon_points)
+				parabola_list_d = [(0.,1.)]
+				max_epsilon = [np.inf, np.inf]
+				
+				for epsilon, s in itertools.product(epsilon_list,[+1,-1]):
+					id_s = (s+1)//2
+					if max_epsilon[id_s] < epsilon: continue #this is to make sure not to explore weird regions
+					
+					theta_ = np.array(center)+s*epsilon*eigvec
+					if self.var_handler.is_theta_ok(theta_, self.variable_format):
+						WF2 = self.get_WF(theta_, self.approx)
+						temp_match = self.WF_match(WF1, WF2, True)
+						if temp_match >= target_match:
+							parabola_list_d.append((s*epsilon, temp_match))
+						else:
+							max_epsilon[id_s] = epsilon
+					else:
+						max_epsilon[id_s] = epsilon
+
+				parabolae_.append(np.array(parabola_list_d))
+				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1) #parabolic fit
+				new_eigvals.append(-p[0])
+		
+			parabolae.append(parabolae_)
+			metric.append(np.linalg.multi_dot([eigvecs, np.diag(new_eigvals), eigvecs.T]))
+		
+		metric = np.stack(metric, axis = 0)
+		if squeeze:
+			metric = np.squeeze(metric)
+			parabolae = parabolae[0]
+		
+		if full_output: return metric, parabolae
+		else: return metric
+		
+	
 		
 	def get_trimmed_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, target_match = 0.97):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
+		The eigenvalues are adjusted by a single point estimation with the step being estimated by a minimization problem.
 		
 		Parameters
 		----------

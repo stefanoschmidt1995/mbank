@@ -1062,14 +1062,14 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 		#return np.max(N_templates_list)
 
-	def create_tiling_from_list(self, boundaries_list, V_tile, metric_func, use_ray = False, verbose = True):
+	def create_tiling_from_list(self, boundaries_list, V_tile, metric_func, max_depth = None, use_ray = False, verbose = True):
 		"""
 		Creates a tiling of the space, starting from a list of rectangles.
 		Each rectangle in `boundaries_list` is treated separately and if `use_ray is set to `True` they run in parallel.
 		
 		This function is useful to create a new tiling which covers disconnected regions or to heavily parallelize the computation.
 		
-		The generated tiling will **overwrite** any previous tiling (i.e. the tiling will be emptied before exectuting).
+		The generated tiling will **overwrite** any previous tiling (i.e. the tiling will be emptied before executing).
 
 		Parameters
 		----------
@@ -1093,7 +1093,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			
 				metric_obj = mbank.metric.cbc_metric(**args)
 				metric_func = metric_obj.get_metric
-			
+		
+		max_depth: int
+			Maximum number of splitting before quitting the iteration. If None, the iteration will go on until the volume condition is not met
 				
 		use_ray: bool
 			Whether to use ray to parallelize
@@ -1126,9 +1128,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			temp_t_obj = tiling_handler() #This must be emptied at every iteration!! Otherwise, it gives lots of troubles :(
 			if use_ray:
 				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
-							V_tile, metric_func, verbose = verbose , worker_id = i) )
+							V_tile, metric_func, max_depth = max_depth, verbose = verbose , worker_id = i) )
 			else:
-				self.extend(temp_t_obj.create_tiling(b, V_tile, metric_func, verbose = verbose, worker_id = None)) #adding the newly computed templates to the tiling object
+				self.extend(temp_t_obj.create_tiling(b, V_tile, metric_func, max_depth = max_depth, verbose = verbose, worker_id = None)) #adding the newly computed templates to the tiling object
 			
 		if use_ray:
 			t_ray_list = ray.get(t_ray_list)
@@ -1141,11 +1143,11 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 
 	@ray.remote
-	def create_tiling_ray(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
+	def create_tiling_ray(self, boundaries, V_tile, metric_func, max_depth = None, verbose = True, worker_id = None):
 		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
-		return self.create_tiling(boundaries, V_tile, metric_func, verbose, worker_id)
+		return self.create_tiling(boundaries, V_tile, metric_func, max_depth, verbose, worker_id)
 	
-	def create_tiling(self, boundaries, V_tile, metric_func, verbose = True, worker_id = None):
+	def create_tiling(self, boundaries, V_tile, metric_func, max_depth = None, verbose = True, worker_id = None):
 		"""
 		Create a tiling within a rectangle using a hierarchical iterative splitting method. The iteration is continued until the threshold `V_tile` is obtained.
 		If there is already a tiling, the splitting will be continued.
@@ -1173,6 +1175,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				metric_obj = mbank.metric.cbc_metric(**args)
 				metric_func = metric_obj.get_metric
 		
+		max_depth: int
+			Maximum number of splitting before quitting the iteration. If None, the iteration will go on until the volume condition is not met
 			
 		verbose: bool
 			Whether to print the progress of the computation
@@ -1206,7 +1210,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
 
 			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist) <= V_tile)]
+			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist) <= V_tile, 0)]
 
 			#else the tiling is already full! We do:
 			#	- a consistency check of the boundaries
@@ -1216,7 +1220,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
 				print(centers, start_rect.min_distance_point(centers), start_rect)
-			tiles_list = [(R, M, self.N_templates(R, M, dist) <= V_tile) for R, M in self.__iter__()]
+			tiles_list = [(R, M, self.N_templates(R, M, dist) <= V_tile, 0) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
 		
@@ -1261,7 +1265,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		####
 		#Iterative splitting
-		
 		while not (tiles_list == tiles_list_old):
 				#updating old one
 			tiles_list_old = list(tiles_list)
@@ -1272,14 +1275,16 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				if t[2]:
 					if verbose: V_covered += t[0].volume()
 					continue
+				if isinstance(max_depth, (int, float)):
+					if t[3]>= max_depth: continue #stop splitting
 				
 				nt = split(t[0], which_split_axis(t[0], t[1])) #new tiles list (len = 3)
 				
 				metric_0 = metric_func(get_center(nt[0]))
 				metric_2 = metric_func(get_center(nt[2]))
-				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile),
-								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile) ]
+				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile, t[3]+1),
+								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile, t[3]+1),
+								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile, t[3]+1) ]
 				
 				
 					#replacing the old tile with the new ones

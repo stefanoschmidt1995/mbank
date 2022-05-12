@@ -22,6 +22,7 @@ import lalsimulation as lalsim
 import warnings
 
 from .handlers import variable_handler
+from .utils import project_metric
 
 #############DEBUG LINE PROFILING
 try:
@@ -562,7 +563,8 @@ class cbc_metric(object):
 			'hessian': self.get_hessian,
 			'trimmed_hessian': self.get_trimmed_hessian,
 			'numerical_hessian': self.get_numerical_hessian,
-			'parabolic_fit_hessian': self.get_parabolic_fit_hessian
+			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
+			'block_diagonal_hessian': self.get_block_diagonal_hessian
 			}
 		
 		if metric_type not in metric_dict.keys():
@@ -570,6 +572,33 @@ class cbc_metric(object):
 			raise ValueError(msg)
 		
 		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
+	
+	def get_block_diagonal_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
+		"""
+		Computes the hessian with a block diagonal method
+		
+		#WRITEME!!
+		"""
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			squeeze = True
+		
+		metric = self.get_hessian(theta,  overlap = overlap, epsilon = 1e-6, order = None)
+
+		ax_list = [k for k in range(2, self.D)]
+		for i, metric_ in enumerate(metric):
+			
+			if self.D <= 2: break
+			metric[i, 2:,2:] = project_metric(metric_, ax_list)
+			for j in range(2):
+				metric[i, j,2:] = 0.
+				metric[i, 2:,j] = 0.
+
+		if squeeze: return metric[0,...]
+		else: return metric
+
 	
 	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 10, log_epsilon_range = (-7, -2), full_output = False):
 		"""
@@ -618,6 +647,7 @@ class cbc_metric(object):
 			squeeze = True
 		
 		metric_hessian = self.get_hessian(theta, overlap = overlap, order = None) #(N,D,D)
+		#metric_hessian = self.get_block_diagonal_hessian(theta, overlap = overlap, order = None); warnings.warn("Using block diagonal hessian")#(N,D,D)
 		parabolae = []
 		metric = []
 

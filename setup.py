@@ -32,7 +32,7 @@ setuptools.setup(
 		"Operating System :: OS Independent",
 	],
 	scripts = ["bin/mbank_run", "bin/mbank_injfile", "bin/mbank_mcmc", 
-		"bin/mbank_place_templates", "bin/mbank_merge", "bin/mbank_injections"],
+		"bin/mbank_place_templates", "bin/mbank_merge","bin/mbank_validate_metric", "bin/mbank_injections"],
 	python_requires='>=3.7',
 	install_requires=required_packages,
 	command_options={

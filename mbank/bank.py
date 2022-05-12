@@ -371,7 +371,8 @@ class cbc_bank():
 			
 			if placing_method in ['geometric', 'geo_stochastic']:
 					#if stochastic option is set, we create a first guess for stochastic placing method 
-				new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
+				#new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
+				new_templates_ = create_mesh(2*np.sqrt(1-avg_match), t, coarse_boundaries = None) #(N,D)
 				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
@@ -490,7 +491,8 @@ class cbc_bank():
 			#creating the tiling
 		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False,
 									#metric_type = 'hessian')
-									metric_type = 'parabolic_fit_hessian', target_match = 0.999, N_epsilon_points = 5)
+									metric_type = 'block_diagonal_hessian')
+									#metric_type = 'parabolic_fit_hessian', target_match = 0.99, N_epsilon_points = 5)
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_fun, max_depth = 8, use_ray = use_ray )	
 		

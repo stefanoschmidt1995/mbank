@@ -1,0 +1,270 @@
+#!/usr/bin/env python
+"""
+mbank_validate_metric
+---------------------
+
+A script to make some plots to validate the metric at a given point in space.
+It makes the following plots:
+	- Match vs distance parabolae
+	- Constant match ellipse
+	- Metric accuracy histogram
+	- epsilon validation
+
+
+To validate the metric:
+
+	mbank_validate_metric --options-you-like
+	
+You can also load (some) options from an ini-file:
+
+	mbank_validate_metric --some-options other_options.ini
+
+Make sure that the mbank is properly installed.
+To know which options are available:
+
+	mbank_validate_metric --help
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import pickle
+from scipy.spatial import Rectangle
+import warnings
+from tqdm import tqdm
+
+from mbank.metric import cbc_metric
+from mbank.handlers import tiling_handler, tile, variable_handler
+from mbank.utils import plot_tiles_templates, parse_from_file, updates_args_from_ini, load_PSD
+
+import argparse
+import os
+
+#########################################################################
+
+def plot_parabolae(center, metric_hessian, parabolae):
+
+	eigvals, eigvecs = np.linalg.eig(metric_hessian)
+
+		##
+		# Plotting & computing eigs
+	y = lambda x, a, b, c: a*x**2 +b*x +c
+	fig, axes = plt.subplots(len(eigvals), 1, sharex = True)
+	plt.suptitle("center = {}".format(center))
+	new_eigvals = []
+
+	for d, (ax, eigval, parabola) in enumerate(zip(axes, eigvals, parabolae)):
+		ax.set_title("{} | Eigvec {}".format(d, np.round(eigvecs[:,d],3)))
+		ax.plot(parabola[:,0], parabola[:,1], 'o', c = 'g')
+		
+			#doing the fitting
+		#p = np.polyfit(parabola[:,0], parabola[:,1], 2) #parabolic fit
+		p = np.polyfit(parabola[:,0]**2, parabola[:,1], 1) #parabolic fit
+		
+		x = np.sort(parabola[:,0])
+		ax.plot(x, y(x, p[0], 0, p[1]) , '--', label = 'fit: {}'.format(np.format_float_scientific(-p[0],2)))
+		ax.plot(x, y(x, -eigval, 0, 1) , '-', label = 'hessian: {}'.format(np.format_float_scientific(eigval,2)))
+		ax.set_xscale('log')
+		ax.set_yscale('log')
+		ax.legend()
+		
+		new_eigvals.append(-p[0])
+
+	min_x, max_x = axes[-1].set_xlim()
+	axes[-1].set_xlim((min_x, max_x*2.))
+	
+	plt.xlabel(r"$\epsilon$")
+	plt.tight_layout()
+	
+	return
+
+#########################################################################
+
+
+##### Creating parser
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--variable-format", required = False,
+	help="Defines the variable that enters the metric. Valid formats are those of `mbank.handlers.variable_format`")
+parser.add_argument(
+	"--center", required = False, type = float, nargs = '+',
+	help="The points at which the metric is evaluated at")
+parser.add_argument(
+	"--match", required = False, default = 0.97, type = float,
+	help="Match for plotting the constant match ellipse and metric accuracy histogram")
+parser.add_argument(
+	"--save-dir", default = None,
+	help="Directory where the plots will be saved. If None, no plots will be produced")
+parser.add_argument(
+	"--psd",  required = False,
+	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
+parser.add_argument(
+	"--asd",  default = False, action='store_true',
+	help="Whether the input file has an ASD (sqrt of the PSD)")
+parser.add_argument(
+	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
+	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the scalar product")
+parser.add_argument(
+	"--f-max",  default = 1024., type=float,
+	help="Maximum frequency for the scalar product")
+parser.add_argument(
+	"--approximant", default = None,
+	help="LAL approximant for the metric computation")
+parser.add_argument(
+	"--overlap",  default = False, action='store_true',
+	help="Whether to compute the metric based on the overlap rather than the match")
+parser.add_argument(
+	"--metric-type", default = 'hessian',
+	help="The metric computation method to use")
+parser.add_argument(
+	"--show", type = bool, default = True,
+	help="Whether to show the plots")
+parser.add_argument(
+	"--N-points",  default = 500, type=int,
+	help="Number of points to sample inside constant match ellipse")
+
+args, filenames = parser.parse_known_args()
+
+	#updating from the ini file(s), if it's the case
+for f in filenames:
+	args = updates_args_from_ini(f, args, parser)
+
+##################################################
+	######
+	#	Interpreting the parser and initializing variables
+	######
+if (args.center is None) or (args.variable_format is None):
+	raise ValueError("The arguments center and variable_format must be set!")
+
+if args.save_dir is not None:
+	if not args.save_dir.endswith('/'): args.save_dir = args.save_dir+'/'
+	if not os.path.exists(args.save_dir): os.makedirs(args.save_dir)
+
+	######
+	#	Initializing the metric object
+	######
+
+f, PSD = load_PSD(args.psd, args.asd, args.ifo)
+m_obj = cbc_metric(args.variable_format,
+		PSD = (f,PSD),
+		approx = args.approximant,
+		f_min = args.f_min, f_max = args.f_max)
+
+center = np.array(args.center)
+assert center.shape[0] == m_obj.D, "Wrong dimensionality for the center: expected {} but given {}".format(center.shape[0], m_obj.D)
+if not m_obj.var_handler.is_theta_ok(center, args.variable_format):
+	raise ValueError("Unacceptable value for the center was provided!")
+		
+
+	######
+	# Computing the metric in all its forms
+	######
+
+target_match = 0.999
+metric_hessian = m_obj.get_hessian(center, overlap = args.overlap, epsilon = 1e-6, order = None)
+metric_block_diagonal = m_obj.get_block_diagonal_hessian(center,  overlap = args.overlap, epsilon = 1e-6, order = None)
+metric_numerical = np.eye(center.shape[0])  #m_obj.get_numerical_hessian(center,  overlap = overlap, target_match = 0.999, epsilon = 1e-6)
+metric_trimmed = m_obj.get_trimmed_hessian(center,  overlap = args.overlap, target_match = target_match)
+metric_parabolae, parabolae = m_obj.get_parabolic_fit_hessian(center, overlap = args.overlap, target_match = target_match,
+			N_epsilon_points = 20, log_epsilon_range = (-5, -2), full_output = True)
+
+metric = m_obj.get_metric(center, overlap = args.overlap, metric_type = args.metric_type)
+
+print("Variable format: ", args.variable_format)
+print("center: ", center)
+print("  Eig hessian: ", np.linalg.eig(metric_hessian)[0], np.linalg.det(metric_hessian))
+print("  Eig block diagonal: ", np.linalg.eig(metric_block_diagonal)[0], np.linalg.det(metric_block_diagonal))
+print("  Eig numerical hessian: ", np.linalg.eig(metric_numerical)[0], np.linalg.det(metric_numerical))
+print("  Eig trimmed metric: ", np.linalg.eig(metric_trimmed)[0], np.linalg.det(metric_trimmed))
+print("  Eig parabola metric: ", np.linalg.eig(metric_parabolae)[0], np.linalg.det(metric_parabolae))
+
+if args.save_dir is None and not args.show: quit()
+
+	######
+	# Sampling from the ellipse and computing match
+	######
+points = m_obj.get_points_on_ellipse(args.N_points, center, match = args.match, metric = metric, inside = True, overlap = args.overlap)
+matches = np.zeros((points.shape[0],))+np.nan
+ids_inside = m_obj.var_handler.is_theta_ok(points, args.variable_format, raise_error = False)
+
+if sum(ids_inside)>0:
+	matches[ids_inside] = m_obj.match(points[ids_inside, :], center, overlap = args.overlap)
+
+
+	######
+	# Plotting the parabolae
+	######
+plot_parabolae(center, metric_hessian, parabolae)
+if args.save_dir is not None: plt.savefig(args.save_dir+"parabolae.png")
+
+	######
+	# Plotting the ellipses and histogram
+	######
+t_obj = tiling_handler()
+var_handler = variable_handler()
+t_obj.extend([tile(Rectangle(center-1e-6, center+1e-6), metric)]) #mbank metric
+
+with warnings.catch_warnings():
+	warnings.simplefilter("ignore")
+	plot_tiles_templates(t_obj, center[None,:] , args.variable_format, var_handler,
+		injections = points, inj_cmap = matches,
+		dist_ellipse = np.sqrt(1-args.match),
+		save_folder = None, show = False) 
+plt.close(plt.get_fignums()[-1])
+if args.save_dir is not None: plt.savefig(args.save_dir+"parabolae.png")
+
+	#histogram
+plt.figure()
+plt.title("Center: {} - Overlap {}".format(center, args.overlap))
+hist_kwargs = {'bins': 20, 'histtype':'step', 'color':'orange'}
+plt.hist(matches, label = 'mbank', **hist_kwargs)
+plt.axvline(args.match, c = 'r')
+plt.legend()
+if args.save_dir is not None: plt.savefig(args.save_dir+"hist.png")
+
+	
+	######
+	# Epsilon validation (plots and computation)
+	######
+epsilon_list = np.logspace(-12, -2, 10)
+order_list = [1,2,4, 6, 8]
+det_list = []
+
+for epsilon in tqdm(epsilon_list, desc = 'Loop on epsilon', leave = False):
+	temp_list = []
+	epsilon_ = np.full(center.shape, epsilon)
+	#epsilon_[:3] = [1e-4, 1e-4, 1e-4]
+	epsilon_[0] = epsilon_[0]/10.
+	for order in order_list:
+			#to compute the det
+		metric = m_obj.get_hessian(center, overlap = args.overlap, order = order, epsilon = epsilon_)
+		temp_list.append(np.linalg.det(metric))
+	det_list.append(temp_list)
+det_list = np.array(det_list)
+
+plt.figure()
+plt.title("{} - theta = {}\napproximant = {}".format(args.variable_format, center, args.approximant))
+for i, order in enumerate(order_list):
+	if det_list.ndim ==2: plt.loglog(epsilon_list, det_list[:,i], label = 'order = {}'.format(order))
+	else:
+		for j in range(det_list.shape[-1]):
+			plt.loglog(epsilon_list, det_list[:,i,j], label = 'dim = {} - order = {}'.format(j, order), c = ['r','g', 'b', 'orange'][j])
+plt.legend()
+plt.xlabel(r'$\epsilon$')
+plt.ylabel(r'$|M|$')
+if args.save_dir is not None: plt.savefig(args.save_dir+"epsilon.png")
+
+if args.show: plt.show()
+
+
+
+
+
+
+
+	
+	
+	

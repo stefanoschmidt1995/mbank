@@ -554,7 +554,8 @@ class variable_handler(object):
 			ids_ = np.where(np.abs(s)<1e-10)[0]
 			if len(ids_)>0: s[ids_] = 0.
 			return s
-		s1x, s1y, s1z, s2x, s2y, s2z = set_zero_spin(s1x), set_zero_spin(s1y), set_zero_spin(s1z), set_zero_spin(s2x), set_zero_spin(s2y), set_zero_spin(s2z)
+		s1x, s1y, s1z = set_zero_spin(s1x), set_zero_spin(s1y), set_zero_spin(s1z)
+		s2x, s2y, s2z = set_zero_spin(s2x), set_zero_spin(s2y), set_zero_spin(s2z)
 		
 		
 		if squeeze:

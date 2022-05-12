@@ -1024,7 +1024,7 @@ def place_stochastically_in_tile(minimum_match, tile):
 	return new_templates
 
 #@do_profile(follow=[])
-def place_stochastically(minimum_match, t_obj, bank, empty_iterations = 200, seed_bank = None):
+def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank = None):
 	"""
 	Place templates with a stochastic placing algorithm
 	It iteratively proposes a new template to add to the bank. The proposal is accepted if the match of the proposal with the previously placed templates is smaller than ``minimum_match``. The iteration goes on until no template is found to have a distance smaller than the given threshold ``minimum_match``.

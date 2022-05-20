@@ -198,7 +198,7 @@ class cbc_bank():
 				#this is chi from https://git.ligo.org/lscsoft/gstlal/-/blob/master/gstlal-inspiral/python/_spawaveform.c#L896
 			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
 			
-			row.f_final = 2500 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
+			row.f_final = 2490 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
 			row.ifo = ifo #setting the ifo chosen by the user
 			
 				#Setting additional parameters
@@ -343,7 +343,7 @@ class cbc_bank():
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
 			#total number of points according to volume placement
-		N_points = lambda t: [25 if self.D == 2 else 25][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
+		N_points = lambda t: [25 if self.D == 2 else 15][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
@@ -491,8 +491,8 @@ class cbc_bank():
 			#creating the tiling
 		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False,
 									#metric_type = 'hessian')
-									metric_type = 'block_diagonal_hessian')
-									#metric_type = 'parabolic_fit_hessian', target_match = 0.99, N_epsilon_points = 5)
+									#metric_type = 'block_diagonal_hessian')
+									metric_type = 'parabolic_fit_hessian', target_match = 0.99, N_epsilon_points = 5, log_epsilon_range = (-7, -5))
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_fun, max_depth = 8, use_ray = use_ray )	
 		

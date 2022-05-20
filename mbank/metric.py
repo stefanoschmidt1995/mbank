@@ -316,6 +316,12 @@ class cbc_metric(object):
 		# - The espilon is EVEN MORE CRUCIAL
 		#FIXME: find a nice way to set some defaults for the finite difference step! Maybe hardcode it inside the variable_handler?
 		#FIXME: assert boundaries when computing gradients... Maybe find a preprocessing for the vars that makes every variable unbounded?
+
+		squeeze = False
+		theta = np.asarray(theta)
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			squeeze = True
 		
 		assert order in [None, 1,2,4,6,8], "Wrong order '{}' for the finite difference scheme given: options are 'None' or '{}'".format(order, [1,2,4,6,8])
 
@@ -406,6 +412,7 @@ class cbc_metric(object):
 
 		grad_h = np.stack(grad_h_list, axis = -1).T #(N,K,D)
 		
+		if squeeze: grad_h = grad_h[0]
 		return grad_h
 	
 	def get_WF_lal(self, theta, approx = None, df = None):
@@ -564,7 +571,8 @@ class cbc_metric(object):
 			'trimmed_hessian': self.get_trimmed_hessian,
 			'numerical_hessian': self.get_numerical_hessian,
 			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
-			'block_diagonal_hessian': self.get_block_diagonal_hessian
+			'block_diagonal_hessian': self.get_block_diagonal_hessian,
+			'fisher':self.get_fisher_matrix
 			}
 		
 		if metric_type not in metric_dict.keys():
@@ -586,6 +594,8 @@ class cbc_metric(object):
 			squeeze = True
 		
 		metric = self.get_hessian(theta,  overlap = overlap, epsilon = 1e-6, order = None)
+		#metric = self.get_parabolic_fit_hessian(theta,  overlap = overlap, target_match = 0.99,
+		#		N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False)
 
 		ax_list = [k for k in range(2, self.D)]
 		for i, metric_ in enumerate(metric):
@@ -600,7 +610,7 @@ class cbc_metric(object):
 		else: return metric
 
 	
-	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 10, log_epsilon_range = (-7, -2), full_output = False):
+	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
 		The eigenvalues are adjusted by fitting a parabola on the match along each direction.
@@ -638,6 +648,10 @@ class cbc_metric(object):
 
 		parabolae : list
 			List of array being used to compute the eigenvalues along each dimension.
+		
+		original_metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			The metric being used to compute the new eigenvalues. 
 			
 		"""
 		theta = np.asarray(theta)
@@ -655,11 +669,13 @@ class cbc_metric(object):
 			WF1 = self.get_WF(center, self.approx)
 			det = 1.
 			eigvals, eigvecs = np.linalg.eig(metric_)
+			
 			parabolae_ = []
 			new_eigvals = []
 			
 				#recomputing the eigenvalues by parabolic fitting
 			for d, eigvec in enumerate(eigvecs.T):
+					
 				epsilon_list = np.logspace(*log_epsilon_range, N_epsilon_points)
 				parabola_list_d = [(0.,1.)]
 				max_epsilon = [np.inf, np.inf]
@@ -680,8 +696,9 @@ class cbc_metric(object):
 						max_epsilon[id_s] = epsilon
 
 				parabolae_.append(np.array(parabola_list_d))
-				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1) #parabolic fit
-				new_eigvals.append(-p[0])
+				#p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1)[0] #parabolic fit
+				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 2)[1] #quartic fit
+				new_eigvals.append(np.abs(p)) #abs is dangerous, as if you have a negative eigenvalues, you woudn't note
 		
 			parabolae.append(parabolae_)
 			metric.append(np.linalg.multi_dot([eigvecs, np.diag(new_eigvals), eigvecs.T]))
@@ -690,8 +707,9 @@ class cbc_metric(object):
 		if squeeze:
 			metric = np.squeeze(metric)
 			parabolae = parabolae[0]
+			metric_hessian = metric_hessian[0]
 		
-		if full_output: return metric, parabolae
+		if full_output: return metric, parabolae, metric_hessian
 		else: return metric
 		
 	
@@ -742,6 +760,7 @@ class cbc_metric(object):
 		#	3. Usually the actual eigenvalus grows a little bit, making the metric more well behaved
 		#	4. Some other approximants (e.g. IMRPhenomXP) do not update the value of the small eigenvalues
 		####
+		warnings.warn("This function is trash... Please use a different metric computation")
 		
 		
 			###
@@ -969,6 +988,82 @@ class cbc_metric(object):
 		if squeeze:	metric = np.squeeze(metric)
 		return metric
 
+	def get_fisher_matrix(self, theta, overlap = False, order = None, epsilon = 1e-3):
+		"""
+		Returns the Fisher matrix.
+		
+		::
+		
+			M_{ij} = 0.5 <d_i h | d_j h>
+			
+		```##Check this!```
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		order: int
+			Order of the finite difference scheme for the gradient computation.
+			If None, some defaults values will be set, depending on the total mass.
+
+		epsilon: list
+			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+
+		Returns
+		-------
+		
+		metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric Fisher matrix according to the given parameters
+			
+		"""
+		scalar_ = lambda h1, h2: 0.5*np.sum(h1*h2.conj() + h2*h1.conj(), axis = -1).real
+		
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim ==1:
+			theta = theta[None,:]
+			squeeze = True
+
+		h = self.get_WF(theta, approx = self.approx) #(N,D)
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon) #(N,D, K)
+			#whithening		
+		h_W = h / np.sqrt(self.PSD) #whithened WF
+		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
+
+			#Stacking the gradients w.r.t. t,phi
+			#h*np.exp(1j*(2*np.pi*m_obj.f_grid*t+phi))
+		grad_h_W_t = h_W*1j*(2*np.pi*self.f_grid) #(N,D)
+		grad_h_W_phi = 1j*h_W #(N,D)
+		grad_h_W = np.concatenate([grad_h_W, grad_h_W_t[...,None], grad_h_W_phi[...,None]], axis = -1) #(N,D, K+2)
+
+			#overlaps
+		h_h = np.sum(np.multiply(np.conj(h_W), h_W), axis =1).real #(N,)
+		h_grad_h_real = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W).real #(N,K+2)
+		grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,K+2, K+2)
+		
+			#assembling metric
+		metric_tphi = np.einsum('ij,ik->ijk', h_grad_h_real, h_grad_h_real) 
+		metric_tphi = np.einsum('ijk,i->ijk', metric_tphi , 1./np.square(h_h))
+		metric_tphi = -metric_tphi + np.divide(grad_h_grad_h_real, h_h[:,None,None])
+		
+		metric = np.zeros((metric_tphi.shape[0], self.D, self.D))
+		for i, M_ in enumerate(metric_tphi):
+			metric[i,...] = project_metric(M_, [j for j in range(theta.shape[-1])])
+		metric = 0.5*metric
+				
+		if squeeze: metric = metric[0]
+		
+		return metric
+
+
 	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
 		"""
 		Returns the Hessian matrix.
@@ -1022,8 +1117,8 @@ class cbc_metric(object):
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
 		
 		h_h = np.sum(np.multiply(np.conj(h_W), h_W), axis =1).real #(N,)
-		h_grad_h = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W) #(N,4)
-		grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,D,D)
+		h_grad_h = np.einsum('ij,ijk->ik', np.conj(h_W), grad_h_W) #(N,K)
+		grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,K,K)
 		
 		###
 		#computing the metric, given h_grad_h.real (N,D,4), h_grad_h.imag (N,D,4) and h_h (N,D)
@@ -1040,7 +1135,7 @@ class cbc_metric(object):
 			
 			g_tt = np.square(h_h_f.real/h_h) - h_h_f2.real/h_h #(N,)
 			
-			g_ti = (h_grad_h.imag.T * h_h_f.real + h_grad_h.real.T * h_h_f.imag).T #(N,4)
+			g_ti = (h_grad_h.imag.T * h_h_f.real + h_grad_h.real.T * h_h_f.imag).T #(N,K)
 			g_ti = (g_ti.T/np.square(h_h)).T
 			g_ti = g_ti - (h_grad_h_f.imag.T/h_h).T
 			

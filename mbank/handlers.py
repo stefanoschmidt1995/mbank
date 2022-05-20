@@ -147,7 +147,7 @@ class variable_handler(object):
 			
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
 		
-		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (0., np.inf), 'Mc':(0., np.inf), 'eta':(0, 0.25),
+		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (0., 1000.), 'Mc':(0., np.inf), 'eta':(1./1000., 0.25),
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),

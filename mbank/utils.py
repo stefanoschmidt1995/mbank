@@ -1213,6 +1213,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 		
 				#measuring metric match between livepoints and proposal
 		L_t = np.linalg.cholesky(metric).astype(dtype) #(D,D)
+			
 		
 			#BLAS seems to be faster for larger matrices but slower for smaller ones...
 			#Maybe put a threshold on the number of livepoints?
@@ -1277,7 +1278,7 @@ def create_mesh_new(dist, tile, coarse_boundaries = None):
 		bound_list.extend( [ (0, low_) for low_ in low_bound_list])
 	else: bound_list = []
 	
-		#Computing Choelsky decomposition of the metric	
+		#Computing cholesky decomposition of the metric	
 	metric = tile[1]
 	L = np.linalg.cholesky(metric).T
 	L_inv = np.linalg.inv(L)
@@ -1409,7 +1410,7 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 		bound_list.extend( [ (0, low_) for low_ in low_bound_list])
 	else: bound_list = []
 	
-		#Computing Choelsky decomposition of the metric	
+		#Computing cholesky decomposition of the metric	
 	metric = tile[1]
 	L = np.linalg.cholesky(metric).T
 	L_inv = np.linalg.inv(L)

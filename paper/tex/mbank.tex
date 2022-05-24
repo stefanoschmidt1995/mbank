@@ -393,6 +393,14 @@ The outcome of the {\it geometric} placement is set as a seed bank for the {\it 
 Such methods perform the stochastic and random placement algorithm respectively by considering each tile separetely.
 They are faster than stochastic and random methods but they tend to over-cover the space. If the tiles are large (i.e. a large number of tempaltes per tile is expected), the errors introduced by considering the tiles separeately becomes negligible.
 
+\subsection{Limitations} \label{sec:limitations}
+Metric fails when the match is bad behaved:
+
+\begin{itemize}
+	\item banana shape for the match
+	\item one dimension is not important (metric is elongated!)
+\end{itemize}
+
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
@@ -435,6 +443,11 @@ THINK OF SOME PLOTS TO PUT HERE!
 %\newpage
 \subsection{Comparison with \texttt{sbank} }
 IDENTIFY A TEST BANK! (AND PREPARE IT)
+	\begin{itemize}
+		\item Trim O3 gstlal bank to make it comparable
+		\item Make the comparison with 3D bank (with $\chi_{eff}$)
+	\end{itemize}
+
 
 \begin{figure}[h]
 	\includegraphics{jafar}
@@ -450,18 +463,21 @@ Comparison based on:
 		\item speed
 	\end{itemize}
 
-Include scaling plots.
-
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bank generation: two case studies} \label{sec:bank_generation}
 
 Useful to present the features of these two banks generated?
 
 \subsection{A precessing bank}
-This could be the bank we use for precessing searches.
+IMRPhenomPv2/XP (high mass)
+
+Compare the metric slices with the NP case
+
+\subsection{A precessing/HM bank}
+IMRPhenomXPHM (high mass)
 
 \subsection{An eccentric bank}
-This could be a nonspinning, eccentric bank. It should have 500K templates for a reasonable range of masses.
+EccentricFD (low mass)
 
 
 \section{Final remarks and future prospects} \label{sec:conclusion}

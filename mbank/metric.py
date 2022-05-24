@@ -127,13 +127,14 @@ class cbc_metric(object):
 		approx: string
 			Which approximant to use. It can be any lal FD approximant.
 		"""
-		self.approx = approx
-		
 			#checking if the approximant is right
 		try:
 			lal_approx = lalsim.SimInspiralGetApproximantFromString(approx) #getting the approximant
 		except RuntimeError:
 			raise RuntimeError("Wrong approximant name: it must be an approximant supported by lal")
+
+			#changing the approximant
+		self.approx = approx
 
 		return
 	
@@ -566,9 +567,10 @@ class cbc_metric(object):
 			
 		"""
 		#TODO: allow to implement a custom metric function...
+		#TODO: remove trimmed metric!
 		metric_dict ={
 			'hessian': self.get_hessian,
-			'trimmed_hessian': self.get_trimmed_hessian,
+			'projected_hessian': self.get_projected_hessian,
 			'numerical_hessian': self.get_numerical_hessian,
 			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
 			'block_diagonal_hessian': self.get_block_diagonal_hessian,
@@ -580,12 +582,43 @@ class cbc_metric(object):
 			raise ValueError(msg)
 		
 		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
-	
-	def get_block_diagonal_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
+
+	def get_projected_hessian(self, theta, overlap = False,  min_eig = 1e-3, order = None, epsilon = 1e-5):
 		"""
-		Computes the hessian with a block diagonal method
+		Returns the projected Hessian matrix. The projections happens on the subspace spanned the eigenvectors with eigenvalues larger than ``min_eig``.
 		
-		#WRITEME!!
+		See ``mbank.utils.get_projected_metric`` for more information.
+		
+		The metric obtained with this procedure is a nicer accuracy but it is **degenerate** (i.e. very close to zero eigenvalues). Moreover, the volume element obtained by the metric is not representative of the actual volume element, since it makes sense in a lower dimensional space.
+		
+		Parameters
+		----------
+		
+		theta: np.ndarray
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		min_eig: float
+			Minimum tolerable eigenvalue for ``metric``. The metric will be projected on the directions of smaller eigenvalues
+
+		order: int
+			Order of the finite difference scheme for the gradient computation.
+			If None, some defaults values will be set, depending on the total mass.
+
+		epsilon: list
+			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+
+		Returns
+		-------
+		
+		metric : np.ndarray
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric Hessian in the given parameters
+			
 		"""
 		theta = np.asarray(theta)
 		squeeze = False
@@ -593,7 +626,31 @@ class cbc_metric(object):
 			theta = theta[None,:]
 			squeeze = True
 		
-		metric = self.get_hessian(theta,  overlap = overlap, epsilon = 1e-6, order = None)
+		metric = self.get_hessian(theta,  overlap = overlap, epsilon = epsilon, order = order)
+
+		for i, metric_ in enumerate(metric):
+			
+			if self.D <= 2: break
+			metric[i, ...] = get_projected_metric(metric, min_eig = min_eig)
+
+		if squeeze: return metric[0,...]
+		else: return metric
+
+	
+	def get_block_diagonal_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
+		"""
+		Computes the hessian with a block diagonal method
+		
+		#WRITEME!!
+		"""
+		#FIXME: this is trash!! Remove?
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			squeeze = True
+		
+		metric = self.get_hessian(theta,  overlap = overlap, epsilon = epsilon, order = order)
 		#metric = self.get_parabolic_fit_hessian(theta,  overlap = overlap, target_match = 0.99,
 		#		N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False)
 
@@ -609,8 +666,8 @@ class cbc_metric(object):
 		if squeeze: return metric[0,...]
 		else: return metric
 
-	
-	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False):
+
+	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False, **kwargs):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
 		The eigenvalues are adjusted by fitting a parabola on the match along each direction.
@@ -760,7 +817,7 @@ class cbc_metric(object):
 		#	3. Usually the actual eigenvalus grows a little bit, making the metric more well behaved
 		#	4. Some other approximants (e.g. IMRPhenomXP) do not update the value of the small eigenvalues
 		####
-		warnings.warn("This function is trash... Please use a different metric computation")
+		warnings.warn("Function `get_trimmed_hessian` is trash... Please use a different metric computation")
 		
 		
 			###

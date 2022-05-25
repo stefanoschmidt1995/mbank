@@ -1299,6 +1299,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile, t[3]+1),
 								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile, t[3]+1),
 								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile, t[3]+1) ]
+				print("Parent: ", np.linalg.det(t[1]))
+				print("child: {} {}".format( np.linalg.det(metric_0), np.linalg.det(metric_2)))
+				print("delta|M|/|M|: {} {}\n\n".format((np.linalg.det(t[1])-np.linalg.det(metric_0))/np.linalg.det(t[1]), (np.linalg.det(t[1])-np.linalg.det(metric_2))/np.linalg.det(t[1])))
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)

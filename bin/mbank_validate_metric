@@ -186,7 +186,6 @@ metric_hessian = m_obj.get_hessian(center, overlap = args.overlap, order = None,
 metric_fisher = m_obj.get_fisher_matrix(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
 metric_block_diagonal = m_obj.get_block_diagonal_hessian(center,  overlap = args.overlap, epsilon = 1e-6, order = None)
 metric_numerical = np.eye(center.shape[0])  #m_obj.get_numerical_hessian(center,  overlap = overlap, target_match = 0.999, epsilon = 1e-6)
-metric_trimmed = np.eye(center.shape[0])  #m_obj.get_trimmed_hessian(center,  overlap = args.overlap, target_match = target_match)
 metric_parabolae, parabolae, original_parabola_metric = m_obj.get_parabolic_fit_hessian(center, overlap = args.overlap, target_match = target_match,
 			N_epsilon_points = 10, log_epsilon_range = (-7, -5), full_output = True)
 
@@ -200,7 +199,6 @@ print("  Eig hessian: ", np.linalg.eig(metric_hessian)[0], np.linalg.det(metric_
 print("  Eig Fisher: ", np.linalg.eig(metric_fisher)[0], np.linalg.det(metric_fisher))
 print("  Eig block diagonal: ", np.linalg.eig(metric_block_diagonal)[0], np.linalg.det(metric_block_diagonal))
 print("  Eig numerical hessian: ", np.linalg.eig(metric_numerical)[0], np.linalg.det(metric_numerical))
-print("  Eig trimmed metric: ", np.linalg.eig(metric_trimmed)[0], np.linalg.det(metric_trimmed))
 print("  Eig parabola metric: ", np.linalg.eig(metric_parabolae)[0], np.linalg.det(metric_parabolae))
 
 if args.save_dir is None and not args.show: quit()

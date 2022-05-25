@@ -555,8 +555,8 @@ class cbc_metric(object):
 		metric_type: str
 			How to compute the metric. Available options are:
 				- 'hessian': Computes the hessian (calls ``cbc_metric.get_hessian``)
-				- 'timmed_hessian': Trims the hessian eigenvalues (calls ``cbc_metric.get_trimmed_hessian``)
 				- 'numerical_hessian': computes the numerical hessian with finite difference methods (uses package ``numdifftools`` and calls ``cbc_metric.get_numerical_hessian``)
+				- 'WRITEME!'
 
 		Returns
 		-------
@@ -567,7 +567,6 @@ class cbc_metric(object):
 			
 		"""
 		#TODO: allow to implement a custom metric function...
-		#TODO: remove trimmed metric!
 		metric_dict ={
 			'hessian': self.get_hessian,
 			'projected_hessian': self.get_projected_hessian,
@@ -770,160 +769,6 @@ class cbc_metric(object):
 		else: return metric
 		
 	
-		
-	def get_trimmed_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, target_match = 0.97):
-		"""
-		Returns the hessian with the adjusted eigenvalues.
-		The eigenvalues are adjusted by a single point estimation with the step being estimated by a minimization problem.
-		
-		Parameters
-		----------
-		
-		theta: np.ndarray
-			shape: (N,D)/(D,) -
-			Parameters of the BBHs. The dimensionality depends on self.variable_format
-		
-		overlap: bool
-			Whether to compute the metric based on the local expansion of the overlap rather than of the match
-			In this context the match is the overlap maximized over time
-
-		order: int
-			Order of the finite difference scheme for the gradient computation.
-			If None, some defaults values will be set, depending on the total mass.
-
-		epsilon: list
-			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
-		
-		target_match: float
-			Target match for the eigenvalues fixing
-
-		Returns
-		-------
-		
-		metric : np.ndarray
-			shape: (N,D,D)/(D,D) -
-			Array containing the metric in the given parameters
-			
-		"""
-		####
-		# The recomputation of the eigenvalues is very tricky: we need to extend the hessian at a target match and check if the approximation still holds. If it doesn't, we need to update the eigenvalues by choosing a "large" finite difference step epsilon_eigval. The step is computed by finding the appropriate step, that gives the target match.
-		# To check if the approximation holds, we compute `expected_epsilons =  np.sqrt((1-target_match)/eigval)`: this is the expected jump to achieve the target match along a given eigenvector direction. We want expected_epsilons <1. If it's not, things are not nice and the approximation does not work: hence we want to recompute epsilon.
-		# For large eigenvalues, things are nice:
-		#	1. The eigevalues do not change
-		#	2. epsilon_eigval \simeq expected_epsilons, which is the expected step to perform
-		# For small eigenvalues, the hessian is trash and the eigenvalues needs to be recomputed:
-		#	1. expected_epsilons is huge! 
-		#	2. Some approximants (e.g. IMRPhenomD) do not work well with this method and has weird behaviour when computing epsilons_eigval
-		#	3. Usually the actual eigenvalus grows a little bit, making the metric more well behaved
-		#	4. Some other approximants (e.g. IMRPhenomXP) do not update the value of the small eigenvalues
-		####
-		warnings.warn("Function `get_trimmed_hessian` is trash... Please use a different metric computation")
-		
-		
-			###
-			# Defining some helper functions
-		def which_theta(epsilon):
-			"Returns an acceptable theta given epsilon. Returns None if none is found"
-			theta_p = center + epsilon*eigvec[:,id_]
-			theta_m = center - epsilon*eigvec[:,id_]
-			if self.var_handler.is_theta_ok(theta_p, self.variable_format, raise_error = False):
-				return theta_p
-			elif self.var_handler.is_theta_ok(theta_m, self.variable_format, raise_error = False):
-				return theta_m
-			else:
-				return None
-	
-		def loss_epsilon(log10_epsilon):
-			"Loss function to compute the proper value of epsilon"
-			theta_ = which_theta(10**log10_epsilon)
-			if theta_ is None: return np.inf
-			WF_ = self.get_WF(theta_, self.approx, plus_cross = False)
-			res = np.square(target_match - self.WF_match(WF_, WF_center, overlap = overlap))
-			return res
-		
-			###
-			# Initializing theta and computing the Hessian
-		theta = np.asarray(theta)
-		squeeze = False
-		if theta.ndim ==1:
-			theta = theta[None,:]
-			squeeze = True
-
-		metric_hessian = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon) #(N,D,D)
-		#if squeeze: metric_hessian = np.squeeze(metric_hessian)
-		#return metric_hessian
-		
-			###
-			# Start of the eigenvalues recalculation
-		metric = []
-			#loop on all the istances of the metric
-		for center, metric_ in zip(theta, metric_hessian):
-			eigval, eigvec = np.linalg.eig(metric_)
-
-				#we just change the eigenvalues for which the expected jump to achieve the target_match is larger than 1. They are unphyisical. For the "nice" eigenvalues, expected_epsilon tends to agree with actual_epsilon
-			expected_epsilons = np.sqrt((1-target_match)/eigval)
-			ids = np.where( expected_epsilons >= 1.)[0]
-			ids = range(len(eigval))
-
-				#Some checks on the eigenvalues
-			#print("old eigval: ", eigval) #DEBUG
-			if np.any(eigval < 0):
-				msg = "The hessian at theta = {} has a negative eigenvalue! This is pathological: you may fix this by increasing the order of differentiation.".format(center)
-				raise ValueError(msg)
-			if np.any(eigval < 1e-10):
-				msg = "The hessian at theta = {} has a zero eigenvalue! This is pathological: maybe the approximant is degenerate in one of the quantities?".format(center)
-				raise ValueError(msg)
-
-			if len(ids)>0: WF_center = self.get_WF(center, self.approx, plus_cross = False)
-
-				#loop to trim the eigenvalues (wherever it is necessary)
-			for id_ in ids:
-				
-					#optimizing the value of epsilon (takes lot of time!)
-				res = scipy.optimize.minimize_scalar(loss_epsilon, bounds=(-5, 0.),
-						#method='brent', options={'xtol': 1e-2, 'maxiter': 100})
-						method='bounded', options={'xatol': 1e-2, 'maxiter': 100})
-				#res = scipy.optimize.minimize(loss_epsilon, x0 = [np.log10(0.5)], bounds=[(-3, 0)], tol = 1e-3) #bad idea!
-		
-					#computing the eigenvalue
-				if (res.success or res.message == 'Maximum number of function calls reached.') and which_theta(10**res.x) is not None:
-					epsilon_eigval = 10**res.x
-					match_ = np.sqrt(res.fun)+target_match #approximated result in some cases (but ok-ish)
-
-					if not True:
-						print(id_, epsilon_eigval, np.sqrt((1-target_match)/eigval[id_]))
-						plt.figure()
-						plt.title(self.approx)
-						e_list = np.logspace(-10, 0., 20)
-						plt.plot(np.log10(e_list), [loss_epsilon(np.log10(e_)) for e_ in e_list])
-						plt.show()
-					
-				
-						#FIXME: this is what you want. Is it a big deal if you don't compute like this?
-					#theta_ = which_theta(10**res.x)
-					#WF_ = self.get_WF(theta_, self.approx, plus_cross = False)
-					#match_ = self.WF_match(WF_, WF_center, overlap = overlap)
-					
-					eig_num = (1-match_)/epsilon_eigval**2
-					#eigval[id_] = max(eig_num, 1e-3) #This cutoff is garbage! It produces unphysical results
-					eigval[id_] = eig_num
-
-				else:
-					#FIXME: understand why this fails so often...
-					warnings.warn("Something went wrong in trimming eigenvalue of dimension {} for theta = {}.")
-					#eigval[id_] = max(1e-3, eigval[id_]) #Trim the eigenvalues in case of failure?
-
-			#print("new eigval: ", eigval) #DEBUG
-			metric.append(np.linalg.multi_dot([eigvec, np.diag(eigval), eigvec.T]))
-
-		metric = np.stack(metric, axis = 0)
-		if squeeze:	metric = np.squeeze(metric)
-		
-		#print(theta, np.sqrt(np.linalg.det(metric))) #DEBUG
-		#print(self.approx) #DEBUG
-
-		return metric
-
 	def get_numerical_hessian(self, theta, overlap = False, epsilon = 1e-6, target_match = 0.97):
 		"""
 		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.

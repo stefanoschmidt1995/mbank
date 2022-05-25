@@ -433,7 +433,7 @@ class cbc_bank():
 		self.add_templates(new_templates)
 		return new_templates
 
-	def generate_bank(self, metric_obj, avg_match, boundaries, V_tile, placing_method = 'random', grid_list = None, use_ray = False, livepoints = 50):
+	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance, placing_method = 'random', grid_list = None, use_ray = False, livepoints = 50, max_depth = 6):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -459,9 +459,9 @@ class cbc_bank():
 			If use ray option is set, the subtiling of each coarse division will run in parallel
 			If None, no prior splitting will be made.
 		
-		V_tile: float
-			Maximum volume for the tile. The volume is normalized by 0.1^D.
-			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
+		tolerance: float
+			Threshold used for the tiling algorithm. It amounts to the maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
+			For more information, see `mbank.handlers.tiling_handler.create_tiling`
 
 		placing_method: str
 			The placing method to set templates in each tile. See `place_templates` for more information.
@@ -471,6 +471,9 @@ class cbc_bank():
 		
 		livepoints: float
 			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
+		
+		max_depth: int
+			Maximum number of splitting before quitting the iteration. If None, the iteration will go on until the volume condition is not met
 		
 		Returns
 		-------
@@ -502,7 +505,7 @@ class cbc_bank():
 									#metric_type = 'block_diagonal_hessian')
 									#metric_type = 'parabolic_fit_hessian', target_match = 0.99, N_epsilon_points = 5, log_epsilon_range = (-7, -5))
 		t_obj = tiling_handler() #empty tiling handler
-		t_obj.create_tiling_from_list(boundaries_list, V_tile, metric_fun, max_depth = 8, use_ray = use_ray )	
+		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
 		
 			##
 			#placing the templates
@@ -574,7 +577,8 @@ class cbc_bank():
 			Number of independent walkers during the chain. If `use_ray` option is `True`, they will be run in parellel.
 		
 		use_ray: bool
-			Whether to use `ray` to parallelize the sampling
+			Whether to use `ray` to parallelize the sampling.
+			#DO THIS OPTION
 		
 		thin_factor: int
 			How many MC steps to discard before selecting one.

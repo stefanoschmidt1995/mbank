@@ -85,8 +85,11 @@ parser.add_argument(
 	"--livepoints", default = 50, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
-	"--v-tile", default = 200, type = float,
-	help="Maximum volume for each tile. The volume is normalized by 0.1^D. This is equivalent to the number of templates in each tile, assuming a constant reference metric distance between them of 0.1.")
+	"--tile-tolerance", default = 0.1, type = float,
+	help="Maximum tolerated variation of the relative difference of the metric determinant between parent and child in the iterative splitting procedure")
+parser.add_argument(
+	"--max-depth", default = 6, type = int,
+	help="Maximum number of iterative splitting before terminating.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
@@ -194,7 +197,7 @@ elif format_info['mass_format'] == 'mceta':
 	var2_min, var2_max = eta_min, eta_max
 
 	#setting spin boundaries
-boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max),
+boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
 	s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max), theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
 	iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
 	e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
@@ -218,8 +221,9 @@ if format_info['mass_format'] == 'm1m2':
 	raise NotImplementedError("Currently no template placement is implemented for the mass format m1m2.")
 
 else:
-	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
-		placing_method = args.placing_method, grid_list = args.grid_size, livepoints = args.livepoints, use_ray = args.use_ray)
+	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, tolerance = args.tile_tolerance,
+		placing_method = args.placing_method, grid_list = args.grid_size,
+		livepoints = args.livepoints, max_depth = args.max_depth, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 

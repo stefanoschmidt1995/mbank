@@ -100,11 +100,14 @@ parser.add_argument(
 	"--eta-range", default = [.18, .25], type=float, nargs = 2,
 	help="Range values for the mass ratio.")
 parser.add_argument(
-	"--s1-range", default = [-0.8,0.8], type=float, nargs = 2,
+	"--s1-range", default = [-0.99,0.99], type=float, nargs = 2,
 	help="Range values for magnitude of spin 1 (if applicable)")
 parser.add_argument(
-	"--s2-range", default = [-0.8,0.8], type=float, nargs = 2,
+	"--s2-range", default = [-0.99,0.99], type=float, nargs = 2,
 	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
+	help="Range values for effective spin parameter (if applicable)")
 parser.add_argument(
 	"--theta-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for theta angles of spins (if applicable)")
@@ -145,7 +148,8 @@ if args.run_dir == './out_$(run_name)':	args.run_dir = './out_{}/'.format(args.r
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
-if args.chain_file.find('/') <0: args.chain_file = args.run_dir+args.chain_file
+if isinstance(args.chain_file, str):
+	if args.chain_file.find('/') <0: args.chain_file = args.run_dir+args.chain_file
 
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range
@@ -154,6 +158,7 @@ mc_min, mc_max = args.mc_range
 eta_min, eta_max = args.eta_range
 s1_min, s1_max = args.s1_range
 s2_min, s2_max = args.s2_range
+chi_min, chi_max = args.chi_range
 theta_min, theta_max = args.theta_range
 e_min, e_max = args.e_range
 meanano_min, meanano_max = args.meanano_range
@@ -181,7 +186,7 @@ elif format_info['mass_format'] == 'mceta':
 	var2_min, var2_max = eta_min, eta_max
 
 	#setting spin boundaries
-boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max),
+boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
 	s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max), theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
 	iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
 	e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))

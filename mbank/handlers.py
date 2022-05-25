@@ -1076,7 +1076,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 		#return np.max(N_templates_list)
 
-	def create_tiling_from_list(self, boundaries_list, V_tile, metric_func, max_depth = None, use_ray = False, verbose = True):
+	def create_tiling_from_list(self, boundaries_list, tolerance, metric_func, max_depth = None, use_ray = False, verbose = True):
 		"""
 		Creates a tiling of the space, starting from a list of rectangles.
 		Each rectangle in `boundaries_list` is treated separately and if `use_ray is set to `True` they run in parallel.
@@ -1095,9 +1095,15 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			If a single `np.ndarray` is given
 			
 
-		V_tile: float
-			Maximum volume for the tile. The volume is normalized by 0.1^D.
-			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
+		tolerance: float
+			Maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
+			This means that a tile will be split if
+			
+			::
+			
+				(|M_p|-|M_c|)/max(|M_p|,|M_c|) > tolerance
+			
+			If tolerance is greater than 1, no further tiling will be performed
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -1142,9 +1148,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			temp_t_obj = tiling_handler() #This must be emptied at every iteration!! Otherwise, it gives lots of troubles :(
 			if use_ray:
 				t_ray_list.append( temp_t_obj.create_tiling_ray.remote(temp_t_obj, b,
-							V_tile, metric_func, max_depth = max_depth, verbose = verbose , worker_id = i) )
+							tolerance, metric_func, max_depth = max_depth, verbose = verbose , worker_id = i) )
 			else:
-				self.extend(temp_t_obj.create_tiling(b, V_tile, metric_func, max_depth = max_depth, verbose = verbose, worker_id = None)) #adding the newly computed templates to the tiling object
+				self.extend(temp_t_obj.create_tiling(b, tolerance, metric_func, max_depth = max_depth, verbose = verbose, worker_id = None)) #adding the newly computed templates to the tiling object
 			
 		if use_ray:
 			t_ray_list = ray.get(t_ray_list)
@@ -1157,13 +1163,13 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 
 	@ray.remote
-	def create_tiling_ray(self, boundaries, V_tile, metric_func, max_depth = None, verbose = True, worker_id = None):
+	def create_tiling_ray(self, boundaries, tolerance, metric_func, max_depth = None, verbose = True, worker_id = None):
 		"Wrapper to `create_tiling` to allow for `ray` parallel execution. See `handlers.tiling_hander.create_tiling()` for more information."
-		return self.create_tiling(boundaries, V_tile, metric_func, max_depth, verbose, worker_id)
+		return self.create_tiling(boundaries, tolerance, metric_func, max_depth, verbose, worker_id)
 	
-	def create_tiling(self, boundaries, V_tile, metric_func, max_depth = None, verbose = True, worker_id = None):
+	def create_tiling(self, boundaries, tolerance, metric_func, max_depth = None, verbose = True, worker_id = None):
 		"""
-		Create a tiling within a rectangle using a hierarchical iterative splitting method. The iteration is continued until the threshold `V_tile` is obtained.
+		Create a tiling within a rectangle using a hierarchical iterative splitting method.
 		If there is already a tiling, the splitting will be continued.
 		
 		Parameters
@@ -1175,10 +1181,15 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
 			If the tiling is non empty and not consistent with the boundaries, a warning will be raised but the boundaries will be ignored
 
-		V_tile: float/tuple
-			Maximum volume for the tile. The volume is normalized by 0.1^D.
-			This is equivalent to the number of templates that each tile should contain at a **reference template spacing of 0.1**
-			If a tuple is given, it is interpreted as ``(V_tile, ref_dist)``, where ``ref_dist`` is the reference template spacing (with 0.1 default)
+		tolerance: float
+			Maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
+			This means that a tile will be split if
+			
+			::
+			
+				(|M_p|-|M_c|)/max(|M_p|,|M_c|) > tolerance
+			
+			If tolerance is greater than 1, no further tiling will be performed
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -1204,19 +1215,17 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				Return this object filled with the desired tiling
 		
 		"""
-		dist = 0.1
-		if isinstance(V_tile, tuple): V_tile, dist = V_tile
-		
 		boundaries = tuple([np.array(b) for b in boundaries])
 		D = boundaries[0].shape[0]
 		
 		##
-		# In this context, a tile is (Rectangle, Metric, is_ok)
+		# In this context, a tile is (Rectangle, Metric, is_ok, depth)
 		# is_ok checks whether the tile is ready to be returned to the user or shall be splitted more
 		##
 		
 		####
 		#Defining the initial list of tiles. It will be updated accordingly to the splitting algorithm
+		####
 			
 			#initializing with the center of the boundaries and doing the first metric evaluation
 		start_rect = scipy.spatial.Rectangle(boundaries[0], boundaries[1])
@@ -1224,7 +1233,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
 
 			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-			tiles_list = [(start_rect, start_metric, self.N_templates(start_rect, start_metric, dist) <= V_tile, 0)]
+			tiles_list = [(start_rect, start_metric, tolerance >= 1, 0)]
 
 			#else the tiling is already full! We do:
 			#	- a consistency check of the boundaries
@@ -1234,7 +1243,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
 				print(centers, start_rect.min_distance_point(centers), start_rect)
-			tiles_list = [(R, M, self.N_templates(R, M, dist) <= V_tile, 0) for R, M in self.__iter__()]
+			tiles_list = [(R, M, tolerance >= 1, 0) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
 		
@@ -1247,6 +1256,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		####
 		#Defining some convenience function
+		####
 		
 			#splitting procedure
 		def split(rect, d):
@@ -1269,6 +1279,10 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		def get_center(rect):
 			return (rect.maxes + rect.mins)/2.
 		
+		def get_deltaM(metric1, metric2):
+			det1, det2 = np.linalg.det(metric1), np.linalg.det(metric2)
+			return np.abs(det1-det2)/np.maximum(det1,det2)
+		
 			 #progress bar = % of volume covered
 		if verbose:
 			if worker_id is None: desc = 'Volume covered by the tiling'
@@ -1279,6 +1293,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		####
 		#Iterative splitting
+		####
+		#TODO: consider using log ratio, instead of the absolute distance...
 		while not (tiles_list == tiles_list_old):
 				#updating old one
 			tiles_list_old = list(tiles_list)
@@ -1293,15 +1309,17 @@ class tiling_handler(list, collections.abc.MutableSequence):
 					if t[3]>= max_depth: continue #stop splitting
 				
 				nt = split(t[0], which_split_axis(t[0], t[1])) #new tiles list (len = 3)
-				
+
+					#Computing the new metric				
 				metric_0 = metric_func(get_center(nt[0]))
 				metric_2 = metric_func(get_center(nt[2]))
-				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile, t[3]+1),
-								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile, t[3]+1),
-								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile, t[3]+1) ]
-				print("Parent: ", np.linalg.det(t[1]))
-				print("child: {} {}".format( np.linalg.det(metric_0), np.linalg.det(metric_2)))
-				print("delta|M|/|M|: {} {}\n\n".format((np.linalg.det(t[1])-np.linalg.det(metric_0))/np.linalg.det(t[1]), (np.linalg.det(t[1])-np.linalg.det(metric_2))/np.linalg.det(t[1])))
+					#Computing stopping conditions
+				m0_ok = get_deltaM(metric_0, t[1]) < tolerance 
+				m2_ok = get_deltaM(metric_2, t[1]) < tolerance
+				#print(tolerance, get_deltaM(metric_0, t[1]) , get_deltaM(metric_2, t[1]) )
+				extended_list = [ (nt[0], metric_0, m0_ok, t[3]+1),
+								(nt[1], t[1],       (m0_ok and m2_ok), t[3]+1),
+								(nt[2], metric_2,   m2_ok, t[3]+1) ]
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)

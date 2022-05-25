@@ -21,3 +21,8 @@ from mbank.metric import cbc_metric
 from mbank.bank import cbc_bank
 from mbank.handlers import variable_handler, tiling_handler
 
+	#Removing annoying TqdmWarning warnings
+import warnings
+from tqdm import TqdmWarning
+warnings.filterwarnings('ignore', message = 'clamping frac to range', category = TqdmWarning )
+

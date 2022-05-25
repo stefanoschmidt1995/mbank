@@ -82,6 +82,9 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
+	"--livepoints", default = 50, type = float,
+	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
+parser.add_argument(
 	"--v-tile", default = 200, type = float,
 	help="Maximum volume for each tile. The volume is normalized by 0.1^D. This is equivalent to the number of templates in each tile, assuming a constant reference metric distance between them of 0.1.")
 parser.add_argument(
@@ -105,11 +108,14 @@ parser.add_argument(
 	"--eta-range", default = [.18, .25], type=float, nargs = 2,
 	help="Range values for the mass ratio.")
 parser.add_argument(
-	"--s1-range", default = [-0.8,0.8], type=float, nargs = 2,
+	"--s1-range", default = [-0.99,0.99], type=float, nargs = 2,
 	help="Range values for magnitude of spin 1 (if applicable)")
 parser.add_argument(
-	"--s2-range", default = [-0.8,0.8], type=float, nargs = 2,
+	"--s2-range", default = [-0.99,0.99], type=float, nargs = 2,
 	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
+	help="Range values for effective spin parameter (if applicable)")
 parser.add_argument(
 	"--theta-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for theta angles of spins (if applicable)")
@@ -160,6 +166,7 @@ mc_min, mc_max = args.mc_range
 eta_min, eta_max = args.eta_range
 s1_min, s1_max = args.s1_range
 s2_min, s2_max = args.s2_range
+chi_min, chi_max = args.chi_range
 theta_min, theta_max = args.theta_range
 e_min, e_max = args.e_range
 meanano_min, meanano_max = args.meanano_range
@@ -212,7 +219,7 @@ if format_info['mass_format'] == 'm1m2':
 
 else:
 	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, V_tile = args.v_tile,
-		placing_method = args.placing_method, grid_list = args.grid_size, use_ray = args.use_ray)
+		placing_method = args.placing_method, grid_list = args.grid_size, livepoints = args.livepoints, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 

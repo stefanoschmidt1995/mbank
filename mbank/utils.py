@@ -196,7 +196,7 @@ def avg_dist(avg_match, D):
 ####################################################################################################################
 
 def get_boundaries_from_ranges(format_info, M_range, q_range,
-	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), theta_range = (0, np.pi), phi_range = (-np.pi, np.pi),
+	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), chi_range = (-0.99,0.99), theta_range = (0, np.pi), phi_range = (-np.pi, np.pi),
 	iota_range = (0, np.pi), ref_phase_range = (-np.pi, np.pi), e_range = (0., 0.5), meanano_range = (0.1, 1.)):
 	"""
 	Given the ranges of each quantity, it combines them in a bondary array, suitable for other uses in the package (for instance in the bank generation).
@@ -208,7 +208,7 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 			Dict holding the format information
 			It can be generated with: `variable_handler().format_info[variable_format]`
 		
-		M_range, q_range, s1_range, s2_range, theta_range, phi_range, iota_range, ref_phase_range, e_range, meanano_range: tuple
+		M_range, q_range, s1_range, s2_range, chi_range, theta_range, phi_range, iota_range, ref_phase_range, e_range, meanano_range: tuple
 			Ranges for each physical quantity. They will be used whenever required by the `variable_format`
 			If `mchirpeta` mass format is set, `M_range` and `q_range` are interpreted as mchirp and eta respectively.
 			If `logMq` mass format is set, `M_range` is still interpreted as the mass and *not* the log mass.
@@ -234,6 +234,8 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 		#setting spin boundaries
 	if format_info['spin_format'] == 'nonspinning':
 		boundaries = np.array([[M_range[0], q_range[0]],[M_range[1], q_range[1]]])
+	elif format_info['spin_format'] == 'chi':
+		boundaries = np.array([[M_range[0], q_range[0], chi_range[0]],[M_range[1], q_range[1], chi_range[1]]])
 	elif format_info['spin_format'] == 's1z':
 		boundaries = np.array([[M_range[0], q_range[0], s1_range[0]],[M_range[1], q_range[1], s1_range[1]]])
 	elif format_info['spin_format'] == 's1z_s2z':
@@ -625,8 +627,8 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 10, 
 		if N_argpartiton < bank.templates.shape[0]:
 			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
 		
-		#metric = tiling[out_dict['id_tile'][i]].metric
-		metric = tiling[out_dict['id_tile'][i]].projected_metric()
+		metric = tiling[out_dict['id_tile'][i]].metric
+		#metric = tiling[out_dict['id_tile'][i]].projected_metric()
 		
 		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
 		
@@ -1280,8 +1282,8 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric
 		
 		id_ = t_obj.get_tile(point)[0]
-		#metric = t_obj[id_].metric
-		metric = t_obj[id_].projected_metric()
+		metric = t_obj[id_].metric
+		#metric = t_obj[id_].projected_metric()
 		
 				#measuring metric match between livepoints and proposal
 				#Doing things with cholesky is faster but requires non degenerate matrix

@@ -78,6 +78,7 @@ class variable_handler(object):
 	Valid formats for spins are:
 	
 	- ``nonspinning``: no spins are considered (only two masses), D = 0
+	- ``chi``: only ``chi_eff`` is considered. That means that ``s1z=s2z=chi``
 	- ``s1z``: only the z spin component of most massive BH is considered, D = 3
 	- ``s1z_s2z``: only the z components of the spins are considered (no precession), D = 2
 	- ``s1xz``: spin components assigned to one BH in plane xz, D = 2
@@ -115,12 +116,12 @@ class variable_handler(object):
 		
 			#hard coding valid formats for masses, spins, eccentricity and angles
 		self.m_formats = ['m1m2', 'Mq', 'logMq', 'mceta'] #mass layouts
-		self.s_formats = ['nonspinning', 's1z', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
+		self.s_formats = ['nonspinning', 'chi', 's1z', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
 		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
 		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
 		
 			#hard coding dimensions for each format
-		D_spins = {'nonspinning':0, 's1z':1, 's1z_s2z':2, 's1xz':2, 's1xyz':3, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
+		D_spins = {'nonspinning':0, 'chi':1, 's1z':1, 's1z_s2z':2, 's1xz':2, 's1xyz':3, 's1xz_s2z':3, 's1xyz_s2z':4, 'fullspins': 6} #dimension of each spin format
 		D_ecc = {'':0, 'e':1, 'emeanano':2} #dimension of each eccentric format
 		D_angles = {'':0, 'iota':1, 'iotaphi':2} #dimension of each angle format
 
@@ -149,6 +150,7 @@ class variable_handler(object):
 		
 		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (0., 1000.), 'Mc':(0., np.inf), 'eta':(1./1000., 0.25),
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
+				'chi': (-self.MAX_SPIN, self.MAX_SPIN), 
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
 				'theta1':(0., np.pi), 'phi1':(-np.pi, np.pi),
@@ -228,10 +230,8 @@ class variable_handler(object):
 		
 		if len(ids)<1: return theta
 		
-		if self.format_info[variable_format]['spin_format'] =='nonspinning':
-			pass
-		elif self.format_info[variable_format]['spin_format'] =='s1z':
-			pass #s1z is always on the larger spin
+		if self.format_info[variable_format]['spin_format'] in ['nonspinning', 'chi','s1z']:
+			pass #In chi and nonspinning there's nothing to switch #s1z is always on the larger spin
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
 			theta[ids,2], theta[ids,3] = theta[ids,3], theta[ids,2] #switching spins
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
@@ -285,6 +285,9 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 'chi':
+			if latex: labels.extend([r'$\chi$'])
+			else: labels.extend(['chi'])
 		elif self.format_info[variable_format]['spin_format'] == 's1z':
 			if latex: labels.extend([r'$s_{1z}$'])
 			else: labels.extend(['s1z'])
@@ -411,6 +414,10 @@ class variable_handler(object):
 			#starting a case swich
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 'chi':
+			chi = (BBH_components[:,0]*BBH_components[:,4] + BBH_components[:,7]*BBH_components[:,1])/ \
+					(BBH_components[:,0]+BBH_components[:,1])
+			theta.append(chi)
 		elif self.format_info[variable_format]['spin_format'] == 's1z':
 			theta.append(BBH_components[:,4])
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
@@ -516,6 +523,8 @@ class variable_handler(object):
 			#dealing with spins
 		if self.format_info[variable_format]['spin_format'] =='nonspinning':
 			pass
+		elif self.format_info[variable_format]['spin_format'] == 'chi':
+			s1z, s2z = theta[:,2], theta[:,2]
 		elif self.format_info[variable_format]['spin_format'] == 's1z':
 			s1z = theta[:,2]
 		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
@@ -1290,7 +1299,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				extended_list = [ (nt[0], metric_0, self.N_templates(nt[0], metric_0, dist) <= V_tile, t[3]+1),
 								(nt[1], t[1],       self.N_templates(nt[1], t[1], dist) <= V_tile, t[3]+1),
 								(nt[2], metric_2,   self.N_templates(nt[2], metric_2, dist) <= V_tile, t[3]+1) ]
-				
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)

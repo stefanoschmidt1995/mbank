@@ -294,7 +294,7 @@ class cbc_bank():
 		
 		return
 		
-	def place_templates(self, t_obj, avg_match, placing_method, verbose = True):
+	def place_templates(self, t_obj, avg_match, placing_method, livepoints = 50, verbose = True):
 		"""
 		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
@@ -322,6 +322,10 @@ class cbc_bank():
 		
 			Those methods are listed in `cbc_bank.placing_methods`
 		
+		livepoints: float
+			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
+		
+		
 		verbose: bool
 			Whether to print the output
 		
@@ -342,8 +346,9 @@ class cbc_bank():
 					axis =0) #(2,D)
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
+		if verbose: print("Approx number of templates {}".format(int(t_obj.compute_volume()[0] / np.power(dist, self.D))))
 			#total number of points according to volume placement
-		N_points = lambda t: [25 if self.D == 2 else 500][0]*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
+		N_points = lambda t: livepoints*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
@@ -428,7 +433,7 @@ class cbc_bank():
 		self.add_templates(new_templates)
 		return new_templates
 
-	def generate_bank(self, metric_obj, avg_match, boundaries, V_tile, placing_method, grid_list = None, use_ray = False):
+	def generate_bank(self, metric_obj, avg_match, boundaries, V_tile, placing_method = 'random', grid_list = None, use_ray = False, livepoints = 50):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -463,6 +468,9 @@ class cbc_bank():
 
 		use_ray: bool
 			Whether to use ray to parallelize
+		
+		livepoints: float
+			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
 		
 		Returns
 		-------
@@ -500,7 +508,7 @@ class cbc_bank():
 			#placing the templates
 			#(if there is KeyboardInterrupt, the tiling is returned anyway)
 		try:
-			self.place_templates(t_obj, avg_match, placing_method = placing_method, verbose = True)
+			self.place_templates(t_obj, avg_match, placing_method = placing_method, livepoints = livepoints, verbose = True)
 		except KeyboardInterrupt:
 			self.templates = None
 		

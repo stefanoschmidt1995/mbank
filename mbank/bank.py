@@ -20,7 +20,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries
+from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries, place_iterative
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -353,11 +353,11 @@ class cbc_bank():
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
 		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
-		else: it = t_obj
+		else: it = range(len(t_obj))
 
 		for i in it:
 			
-			t = t_obj[i]
+			t = t_obj[i] #current tile
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
@@ -370,10 +370,6 @@ class cbc_bank():
 				msg = "The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?\nRectangle: {}\nMetric: {}".format(t[0], t[1])
 				raise ValueError(msg)
 			
-				#old uniform placement	
-			#N_templates = min(1,t_obj.N_templates(*t, dist)) #Computed by tiling_handler
-			#new_templates_ = np.random.uniform(*boundaries_ij, (N_templates, self.D))
-			
 			if placing_method in ['geometric', 'geo_stochastic']:
 					#if stochastic option is set, we create a first guess for stochastic placing method 
 				#new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
@@ -381,12 +377,7 @@ class cbc_bank():
 				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
-				temp_t_obj = tiling_handler()
-				temp_metric_fun = lambda theta: t[1]
-
-				temp_t_obj.create_tiling((t[0].mins, t[0].maxes), (0.9, dist), temp_metric_fun, verbose = (len(it)==1), worker_id = None)
-				
-				new_templates_ = temp_t_obj.get_centers()
+				new_templates_ = place_iterative(avg_match, t)
 			elif placing_method == 'tile_stochastic':
 				new_templates_ = place_stochastically_in_tile(avg_match, t)
 			elif placing_method == 'tile_random':
@@ -503,7 +494,7 @@ class cbc_bank():
 		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False,
 									metric_type = 'hessian')
 									#metric_type = 'block_diagonal_hessian')
-									#metric_type = 'parabolic_fit_hessian', target_match = 0.99, N_epsilon_points = 5, log_epsilon_range = (-7, -5))
+									#metric_type = 'parabolic_fit_hessian', target_match = 0.9, N_epsilon_points = 10, log_epsilon_range = (-4, 1))
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
 		

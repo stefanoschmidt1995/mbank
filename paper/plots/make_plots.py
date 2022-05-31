@@ -52,8 +52,8 @@ def plot_metric_accuracy(filenames, savefile = None):
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
 	axes[-1].tick_params(axis = 'x', labelleft = True)
-	axes[-1].set_xticks([0.94+0.01*i for i in range(6)], labels = [], minor = True)
-	axes[-1].set_xlim([0.94,1.02])
+	axes[-1].set_xticks([0.93+0.01*i for i in range(7)], labels = [], minor = True)
+	axes[-1].set_xlim([0.93,1.02])
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 	#plt.show()
@@ -124,15 +124,17 @@ if __name__ == '__main__':
 		###
 		#metric accuracy plots
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
-				'metric_accuracy/paper_Mq_s1z_s2z.pkl', 'metric_accuracy/paper_Mq_s1xz_s2z.pkl']
+				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl']
+				#'metric_accuracy/paper_Mq_s1z_s2z.pkl', 'metric_accuracy/paper_Mq_s1xz_s2z.pkl']
 	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
+	#plt.show(); quit()
 		###
 		#validation of placing methods
-	variable_format_files = {'Mq_nonspinning': 'N_templates/paper_nonspinning/N_templates_Mq_nonspinning_{}.pkl',
-							'Mq_s1z_s2z': 'N_templates/paper_alignedspins/N_templates_Mq_s1z_s2z_{}.pkl',
-							'Mq_s1xz_s2z': 'N_templates/paper_precessing/N_templates_Mq_s1xz_s2z_{}.pkl'}
-	placing_methods = ['uniform', 'iterative', 'random', 'geometric', 'stochastic']
+	variable_format_files = {'Mq_nonspinning': 'placing_methods_accuracy/paper_nonspinning/data_Mq_nonspinning_{}.pkl',
+							'Mq_chi': 'placing_methods_accuracy/paper_chi/data_Mq_chi_{}.pkl',
+							'Mq_s1xz_iota': 'placing_methods_accuracy/paper_precessing/data_Mq_s1xz_iota_{}.pkl'}
+	placing_methods = ['uniform', 'random', 'stochastic']
 	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 	
 	

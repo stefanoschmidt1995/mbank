@@ -54,6 +54,7 @@ def plot_parabolae(center, metric_hessian, parabolae):
 
 		##
 		# Plotting & computing eigs
+	y_2nd_sin = lambda x, a: np.square(np.sin(np.sqrt(a*x**2)))
 	y_2nd = lambda x, a, b: a*x**2 + b
 	y_4th = lambda x, a, b, c: a*x**4 +b*x**2 +c
 	y_6th = lambda x, a, b, c, d: a*x**6 +b*x**6 +c*x**2+d
@@ -75,9 +76,10 @@ def plot_parabolae(center, metric_hessian, parabolae):
 		x = np.sort(parabola[:,0])
 		ax.plot(x, y_2nd(x, *p_2nd), '--', label = '2nd fit: {}'.format(np.format_float_scientific(p_2nd[0],2)))
 		ax.plot(x, y_4th(x, *p_4th), ':', label = '4th fit: {} | {}'.format(np.format_float_scientific(p_4th[1],2), np.format_float_scientific(p_4th[0],2)))
-		ax.plot(x, y_6th(x, *p_6th), '-.', label = '6th fit: {} | {} | {}'.format(np.format_float_scientific(p_6th[2],2),
-				np.format_float_scientific(p_6th[1],2), np.format_float_scientific(p_6th[0],2)))
+		#ax.plot(x, y_6th(x, *p_6th), '-.', label = '6th fit: {} | {} | {}'.format(np.format_float_scientific(p_6th[2],2),
+		#		np.format_float_scientific(p_6th[1],2), np.format_float_scientific(p_6th[0],2)))
 		ax.plot(x, y_2nd(x, eigval, 0), '-', label = 'hessian: {}'.format(np.format_float_scientific(eigval,2)))
+		ax.plot(x, y_2nd_sin(x, eigval), '-', label = 'hessian sine: {}'.format(np.format_float_scientific(eigval,2)))
 		ax.set_ylabel(r"$1-\mathcal{M}$")
 		#ax.set_xscale('log')
 		#ax.set_yscale('log')
@@ -181,13 +183,13 @@ if not m_obj.var_handler.is_theta_ok(center, args.variable_format):
 	# Computing the metric in all its forms
 	######
 
-target_match = 0.99
+target_match = 0.9
 metric_hessian = m_obj.get_hessian(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
 metric_fisher = m_obj.get_fisher_matrix(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
 metric_block_diagonal = m_obj.get_block_diagonal_hessian(center,  overlap = args.overlap, epsilon = 1e-6, order = None)
 metric_numerical = np.eye(center.shape[0])  #m_obj.get_numerical_hessian(center,  overlap = overlap, target_match = 0.999, epsilon = 1e-6)
 metric_parabolae, parabolae, original_parabola_metric = m_obj.get_parabolic_fit_hessian(center, overlap = args.overlap, target_match = target_match,
-			N_epsilon_points = 10, log_epsilon_range = (-7, -5), full_output = True)
+			N_epsilon_points = 10, log_epsilon_range = (-5, 1), full_output = True)
 
 metric = m_obj.get_metric(center, overlap = args.overlap, metric_type = args.metric_type, epsilon = args.epsilon)
 
@@ -227,6 +229,7 @@ t_obj = tiling_handler()
 var_handler = variable_handler()
 var2_ranges = (1,10) if var_handler.format_info[args.variable_format]['mass_format'].find('q')>-1 else (0.,0.25)
 boundaries = get_boundaries_from_ranges(var_handler.format_info[args.variable_format], (1, 100), var2_ranges)
+boundaries = np.stack([center-1e-4, center+1e-4], axis = 0)
 #t_obj.extend([tile(Rectangle(center-1e-6, center+1e-6), metric)]) #mbank metric
 t_obj.extend([tile(Rectangle(*boundaries), metric)]) #mbank metric
 
@@ -237,7 +240,7 @@ with warnings.catch_warnings():
 		dist_ellipse = np.sqrt(1-args.match),
 		save_folder = None, show = False) 
 plt.close(plt.get_fignums()[-1])
-plt.suptitle("center = {}".format(center), fontsize = 25)
+plt.suptitle("{} - {}\ncenter = {}".format(args.variable_format, args.approximant, center), fontsize = 25)
 if args.save_dir is not None: plt.savefig(args.save_dir+"ellipses.png")
 
 	#histogram

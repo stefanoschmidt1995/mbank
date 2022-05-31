@@ -301,7 +301,7 @@ if args.plot:
 				density = True, color = 'blue', label = 'metric match')
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG
-	plt.xscale('log')
+	#plt.xscale('log') #Do you want this log-scale?
 	plt.legend(fontsize = fs+3)
 
 	plt.savefig(args.run_dir+'FF_hist.png', transparent = False)

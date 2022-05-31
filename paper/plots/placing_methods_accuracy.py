@@ -16,38 +16,39 @@ from mbank.handlers import tiling_handler, variable_handler
 
 ###########################################################################################
 
-def get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, N_injs, N_neigh_templates, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
+def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list, N_injs, N_neigh_templates, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
 	"Computes the number of templates for each MM and for each V_tile"
 
-	V_tile_list.sort(reverse=True)
+	epsilon_list.sort(reverse=True)
 	out_dict = {'variable_format':variable_format,
 			'placing_method':placing_method,
-			'MM_list':MM_list, 'V_tile_list': V_tile_list,
+			'MM_list':MM_list, 'epsilon_list': epsilon_list,
 			'boundaries':boundaries,
-			'N_templates': np.zeros((len(V_tile_list), len(MM_list)), int),
-			'N_tiles': np.zeros((len(V_tile_list), ), int),
-			'volume_tiles': np.zeros((len(V_tile_list), )),
-			'MM_metric': np.zeros((len(V_tile_list), N_injs), float),
-			'MM_full': np.zeros((len(V_tile_list), N_injs), float),
+			'N_templates': np.zeros((len(epsilon_list), len(MM_list)), int),
+			'N_tiles': np.zeros((len(epsilon_list), ), int),
+			'volume_tiles': np.zeros((len(epsilon_list), )),
+			'MM_metric': np.zeros((len(epsilon_list), N_injs), float),
+			'MM_full': np.zeros((len(epsilon_list), N_injs), float),
 			'N_injs': N_injs, 'N_neigh_templates': N_neigh_templates, 'MM_inj': 0.97
 		}
 
 	t = tiling_handler()
-	for i, V_tile in enumerate(V_tile_list):
-		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, V_tile)
+	for i, epsilon in enumerate(epsilon_list):
+		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, epsilon)
 			#getting the tiling
+		#print("Tiling file: ",filename)
 		if load_tiling and os.path.exists(filename):
 			del t
 			t = tiling_handler(filename)
 		else:
-			t.create_tiling(boundaries, V_tile, m_obj.get_metric, verbose = True)
+			t.create_tiling(boundaries, epsilon, m_obj.get_metric, verbose = True)
 			t.save(filename)
 		out_dict['N_tiles'][i]= len(t)
 		out_dict['volume_tiles'][i]= t.compute_volume()[0]
 		
 		for j, MM in enumerate(MM_list):
 				#generating the bank
-			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, V_tile, MM)
+			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, epsilon, MM)
 			b = cbc_bank(variable_format)
 			if load_bank and os.path.exists(bank_name):
 				b.load(bank_name)
@@ -89,11 +90,11 @@ def plot(out_dict, run_name, folder_name = None):
 	plt.title("{}\n{} - {}".format(run_name, out_dict['variable_format'],out_dict['placing_method']))
 	
 	for i in range(N_templates.shape[1]):
-		#plt.loglog(out_dict['V_tile_list'], N_templates[:,i], label = out_dict['MM_list'][i])
+		#plt.loglog(out_dict['epsilon_list'], N_templates[:,i], label = out_dict['MM_list'][i])
 		plt.loglog(out_dict['N_tiles'], N_templates[:,i], label = out_dict['MM_list'][i])
 	
 	plt.legend()
-	plt.xlabel(r"$V_{tile}$")
+	plt.xlabel(r"$\epsilon_{tile}$")
 	plt.xlabel(r"$N_{tiles}$")
 	plt.ylabel(r"$N_{templates}$")
 	if isinstance(folder_name, str):
@@ -161,15 +162,20 @@ if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
-	load_bank = True
+	load_bank = False
+	full_match = False
 
 	MM_list = [0.92, 0.95, 0.97, 0.99]
 	
 	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
-	V_tile_list = [10000, 5000, 1000, 500, 100, 70]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
-	V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
+	#V_tile_list = [10000, 5000, 1000, 500, 100, 70]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
+	#V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
 	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
+	
+	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.1]; variable_format =  'Mq_nonspinning'
+	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.2]; variable_format =  'Mq_chi'
+	#epsilon_list = [1, 0.9, 0.8]; variable_format =  'Mq_s1xz_iota'
 	
 			#setting ranges
 	M_range = (30, 50)
@@ -180,10 +186,9 @@ if __name__ == '__main__':
 	
 	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	ifo = 'H1'
-	approximant = 'IMRPhenomPv2'
+	approximant = 'IMRPhenomD'
 	f_min, f_max = 10., 1024.
 	N_injs, N_neigh_templates = 1000, 30
-	full_match = True
 	
 	m_obj = cbc_metric(variable_format,
 			PSD = load_PSD(psd, False, ifo),
@@ -195,8 +200,8 @@ if __name__ == '__main__':
 	if len(sys.argv)>1: run_name, placing_method = sys.argv[1], sys.argv[2]
 	else: raise ValueError("Run name must be given!")
 	
-	folder_name = 'N_templates/{}'.format(run_name)	
-	filename = '{}/N_templates_{}_{}.pkl'.format(folder_name, variable_format, placing_method)
+	folder_name = 'placing_methods_accuracy/{}'.format(run_name)	
+	filename = '{}/data_{}_{}.pkl'.format(folder_name, variable_format, placing_method)
 	if not os.path.isdir(folder_name): os.mkdir(folder_name)
 	if not os.path.isdir(folder_name+'/files'): os.mkdir(folder_name+'/files')
 	
@@ -204,7 +209,7 @@ if __name__ == '__main__':
 	
 	if not load:
 
-		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, V_tile_list, N_injs, N_neigh_templates,
+		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list, N_injs, N_neigh_templates,
 					m_obj, boundaries, load_tiling, load_bank, full_match, folder_name)
 		
 		with open(filename, 'wb') as filehandler:

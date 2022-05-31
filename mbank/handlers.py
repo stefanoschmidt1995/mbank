@@ -929,6 +929,66 @@ class tile(tuple):
 	@property
 	def D(self):
 		return self.metric.shape[0]
+	
+	def split(self, axis = None, n = 2):
+		"""
+		Splits the tile along the given axis. It returns n split tiles (with the same metric)
+		If axis is None, the axis is set to be along the direction of longest proper dimension.
+		
+		Parameters
+		----------
+			axis: int
+				Dimension along which the tile shall be split. If `None`, the dimension will be set to be the largest
+		 Returns
+		 -------
+		 	*split: tile
+		 		The splitted
+		"""
+		if n<=1: return self
+		
+		if axis is None:
+			d_vector = self.rectangle.maxes - self.rectangle.mins #(D,)
+			dist = np.square(d_vector)*np.diag(self.metric)
+			axis = np.argmax(dist)
+
+		new_tiles = []
+		tile_to_split = self
+		len_d = self.rectangle.maxes[axis] - self.rectangle.mins[axis]
+
+		for i in range(1, n):
+			left_rect, right_rect = tile_to_split.rectangle.split(axis,  self.rectangle.mins[axis] + i/float(n)*len_d)
+			left, right = tile(left_rect, self.metric), tile(right_rect, self.metric)
+			new_tiles.append(left)
+			tile_to_split = right
+		new_tiles.append(right)
+
+		return tuple(new_tiles)
+
+	def N_templates(self, avg_dist):
+		"""
+		Computes the approximate number of templates inside the tile, given the typical distance between templates
+
+		`N_templates` is compute as:
+		
+		::
+			
+			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
+
+		`N_templates` is a measure of volume if `avg_dist` is kept fixed
+
+		Parameters
+		----------
+			avg_dist: float
+				Desidered average distance between templates
+
+		Returns
+		-------
+			N_templates: float
+				The number or templates that should lie inside the tile (i.e. the rectangle with the given metric)
+			
+		"""
+		return self.volume / np.power(avg_dist, self.D)
+
 
 class tiling_handler(list, collections.abc.MutableSequence):
 	"""
@@ -1029,52 +1089,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		del distance_points
 		
 		return id_tiles
-
-	def N_templates(self, rect, metric, avg_dist):
-		"""
-		Computes the approximate number of templates given metric, rect and avg_dist
-
-		`N_templates` is compute as:
-		
-		::
-			
-			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
-
-		`N_templates` is a measure of volume if `avg_dist` is kept fixed
-
-		Parameters
-		----------
-			rect: scipy.spatial.Rectangle
-				Rectangle object defining the boundaries of the tile
-
-			metric: np.ndarray
-				shape: (D,D) -
-				Metric to use within the tile
-				
-			avg_dist: float
-				Desidered average distance between templates
-
-		Returns
-		-------
-			N_templates: float
-				The number or templates that should lie inside the tile (i.e. the rectangle with the given metric)
-			
-		"""
-		#return rect.volume() * np.sqrt(np.prod(np.diag(metric))) / np.power(avg_dist, metric.shape[0])
-		return rect.volume() * np.sqrt(np.abs(np.linalg.det(metric))) / np.power(avg_dist, metric.shape[0])
-
-			#This trash is to look for projecting over many variable and check which gives the maximum number of templates
-		#D =  metric.shape[0]
-		#rect_diff = rect.maxes - rect.mins
-		#N_templates_list = []
-		#for l in range(1, D+1):
-		#	for axes in itertools.combinations(range(D),l):	
-		#		axes = list(axes)
-		#		proj_metric = project_metric(metric, axes)
-		#		dist_ = avg_dist*np.sqrt(D/len(axes))
-		#		N_templates_list.append( np.prod(rect_diff[axes])* np.sqrt(np.abs(np.linalg.det(proj_metric))) / np.power(dist_, len(axes)) )
-
-		#return np.max(N_templates_list)
 
 	def create_tiling_from_list(self, boundaries_list, tolerance, metric_func, max_depth = None, use_ray = False, verbose = True):
 		"""
@@ -1219,7 +1233,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		D = boundaries[0].shape[0]
 		
 		##
-		# In this context, a tile is (Rectangle, Metric, is_ok, depth)
+		# In this context, we build a list where each element is (tile, is_ok, depth)
 		# is_ok checks whether the tile is ready to be returned to the user or shall be splitted more
 		##
 		
@@ -1233,7 +1247,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
 
 			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-			tiles_list = [(start_rect, start_metric, tolerance >= 1, 0)]
+			tiles_list = [(tile(start_rect, start_metric), tolerance >= 1, 0)]
 
 			#else the tiling is already full! We do:
 			#	- a consistency check of the boundaries
@@ -1243,7 +1257,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
 				print(centers, start_rect.min_distance_point(centers), start_rect)
-			tiles_list = [(R, M, tolerance >= 1, 0) for R, M in self.__iter__()]
+			tiles_list = [(tile(R, M), tolerance >= 1, 0) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
 		
@@ -1257,27 +1271,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		####
 		#Defining some convenience function
 		####
-		
-			#splitting procedure
-		def split(rect, d):
-			len_d = rect.maxes[d] - rect.mins[d]
-			rect_1, rect_23 = rect.split(d, rect.mins[d] + len_d/3.)
-			rect_2, rect_3 = rect_23.split(d, rect.mins[d] + len_d*2./3.)
-			#print(rect, rect_1, rect_23, rect_2, rect_3);quit()
-			return [rect_1, rect_2, rect_3]
-
-			#which axis should be split?
-		def which_split_axis(rect, metric):
-			d_vector = rect.maxes - rect.mins #(D,)
-			dist = np.square(d_vector)*np.diag(metric)
-			
-			#dist = - np.einsum('ij,jk,ik -> i', np.diag(d_vector), metric, np.diag(d_vector)) #distance is -match !!
-			#print("\t", dist, -np.einsum('ij,jk,ik -> i', np.diag(d_vector), metric, np.diag(d_vector)))
-			
-			return np.argmax(dist)
-		
-		def get_center(rect):
-			return (rect.maxes + rect.mins)/2.
 		
 		def get_deltaM(metric1, metric2):
 			det1, det2 = np.linalg.det(metric1), np.linalg.det(metric2)
@@ -1302,24 +1295,24 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				#loops on tiles an updating tiles_list
 			for t in tiles_list:
 
-				if t[2]:
-					if verbose: V_covered += t[0].volume()
+				if t[1]:
+					if verbose: V_covered += t[0].rectangle.volume()
 					continue
 				if isinstance(max_depth, (int, float)):
-					if t[3]>= max_depth: continue #stop splitting
+					if t[2]>= max_depth: continue #stop splitting
 				
-				nt = split(t[0], which_split_axis(t[0], t[1])) #new tiles list (len = 3)
+				nt = t[0].split(None, 3) #new tiles (len = 3)
 
 					#Computing the new metric				
-				metric_0 = metric_func(get_center(nt[0]))
-				metric_2 = metric_func(get_center(nt[2]))
+				metric_0 = metric_func(nt[0].center)
+				metric_2 = metric_func(nt[2].center)
 					#Computing stopping conditions
-				m0_ok = get_deltaM(metric_0, t[1]) < tolerance 
-				m2_ok = get_deltaM(metric_2, t[1]) < tolerance
+				m0_ok = get_deltaM(metric_0, nt[1].metric) < tolerance 
+				m2_ok = get_deltaM(metric_2, nt[1].metric) < tolerance
 				#print(tolerance, get_deltaM(metric_0, t[1]) , get_deltaM(metric_2, t[1]) )
-				extended_list = [ (nt[0], metric_0, m0_ok, t[3]+1),
-								(nt[1], t[1],       (m0_ok and m2_ok), t[3]+1),
-								(nt[2], metric_2,   m2_ok, t[3]+1) ]
+				extended_list = [ 	(tile(nt[0].rectangle, metric_0), m0_ok, t[2]+1),
+									(nt[1],	(m0_ok and m2_ok), t[2]+1),
+									(tile(nt[2].rectangle, metric_2), m2_ok, t[2]+1) ]
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)
@@ -1332,7 +1325,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		if verbose: pbar.close()
 		
 		self.clear() #empty whatever was in the old tiling
-		self.extend( [tile(t[0],t[1]) for t in tiles_list] )
+		self.extend( [t for t,_,_ in tiles_list] )
 		
 		self.update_KDTree()
 		

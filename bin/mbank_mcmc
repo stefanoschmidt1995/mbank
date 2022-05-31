@@ -205,6 +205,7 @@ print("## Running: ", args.run_name)
 	#	Running and saving the output
 	######
 bank = cbc_bank(args.variable_format)
+#bank.load(args.run_dir+'bank_{}.dat'.format(args.run_name))
 
 bank.generate_bank_mcmc(m, args.n_samples, boundaries = boundaries, n_walkers = args.n_walkers,
 		thin_factor = None, #FIXME: should you expose this to the user?
@@ -227,7 +228,7 @@ if False: #DEBUG plot
 if args.plot:
 	t_obj = tiling_handler()
 	t_obj.extend([tile(Rectangle(boundaries[0,:], boundaries[1,:]),
-			m.get_metric(np.mean(boundaries, axis =1)))])
+			m.get_metric(np.mean(boundaries, axis =0)))])
 	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = None, save_folder = plot_folder, show = args.show)
 
 

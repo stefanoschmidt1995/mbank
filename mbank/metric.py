@@ -666,7 +666,7 @@ class cbc_metric(object):
 		else: return metric
 
 
-	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.999, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False, **kwargs):
+	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.9, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False, **kwargs):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
 		The eigenvalues are adjusted by fitting a parabola on the match along each direction.
@@ -723,7 +723,6 @@ class cbc_metric(object):
 
 		for center, metric_ in zip(theta, metric_hessian):
 			WF1 = self.get_WF(center, self.approx)
-			det = 1.
 			eigvals, eigvecs = np.linalg.eig(metric_)
 			
 			parabolae_ = []
@@ -743,7 +742,7 @@ class cbc_metric(object):
 					theta_ = np.array(center)+s*epsilon*eigvec
 					if self.var_handler.is_theta_ok(theta_, self.variable_format):
 						WF2 = self.get_WF(theta_, self.approx)
-						temp_match = self.WF_match(WF1, WF2, True)
+						temp_match = self.WF_match(WF1, WF2, overlap = overlap) #Why was it set to True??
 						if temp_match >= target_match:
 							parabola_list_d.append((s*epsilon, temp_match))
 						else:
@@ -752,9 +751,9 @@ class cbc_metric(object):
 						max_epsilon[id_s] = epsilon
 
 				parabolae_.append(np.array(parabola_list_d))
-				#p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1)[0] #parabolic fit
-				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 2)[1] #quartic fit
-				new_eigvals.append(np.abs(p)) #abs is dangerous, as if you have a negative eigenvalues, you woudn't note
+				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1)[0] #parabolic fit
+				#p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 2)[1] #quartic fit
+				new_eigvals.append(np.abs(p)) #abs is dangerous, as if you have a negative eigenvalues, you wouldn't note
 		
 			parabolae.append(parabolae_)
 			metric.append(np.linalg.multi_dot([eigvecs, np.diag(new_eigvals), eigvecs.T]))

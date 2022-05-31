@@ -1219,6 +1219,41 @@ def partition_tiling(thresholds, d, t_obj):
 	return partitions
 
 
+def place_iterative(match, t):
+	"""
+	Given a tile, it returns the templates within the tile obtained by iterative splitting.
+	
+	Parameters
+	----------
+	
+		match: float
+			Match defining the template volume
+		
+		t: tile
+			The tile to cover with templates
+	
+	Returns
+	-------
+		new_templates: np.ndarray
+			Array with the generated templates 
+	"""
+	dist = avg_dist(match, t.D)
+	is_ok = lambda tile_: tile_.N_templates(dist)<=1
+	
+	template_list = [(t, is_ok(t))]
+	
+	while True:
+		if np.all([b for _, b in template_list]): break
+		for t_ in template_list:
+			if t_[1]: continue
+			t_left, t_right = t_[0].split(None,2)
+			extended_list = [(t_left, is_ok(t_left)), (t_right, is_ok(t_right))]
+			template_list.remove(t_)
+			template_list.extend(extended_list)
+	new_templates = np.array([t_.center for t_, _ in template_list])
+	
+	return new_templates
+
 #@do_profile(follow=[])
 def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 	"""

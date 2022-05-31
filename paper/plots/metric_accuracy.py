@@ -63,28 +63,24 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 		for j, MM in enumerate(MM_list):
 				#extracting random points
 			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , overlap)
-			ids_2 = np.all(np.logical_and(theta2>boundaries[0,:], theta2<boundaries[1,:]), axis = 1)
-			ids_1 = np.all(np.logical_and(theta1>boundaries[0,:], theta1<boundaries[1,:]), axis = 1)
+			ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
+			ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
 			ids_ = np.logical_and(ids_1, ids_2) #(N,)
 
 			if np.any(ids_)>0:
-				theta1 = theta1[ids_,:]
-				theta2 = theta2[ids_,:]
-
-
-				dists = np.linalg.norm(theta2-theta1, axis =1)
-				
-				theta1 = theta1[0,:]
-				theta2 = theta2[0,:]
+				theta1 = theta1[ids_,:][0,:]
+				theta2 = theta2[ids_,:][0,:]
 
 					#storing to out_dict
 				out_dict['theta2'][i,:,j] = theta2
 				out_dict['theta1'][i,:,j] = theta1
 				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap) #mbank
+				#print(theta1, theta2, out_dict[MM][i])
 			else:
 				out_dict['theta1'][i,:,j] = np.nan
 				out_dict['theta2'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
+				#print('nan!!! ', center)
 			
 			#print(MM, out_dict[MM][i])
 	
@@ -183,23 +179,27 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 2000
-	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
+	N_points = 30000
+	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
+	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
-	approximant = 'IMRPhenomPv2'
+	approximant = 'IMRPhenomD'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = True
+	load = False
 	overlap = (run_name.find('overlap')>-1)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
-	
+
+	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning' 
+	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'
+	#boundaries = np.array([[20, 1., 0.1, 0., 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'#Mq_s1xz_s2z
+
+		#old shit	
 	#boundaries = np.array([[10, 1.],[30, 5.]]); variable_format = 'Mq_nonspinning' #Mq_nonspinning
 	#boundaries = np.array([[10, 1., -0.99, -0.99],[30., 5., 0.99, 0.99]]) ; variable_format = 'Mq_s1z_s2z'#Mq_s1z_s2z
-	#boundaries = np.array([[10, 1., 0., 0.],[30, 5., 0.99, np.pi]]); variable_format = 'Mq_s1xz'#Mq_s1xz
-	boundaries = np.array([[10, 1., 0.1, 0., -0.99],[30, 5., 0.99, np.pi, 0.99]]); variable_format = 'Mq_s1xz_s2z'#Mq_s1xz_s2z
-	#boundaries = np.array([[10, 1., 0., 0., -0.99, 0.],[30, 5., 0.99, np.pi, .99, np.pi]]) #Mq_s1xz_s2z_iota
+	#boundaries = np.array([[10, 1., 0.1, 0., -0.99],[30, 5., 0.99, np.pi, 0.99]]); variable_format = 'Mq_s1xz_s2z'#Mq_s1xz_s2z
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

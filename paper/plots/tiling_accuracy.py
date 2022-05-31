@@ -13,30 +13,30 @@ import os, sys
 
 #########################################
 
-def get_volume_list(metric_obj, V_tile_list, variable_format, boundaries):
-	"Given a metric object and a variable_format it computes the tiling for different values of `V_tile` and computes the overall volume with metric approximation."
+def get_volume_list(metric_obj, epsilon_list, variable_format, boundaries):
+	"Given a metric object and a variable_format it computes the tiling for different values of `epsilon` and computes the overall volume with metric approximation."
 	vol_list = []
 	t_vols_list = []
 	
-	for V_tile in tqdm(V_tile_list, desc = 'Variable format: {}'.format(variable_format)):
+	for epsilon in tqdm(epsilon_list, desc = 'Variable format: {}'.format(variable_format)):
 		t = tiling_handler()
 			#generating the tiling
-		t.create_tiling(boundaries, V_tile, m_obj.get_metric, verbose = True)
+		t.create_tiling(boundaries, epsilon, m_obj.get_metric, verbose = True)
 		vol, t_vols = t.compute_volume()
 		vol_list.append(vol)
 		t_vols_list.append(t_vols)
 	
 	return vol_list, t_vols_list
 
-def get_tiling_accuracy_data(metric_obj, variable_format_list, V_tile_list, M_range, q_range, s_range, e_range):
-	"It computes the volume of the space as a function of V_tilelates and variable_format. It stores the results in an handy dictionary"
-	out_dict = {'V_tile': V_tile_list, 'var_formats': variable_format_list, 'M_range':M_range,'q_range':q_range, 's_range':s_range, 'e_range':e_range}
+def get_tiling_accuracy_data(metric_obj, variable_format_list, epsilon_list, M_range, q_range, s_range, e_range):
+	"It computes the volume of the space as a function of epsilon and variable_format. It stores the results in an handy dictionary"
+	out_dict = {'epsilon_tile': epsilon_list, 'var_formats': variable_format_list, 'M_range':M_range,'q_range':q_range, 's_range':s_range, 'e_range':e_range}
 	
 	
 	for var_format in variable_format_list:
 		boundaries = get_boundaries_from_ranges(variable_handler().format_info[var_format], M_range, q_range, s_range, s_range, e_range = e_range)		
 		metric_obj.set_variable_format(var_format)
-		vol_list, t_vols_list = get_volume_list(metric_obj, V_tile_list, var_format, boundaries)
+		vol_list, t_vols_list = get_volume_list(metric_obj, epsilon_list, var_format, boundaries)
 		out_dict[var_format] = vol_list
 
 	return out_dict
@@ -99,8 +99,10 @@ if __name__ == '__main__':
 
 	variable_format_list = ['Mq_s1xz_s2z_iota', 'Mq_s1xz_s2z', 'Mq_s1xz', 'Mq_nonspinning', 'Mq_s1z_s2z']
 	variable_format_list = ['Mq_s1xz',  'Mq_s1z_s2z', 'Mq_nonspinning']
-	variable_format_list = ['Mq_s1z_s2z', 'Mq_nonspinning']
-	V_tile_list = [.5, 1, 5, 50, 100, 1000, 2000, 10000, 15000]
+	variable_format_list = ['Mq_s1xz_iota', 'Mq_chi', 'Mq_nonspinning']
+
+	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.1]
+	#V_tile_list = [.5, 1, 5, 50, 100, 1000, 2000, 10000, 15000]
 	#V_tile_list = [1000, 2000, 5000, 10000, 15000]
 	
 	m_obj = cbc_metric(variable_format_list[0],
@@ -116,7 +118,7 @@ if __name__ == '__main__':
 	
 	if not load:
 
-		out_dict = get_tiling_accuracy_data(m_obj, variable_format_list, V_tile_list, M_range, q_range, s_range, e_range)
+		out_dict = get_tiling_accuracy_data(m_obj, variable_format_list, epsilon_list, M_range, q_range, s_range, e_range)
 		
 		with open(filename, 'wb') as filehandler:
 			pickle.dump(out_dict, filehandler)

@@ -1028,7 +1028,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				assert len(t)==2, "The elements in the input list have the wrong length. They should be broadcastable to a tile object, representing a tuple (Rectangle, Metric)"
 				self.append(tile(*t))
 		else:
-			msg = "Type of ini argument not understood (expected list or tuple). The tiling_handler is initialized empty."
+			msg = "Type of ini argument not understood (expected list, tuple or str). The tiling_handler is initialized empty."
 			warnings.warn(msg)
 		return
 	
@@ -1201,9 +1201,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			
 			::
 			
-				(|M_p|-|M_c|)/max(|M_p|,|M_c|) > tolerance
+				|log10(sqrt(M_p/M_c))| > tolerance
 			
-			If tolerance is greater than 1, no further tiling will be performed
+			If tolerance is greater than 10, no further tiling will be performed
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -1247,7 +1247,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			start_metric = metric_func((boundaries[1]+boundaries[0])/2.)
 
 			#tiles_list = [(start_rect, start_metric, N_temp+1)] 
-			tiles_list = [(tile(start_rect, start_metric), tolerance >= 1, 0)]
+			tiles_list = [(tile(start_rect, start_metric), tolerance >= 10, 0)]
 
 			#else the tiling is already full! We do:
 			#	- a consistency check of the boundaries
@@ -1257,7 +1257,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			if np.any(start_rect.min_distance_point(centers)!=0):
 				warnings.warn("The given boundaries are not consistent with the previous tiling. This may not be what you wanted")
 				print(centers, start_rect.min_distance_point(centers), start_rect)
-			tiles_list = [(tile(R, M), tolerance >= 1, 0) for R, M in self.__iter__()]
+			tiles_list = [(tile(R, M), tolerance >= 10, 0) for R, M in self.__iter__()]
 		
 		tiles_list_old = []
 		
@@ -1274,7 +1274,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		def get_deltaM(metric1, metric2):
 			det1, det2 = np.linalg.det(metric1), np.linalg.det(metric2)
-			return np.abs(det1-det2)/np.maximum(det1,det2)
+			#return np.abs(det1-det2)/np.maximum(det1,det2)
+			return 0.5*np.abs(np.log10(det1/det2))
 		
 			 #progress bar = % of volume covered
 		if verbose:
@@ -1381,7 +1382,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
-	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64):
+	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
 		
@@ -1398,6 +1399,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			
 			dtype: type
 				Data type for the sampling (default np.float64)
+			
+			tile_id: bool
+				Whether to output the id of the tile each random point belongs to. Default is `False`
 		
 		Returns
 		-------
@@ -1423,6 +1427,10 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			samples = [	gen.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) )
 						for t_id, c in zip(tiles_rand_id, counts)]
 		samples = np.concatenate(samples, axis = 0, dtype = dtype)
+		
+		if tile_id:
+			tile_id_vector = np.concatenate([np.full(c, t_id) for t_id, c in zip(tiles_rand_id, counts)])
+			return samples, tile_id_vector
 		return samples
 
 

@@ -165,7 +165,7 @@ if __name__ == '__main__':
 	load_bank = False
 	full_match = False
 
-	MM_list = [0.92, 0.95, 0.97, 0.99]
+	MM_list = [0.92, 0.95, 0.97]#, 0.99]
 	
 	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
@@ -175,7 +175,7 @@ if __name__ == '__main__':
 	
 	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.1]; variable_format =  'Mq_nonspinning'
 	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.2]; variable_format =  'Mq_chi'
-	#epsilon_list = [1, 0.9, 0.8]; variable_format =  'Mq_s1xz_iota'
+	epsilon_list = [1, 0.9, 0.8, 0.5]; variable_format =  'Mq_s1xz_iota'
 	
 			#setting ranges
 	M_range = (30, 50)
@@ -185,8 +185,9 @@ if __name__ == '__main__':
 	boundaries = get_boundaries_from_ranges(variable_handler().format_info[variable_format], M_range, q_range, s_range, s_range, e_range = e_range)
 	
 	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
+	#psd = 'aligo_O3actual_H1.txt' #FIXME: USE THIS PSD!!
 	ifo = 'H1'
-	approximant = 'IMRPhenomD'
+	approximant = 'IMRPhenomXP'
 	f_min, f_max = 10., 1024.
 	N_injs, N_neigh_templates = 1000, 30
 	

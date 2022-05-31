@@ -508,6 +508,7 @@ class cbc_metric(object):
 			shape: (N,K) -
 			Complex array holding the WFs evaluated on the default frequency/time grid
 		"""
+		theta = np.asarray(theta)
 		if approx is None: approx = self.approx
 		
 		if theta.ndim == 1:

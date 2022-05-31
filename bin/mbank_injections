@@ -48,8 +48,8 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
-	"--injs-per-tile",  default = 10, type = int,
-	help="How many injections per each tile shall be done? This is ignored if an injection file is provided")
+	"--n-injs", type = int, default = None,
+	help="Number of injections. If inj-file is specified, they will be read from it; otherwise they will be randomly drawn from the tiling. If None, all the injections will be read from inj-file and it will throw an error if such file is not provided.")
 parser.add_argument(
 	"--inj-file", type = str, default = None,
 	help="An xml injection file to load the injections from. If not provided, the injections will be performed at random in each tile (injs-per-tile). If no path to the file is provided, it is understood it is located in run-dir.")
@@ -69,9 +69,6 @@ parser.add_argument(
 parser.add_argument(
 	"--N-neigh-tiles", type = int, default = 20,
 	help="Number of neighbouring tiles in which look for the best match. #### DEPRECATED")
-parser.add_argument(
-	"--N-inj", type = int, default = None,
-	help="Number of injections to read from inj-file. If None, all the injections will be read")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
 	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
@@ -184,10 +181,10 @@ t_obj = tiling_handler(args.tiling_file)
 	######
 
 if args.inj_file is None:
+
+	assert isinstance(args.n_injs, int), "Argument --n-injs must be specified if an injection file is not given"
 		#generating tiles injections
-	if args.seed is not None: np.random.seed(args.seed)
-	projected_injs = [np.random.uniform(t[0].mins, t[0].maxes, (args.injs_per_tile, len(t[0].maxes))) for t in t_obj]
-	projected_injs = np.concatenate(projected_injs, axis =0) #(N_tiles * inj_per_tile, D)
+	projected_injs = t_obj.sample_from_tiling(args.n_injs, seed = args.seed)
 	
 	#projected_injs = bank.templates; print("######### Bank injections!! ###########") #FIXME: this will become a bank-injs option!! Or something similar
 	
@@ -199,7 +196,7 @@ else:
 	if args.inj_file.endswith('xml') or args.inj_file.endswith('xml.gz'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
 		
-		injections_full = read_xml(args.inj_file, lsctables.SimInspiralTable, args.N_inj)
+		injections_full = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
 				
 	elif args.inj_file.endswith('json'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
@@ -208,11 +205,11 @@ else:
 		with open(args.inj_file) as f:
 			inj_json = json.load(f)
 		
-		if args.N_inj is None: args.N_inj = len(inj_json['items'])
-		if args.N_inj > len(inj_json['items']): args.N_inj = len(inj_json['items'])
+		if args.n_injs is None: args.n_injs = len(inj_json['items'])
+		if args.n_injs > len(inj_json['items']): args.n_injs = len(inj_json['items'])
 		
 		for i, row in enumerate(inj_json['items']):
-			if i >= args.N_inj: break
+			if i >= args.n_injs: break
 			injections_full.append([row['m1'], row['m2'],
 					row['s_1x'], row['s_1y'], row['s_1z'], row['s_2x'], row['s_2y'], row['s_2z'],
 					0.,0., row['inclination'], 0.]) 
@@ -221,7 +218,7 @@ else:
 	else:
 		raise ValueError("Format for the input file for the injections must be either xml or json")
 	
-	print("Loaded {} injections from file: {}".format(args.N_inj, args.inj_file))
+	print("Loaded {} injections from file: {}".format(args.n_injs, args.inj_file))
 
 	######
 	#	Computing tiling_injections with metric approximation

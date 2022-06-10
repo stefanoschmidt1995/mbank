@@ -64,7 +64,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list,
 					#metric injections
 			inj_dict = compute_metric_injections_match(injs, b, t, N_neigh_templates = N_neigh_templates, verbose = True)
 			out_dict['MM_metric'][i,:] = inj_dict['match']
-			print('\t\tMetric match: ', np.percentile(inj_dict['match'], [1, 5,50,95])) 
+			print('\t\tMetric match: ', np.percentile(inj_dict['match'], [1, 5, 50,95])) 
 					#full match injections
 			if full_match:
 				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj, N_neigh_templates = N_neigh_templates,
@@ -173,26 +173,22 @@ if __name__ == '__main__':
 	#V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
 	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
 	
-	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.1]; variable_format =  'Mq_nonspinning'
-	epsilon_list = [1, 0.9, 0.8, 0.5, 0.3, 0.2]; variable_format =  'Mq_chi'
-	epsilon_list = [1, 0.9, 0.8, 0.5]; variable_format =  'Mq_s1xz_iota'
+	epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+	epsilon_list = [10, 1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+	epsilon_list = [10, 1, 0.8, 0.5, 0.4]; variable_format =  'Mq_s1xz_s2z'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
 	
 			#setting ranges
-	M_range = (30, 50)
 	q_range = (1,5)
 	s_range = (-0.99, 0.99)
 	e_range = (0., 0.5)
 	boundaries = get_boundaries_from_ranges(variable_handler().format_info[variable_format], M_range, q_range, s_range, s_range, e_range = e_range)
-	
-	psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
-	#psd = 'aligo_O3actual_H1.txt' #FIXME: USE THIS PSD!!
+	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
-	approximant = 'IMRPhenomXP'
 	f_min, f_max = 10., 1024.
 	N_injs, N_neigh_templates = 1000, 30
 	
 	m_obj = cbc_metric(variable_format,
-			PSD = load_PSD(psd, False, ifo),
+			PSD = load_PSD(psd, True, ifo),
 			approx = approximant,
 			f_min = f_min, f_max = f_max)
 	

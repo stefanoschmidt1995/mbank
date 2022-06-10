@@ -424,7 +424,9 @@ class cbc_bank():
 		self.add_templates(new_templates)
 		return new_templates
 
-	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance, placing_method = 'random', grid_list = None, use_ray = False, livepoints = 50, max_depth = 6):
+	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance,
+			placing_method = 'random', metric_type = 'hessian',
+			grid_list = None, use_ray = False, livepoints = 50, max_depth = 6):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -445,17 +447,20 @@ class cbc_bank():
 			shape: (2,D) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		
+		tolerance: float
+			Threshold used for the tiling algorithm. It amounts to the maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
+			For more information, see `mbank.handlers.tiling_handler.create_tiling`
+		
+		placing_method: str
+			The placing method to set templates in each tile. See `place_templates` for more information.
+		
+		metric_type: str
+			The method computation method to use. For more information, you can check ``metric.cbc_metric.get_metric``.
+		
 		grid_list: list
 			A list of ints, each representing the number of coarse division of the space.
 			If use ray option is set, the subtiling of each coarse division will run in parallel
 			If None, no prior splitting will be made.
-		
-		tolerance: float
-			Threshold used for the tiling algorithm. It amounts to the maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
-			For more information, see `mbank.handlers.tiling_handler.create_tiling`
-
-		placing_method: str
-			The placing method to set templates in each tile. See `place_templates` for more information.
 
 		use_ray: bool
 			Whether to use ray to parallelize
@@ -491,8 +496,8 @@ class cbc_bank():
 		
 			###
 			#creating the tiling
-		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False,
-									metric_type = 'hessian')
+		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False, metric_type = metric_type)
+									#metric_type = 'hessian')
 									#metric_type = 'block_diagonal_hessian')
 									#metric_type = 'parabolic_fit_hessian', target_match = 0.9, N_epsilon_points = 10, log_epsilon_range = (-4, 1))
 		t_obj = tiling_handler() #empty tiling handler

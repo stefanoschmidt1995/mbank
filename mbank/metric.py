@@ -667,7 +667,7 @@ class cbc_metric(object):
 		else: return metric
 
 
-	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.9, N_epsilon_points = 5, log_epsilon_range = (-7, -4), full_output = False, **kwargs):
+	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.9, N_epsilon_points = 7, log_epsilon_range = (-4, 1), full_output = False, **kwargs):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
 		The eigenvalues are adjusted by fitting a parabola on the match along each direction.

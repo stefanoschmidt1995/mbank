@@ -321,32 +321,6 @@ As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non 
 \label{alg:tiling}
 \end{algorithm}
 
-\begin{table*}[t!]
-	\centering
-	\setlength\extrarowheight{1pt}
-	 \begin{tabular}{l c c c} 
-	 \hline
-	 \phantom{Method} & Pros & Cons & Speed \\
-	 \hline
-	 {\bf Uniform} & Useful for quick tests & Poor coverage & very fast \\
-	 \cdashline{1-4}
-	 {\bf Iterative} & Good injection recovery & \begin{tabular}{@{}c@{}} Overcovers \\ No boundaries \end{tabular}  & fast \\
-	 \cdashline{1-4}
-	 {\bf Random} & Good coverage and injection recovery & Needs large memory & slow \\
-	 \cdashline{1-4}
-	 {\bf Geometric} & Good injection recovery & \begin{tabular}{@{}c@{}c@{}} Tiling dependent \\ Overcovers \\ No boundaries \end{tabular}  & fast \\
- 	 \cdashline{1-4}
-	 {\bf Stochastic} & Good coverage and injection recovery & Unfeasible for large bank & very slow \\
-	 \cdashline{1-4}
-	 {\bf Geo-Stochastic} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers\end{tabular}  & slow \\
-	 \cdashline{1-4}
- 	 {\bf Tile-Stochastic}/{\bf Tile-Random} & Good injection recovery &  \begin{tabular}{@{}c@{}} Tiling dependent \\ Overcovers \end{tabular}  & fast \\
-	 \hline
-	 \end{tabular}
-	 \caption{A {\it qualitative} comparison of the different placing methods implemented \stefano{We need to think about this...} \stefano{This table doesn't look nice}}
- 	 \label{tab:placing_methods}
-\end{table*}
-
 \subsection{Template placing} \label{sec:template_placing}
 
 Once a tiling is available, we need to place the templates that will be part of the bank.
@@ -417,16 +391,18 @@ Metric fails when the match is bad behaved:
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
 THIS SECTION IS READY TO BE WRITTEN!
+Rethink the plot that you want to show here: maybe the fraction of ellipse volume that lies inside the actual region $\{MM<0.97\}$?
 \begin{figure}[t]
 	\includegraphics{metric_accuracy}
 	\caption{Metric accuracy, for different variable formats \sarah{what are the different colors here?}}
 	\label{fig:metric_accuracy}
 \end{figure}
 
-Histogram with the actual match for points with a constant metric match
+Histogram with the actual match for points with a constant metric match. The study is done with the \textit{parabolic fit} metric.
 
 \subsection{Tiling accuracy} \label{sec:tiling_accuracy}
 How much the metric is constant within each tile?
+\stefano{Do we want this section? Soumen suggested this but the results don't look promising and as long as the bank is fine we don't care...}
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
@@ -447,16 +423,16 @@ THINK OF SOME PLOTS TO PUT HERE!
 \subsection{Comparison with \texttt{sbank} }
 IDENTIFY A TEST BANK! (AND PREPARE IT)
 	\begin{itemize}
-		\item Trim O3 gstlal bank to make it comparable
+		\item Trim O3 gstlal bank to make it comparable (ask for details at the next call)
 		\item Make the comparison with 3D bank (with $\chi_{eff}$)
 	\end{itemize}
 
 
-\begin{figure}[h]
-	\includegraphics{jafar}
-	\caption{Here we may put a plot of the number of templates as a function of $N_{tiles}$. But it may look very messy, and perhaps not too informative. Maybe just put $MM = 0.97$ and set a series for each method; although in this way you will never show the scaling with the $MM$.}
-	\label{fig:bank_scaling}
-\end{figure}
+%\begin{figure}[h]
+%	\includegraphics{jafar}
+%	\caption{Here we may put a plot of the number of templates as a function of $N_{tiles}$. But it may look very messy, and perhaps not too informative. Maybe just put $MM = 0.97$ and set a series for each method; although in this way you will never show the scaling with the $MM$.}
+%	\label{fig:bank_scaling}
+%\end{figure}
 
 Generating 2/3 small non-precessing banks with both \texttt{mbank} and \texttt{sbank}.
 Comparison based on:
@@ -466,8 +442,39 @@ Comparison based on:
 		\item speed
 	\end{itemize}
 
+\begin{table*}[t!]
+	\centering
+	\setlength\extrarowheight{1pt}
+	 \begin{tabular}{l l l l} 
+	 \hline
+	 \multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Size}}  & \multicolumn{1}{c}{\textbf{Effectualness}} \\
+	 \hline
+	 Nonspinning & \begin{tabular}{@{}l@{}} $M\in [30,50] M_\odot$ \\ $q\in [1,5]$  \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
+	 	\begin{tabular}{@{}l@{}} \texttt{sbank}: 396 \\ \texttt{mbank}: 442 \end{tabular} & ----  \\
+	 \cdashline{1-4}
+	 Aligned spin & \begin{tabular}{@{}l@{}} $M\in [30,50]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$ \\ $f\in [15,1024] Hz\end{tabular}  &
+	 	\begin{tabular}{@{}l@{}} \texttt{sbank}: 3275 \\ \texttt{mbank}: 4108 \end{tabular} & ---- \\
+	 \cdashline{1-4}
+	 GstLAL O3 bank & \begin{tabular}{@{}l@{}} $M\in [30,100]$ \\ $q\in [1,10]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$ \\ $f\in [15,1024] Hz \end{tabular}  &
+	 	\begin{tabular}{@{}l@{}} \texttt{sbank}: ?? \\ \texttt{mbank}: ?? \end{tabular} & ---- \\
+	 \hline
+	 \end{tabular}
+	 \caption{Comparison between the performance of  \texttt{mbank} and  \texttt{sbank} on 3 chosen banks. The details of the injection studies are shown in figure~\ref{fig:sbank_comparison}}
+ 	 \label{tab:sbank_comparison}
+\end{table*}
+
+\begin{figure}[t]
+	\includegraphics{sbank_comparison}
+	\caption{Sbank comparison}}
+	\label{fig:sbank_comparison}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Bank generation: two case studies} \label{sec:bank_generation}
+\section{Bank generation: three case studies} \label{sec:bank_generation}
 
 Useful to present the features of these two banks generated?
 
@@ -476,12 +483,55 @@ IMRPhenomPv2/XP (high mass)
 
 Compare the metric slices with the NP case
 
-\subsection{A precessing/HM bank}
-IMRPhenomXPHM (high mass)
+\subsection{An aligned spin HM bank}
+IMRPhenomXPHM
 
-\subsection{An eccentric bank}
+\subsection{An eccentric nonspinning bank}
 EccentricFD (low mass)
 
+
+\begin{table*}[t!]
+	\centering
+	\setlength\extrarowheight{1pt}
+	 \begin{tabular}{l l l l l} 
+	 \hline
+	 \multicolumn{1}{c}{\phantom{Name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Setting}} & \multicolumn{1}{c}{\textbf{Size}}  & \multicolumn{1}{c}{\textbf{Effectualness}} \\
+	 \hline
+	 Precessing & \begin{tabular}{@{}l@{}} $M\in [25,100] M_\odot$ \\ $q\in [1,5]$  \\ $s_1\in [0,0.99]$ \\$\theta_1\in [0, \pi]$ \\ \end{tabular}  &
+	 \begin{tabular}{@{}l@{}} IMRPhenomXP \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 10 \\ \end{tabular}  &
+	 \begin{tabular}{@{}l@{}} $N_{templates} = 54750$ \\ $N_{tiles} = 33774$ \\ \end{tabular} &
+	 	----  \\
+	 \cdashline{1-5}
+	 Aligned spins HM & \begin{tabular}{@{}l@{}} $M\in [30,50] M_\odot$ \\ $q\in [1,5]$  \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$ \\ \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} IMRPhenomXPHM \\ $\epsilon = ??$ \\ \end{tabular}  &
+	 	\begin{tabular}{@{}l@{}} $N_{templates}$ \\ $N_{tiles} = ??$ \\ \end{tabular} &
+	 	----  \\
+	 \cdashline{1-5}
+	 Nonspinning eccentric & \begin{tabular}{@{}l@{}} $M\in [10,75] M_\odot$ \\ $q\in [1,5]$ \\ $e \in [0,0.3]$  \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} EccentricFD \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 9 \\  \end{tabular}  &
+	 	\begin{tabular}{@{}l@{}} $N_{templates} = 154472$ \\ $N_{tiles} = 4238$ \\ \end{tabular} &
+	 	----  \\
+	 \hline
+	 \end{tabular}
+	 \caption{Summary of three use case banks generate with \texttt{mbank}. For each bank generated, we report the variable being sampled and their ranges. We also report the hyperparameters $\epsilon$ used for the tiling. Every bank is generated within a frequency range of $[15,1024] Hz$.	 }
+ 	 \label{tab:sbank_comparison}
+\end{table*}
+
+
+\begin{figure}[t]
+	\includegraphics{bank_hist_Precessing}\hfill
+	\includegraphics{bank_hist_Aligned_spins_HM}\hfill
+	\includegraphics{bank_hist_Nonspinning_eccentric}
+	\caption{Histograms for the use case banks!}}
+	\label{fig:bank_hist}
+\end{figure}
+
+
+\begin{figure}[t]
+	\includegraphics{bank_injections}
+	\caption{Injections true vs recovered for case study banks}}
+	\label{fig:bank_injections}
+\end{figure}
 
 \section{Final remarks and future prospects} \label{sec:conclusion}
 Usual stuff

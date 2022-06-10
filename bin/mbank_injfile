@@ -104,16 +104,9 @@ if args.tiling_file is not None:
 	t_obj = tiling_handler(args.tiling_file)
 	#t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
 
-	injs = []
-	for _ in np.arange(args.gps_start, args.gps_end, args.time_step):
-		id_ = rng.integers(0, len(t_obj)) #random tile for the inj
-
-		min_, max_ = t_obj[id_][0].mins, t_obj[id_][0].maxes
-
-		inj_tile_ = rng.uniform(min_, max_, max_.shape) #random inj for the tile
-		injs.append(inj_tile_)
-
-	injs = np.column_stack(injs).T #(N_templates,D)
+	N_injs = int((args.gps_end- args.gps_start)/args.time_step)
+	injs = t_obj.sample_from_tiling(N_injs) #(N_injs, D)
+	np.random.shuffle(injs)
 
 elif args.bank_file is not None:
 	print("Loading injections from the given bank: {}".format(args.bank_file))

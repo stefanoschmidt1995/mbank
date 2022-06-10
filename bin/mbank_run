@@ -91,6 +91,9 @@ parser.add_argument(
 	"--max-depth", default = 6, type = int,
 	help="Maximum number of iterative splitting before terminating.")
 parser.add_argument(
+	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian'],
+	help="Method to use to compute the metric.")
+parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
 	
@@ -222,7 +225,7 @@ if format_info['mass_format'] == 'm1m2':
 
 else:
 	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, tolerance = args.tile_tolerance,
-		placing_method = args.placing_method, grid_list = args.grid_size,
+		placing_method = args.placing_method, metric_type = args.metric_type, grid_list = args.grid_size,
 		livepoints = args.livepoints, max_depth = args.max_depth, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder

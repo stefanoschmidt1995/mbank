@@ -147,8 +147,10 @@ class variable_handler(object):
 				'iota': (a_.find('iota')>-1) ,'phi': (a_.find('phi')>-1)}
 			
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
+		self.MAX_Q = 100.
 		
-		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (0., 1000.), 'Mc':(0., np.inf), 'eta':(1./1000., 0.25),
+		self.constraints = {'M':(0.,np.inf), 'logM':(-np.inf,np.inf), 'q': (1./self.MAX_Q, self.MAX_Q),
+				'Mc':(0., np.inf), 'eta':(1./self.MAX_Q, 0.25),
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
 				'chi': (-self.MAX_SPIN, self.MAX_SPIN), 
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
@@ -1271,7 +1273,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		####
 		#Defining some convenience function
 		####
-		
 		def get_deltaM(metric1, metric2):
 			det1, det2 = np.linalg.det(metric1), np.linalg.det(metric2)
 			#return np.abs(det1-det2)/np.maximum(det1,det2)
@@ -1311,9 +1312,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				m0_ok = get_deltaM(metric_0, nt[1].metric) < tolerance 
 				m2_ok = get_deltaM(metric_2, nt[1].metric) < tolerance
 				#print(tolerance, get_deltaM(metric_0, t[1]) , get_deltaM(metric_2, t[1]) )
-				extended_list = [ 	(tile(nt[0].rectangle, metric_0), m0_ok, t[2]+1),
+				extended_list = [ 	(tile(nt[0].rectangle, metric_0), (m0_ok and m2_ok), t[2]+1),
 									(nt[1],	(m0_ok and m2_ok), t[2]+1),
-									(tile(nt[2].rectangle, metric_2), m2_ok, t[2]+1) ]
+									(tile(nt[2].rectangle, metric_2), (m0_ok and m2_ok), t[2]+1) ]
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)

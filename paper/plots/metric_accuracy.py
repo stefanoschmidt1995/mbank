@@ -62,14 +62,20 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 
 		for j, MM in enumerate(MM_list):
 				#extracting random points
-			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , overlap)
+			metric = metric_obj.get_metric(center, overlap, 'parabolic_fit_hessian')
+			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , metric, overlap)
 			ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
 			ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
 			ids_ = np.logical_and(ids_1, ids_2) #(N,)
 
 			if np.any(ids_)>0:
-				theta1 = theta1[ids_,:][0,:]
-				theta2 = theta2[ids_,:][0,:]
+				theta1 = theta1[ids_,:]
+				theta2 = theta2[ids_,:]
+				id_ok = np.argmin(np.linalg.norm(theta1-theta2, axis =1)) #(N,)
+				#id_ok = 0
+					
+				theta1 = theta1[id_ok,:]
+				theta2 = theta2[id_ok,:]
 
 					#storing to out_dict
 				out_dict['theta2'][i,:,j] = theta2
@@ -82,7 +88,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				out_dict[MM][i] = np.nan
 				#print('nan!!! ', center)
 			
-			#print(MM, out_dict[MM][i])
+			print(center, MM, out_dict[MM][i])
 	
 	return out_dict
 
@@ -179,7 +185,7 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 30000
+	N_points = 10000
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
@@ -206,7 +212,7 @@ if __name__ == '__main__':
 	
 		#metric and calling the function
 	m_obj = cbc_metric(variable_format,
-			PSD = load_PSD(psd, False, ifo),
+			PSD = load_PSD(psd, True, ifo),
 			approx = approximant,
 			f_min = f_min, f_max = f_max)
 	

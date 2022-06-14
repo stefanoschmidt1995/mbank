@@ -62,7 +62,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 
 		for j, MM in enumerate(MM_list):
 				#extracting random points
-			metric = metric_obj.get_metric(center, overlap, 'parabolic_fit_hessian')
+			metric = metric_obj.get_metric(center, overlap, 'hessian')
 			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , metric, overlap)
 			ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
 			ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
@@ -88,7 +88,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				out_dict[MM][i] = np.nan
 				#print('nan!!! ', center)
 			
-			print(center, MM, out_dict[MM][i])
+			#print(center, MM, out_dict[MM][i])
 	
 	return out_dict
 
@@ -189,7 +189,6 @@ if __name__ == '__main__':
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
-	approximant = 'IMRPhenomD'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
@@ -198,14 +197,9 @@ if __name__ == '__main__':
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 
-	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning' 
-	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'
-	#boundaries = np.array([[20, 1., 0.1, 0., 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'#Mq_s1xz_s2z
-
-		#old shit	
-	#boundaries = np.array([[10, 1.],[30, 5.]]); variable_format = 'Mq_nonspinning' #Mq_nonspinning
-	#boundaries = np.array([[10, 1., -0.99, -0.99],[30., 5., 0.99, 0.99]]) ; variable_format = 'Mq_s1z_s2z'#Mq_s1z_s2z
-	#boundaries = np.array([[10, 1., 0.1, 0., -0.99],[30, 5., 0.99, np.pi, 0.99]]); variable_format = 'Mq_s1xz_s2z'#Mq_s1xz_s2z
+	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
+	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
+	#boundaries = np.array([[20, 1., 0.1, 0., 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

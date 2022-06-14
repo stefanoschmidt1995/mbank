@@ -132,7 +132,7 @@ class variable_handler(object):
 			
 		for m_, s_, e_, a_ in itertools.product(self.m_formats, self.s_formats, self.e_formats, self.angle_formats):
 				#nonspinning and noneccentric formats don't sample angles...
-			if s_ == 'nonspinning' and a_ != '' and e_ == '': continue 
+			#if s_ == 'nonspinning' and (a_ != '' or e_ == ''): continue 
 			format_to_add = ''
 			for f_ in [m_, s_, e_, a_]:
 				if f_ != '': format_to_add += '_{}'.format(f_)
@@ -1311,7 +1311,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 					#Computing stopping conditions
 				m0_ok = get_deltaM(metric_0, nt[1].metric) < tolerance 
 				m2_ok = get_deltaM(metric_2, nt[1].metric) < tolerance
-				#print(tolerance, get_deltaM(metric_0, t[1]) , get_deltaM(metric_2, t[1]) )
+				#split_tile = get_deltaM(metric_2, metric_0) < tolerance #FIXME: do we rather use this?
+
 				extended_list = [ 	(tile(nt[0].rectangle, metric_0), (m0_ok and m2_ok), t[2]+1),
 									(nt[1],	(m0_ok and m2_ok), t[2]+1),
 									(tile(nt[2].rectangle, metric_2), (m0_ok and m2_ok), t[2]+1) ]

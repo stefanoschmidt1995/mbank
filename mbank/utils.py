@@ -1102,14 +1102,12 @@ def place_stochastically_in_tile(minimum_match, tile):
 	return new_templates
 
 #@do_profile(follow=[])
-def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank = None):
+def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank = None, verbose = True):
 	"""
 	Place templates with a stochastic placing algorithm
 	It iteratively proposes a new template to add to the bank. The proposal is accepted if the match of the proposal with the previously placed templates is smaller than ``minimum_match``. The iteration goes on until no template is found to have a distance smaller than the given threshold ``minimum_match``.
 	It can start from a given set of templates.
 
-	At each iteration a proposal is made in each tile. This means that if the number of tiles is larger than the expected number ot templates, this method will **overcover**.
-	
 	The match of the proposals is computed with `compute_metric_injections_match`.
 	
 	The match of a proposal is computed against all the templats that have been added.
@@ -1128,6 +1126,9 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 		seed_bank: np.ndarray
 			shape: (N,D) -
 			A set of templates that provides a first guess for the bank
+		
+		verbose: bool
+			Whether to print the progress bar
 	
 	Returns
 	-------
@@ -1141,7 +1142,7 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 	def dummy_iterator():
 		while True:
 			yield
-	t_ = tqdm(dummy_iterator())
+	t_ = tqdm(dummy_iterator()) if verbose else dummy_iterator()
 
 	#MM = 1- avg_dist**2 #old alternative
 	MM = minimum_match 
@@ -1155,20 +1156,26 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 	nothing_new = np.zeros((len(t_obj),), dtype = int)
 	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
 	
+	#TODO: this should sample from the tiling. Might be more efficient...
+	#You could make a local copy of the tiling and then remove elements from the list: memory expensive but nice, since the sampling would be done with the nice PDF and removing elements from list is fast
+	#The random extraction must be done in batches though (unconvenient)
 	try:
+		i=0
 		for _ in t_:
 				#checking for stopping conditions and updating for empty tiles
 			where_to_remove = (nothing_new > empty_iterations)
-			tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
-			nothing_new = np.delete(nothing_new, np.where(where_to_remove))
+			if np.any(where_to_remove):
+				tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
+				nothing_new = np.delete(nothing_new, np.where(where_to_remove))
 
-			t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
+			if verbose and i%2000==0:t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
 			if len(tiles_to_use) == 0: break
 			
 			id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
 			tile_id = tiles_to_use[id_tiles_to_use] #id of the tile in the tiling list
 			
-			proposal = np.random.uniform(t_obj[tile_id][0].mins, t_obj[tile_id][0].maxes, (1, len(t_obj[tile_id][0].maxes)))
+			rect = t_obj[tile_id].rectangle
+			proposal = np.random.uniform(rect.mins, rect.maxes, (1, t_obj[tile_id].D))
 			
 			diff = new_templates - proposal #(N_templates, D)
 			
@@ -1181,11 +1188,12 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 				#slower alternative with eisum
 			#max_match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, t_obj[tile_id].metric, diff)) #()
 
-			if (max_match < MM)>0:
+			if (max_match < MM):
 				new_templates = np.concatenate([new_templates, proposal], axis =0)
 				nothing_new[id_tiles_to_use] = 0
 			else:
 				nothing_new[id_tiles_to_use] += 1
+			i+=1
 	except KeyboardInterrupt:
 		pass
 	
@@ -1351,7 +1359,7 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 		del point
 			
 		if len(livepoints) == 0: break
-		if len(new_templates) %2 ==0 and verbose: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
+		if len(new_templates) %500 ==0 and verbose: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
 	
 	new_templates = np.column_stack([new_templates])
 	#if len(livepoints)>0: new_templates = np.concatenate([new_templates, livepoints], axis =0) #adding the remaining livepoints

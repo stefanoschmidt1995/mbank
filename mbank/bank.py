@@ -114,7 +114,7 @@ class cbc_bank():
 		placing_methods: list
 			The available methods for placing the templates
 		"""
-		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'tile_random', 'geo_stochastic', 'tile_stochastic']
+		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'tile_random', 'geo_stochastic', 'random_stochastic', 'tile_stochastic']
 	
 	def load(self, filename):
 		"""
@@ -340,7 +340,7 @@ class cbc_bank():
 		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
-		if placing_method in ['geometric', 'geo_stochastic', 'random'] :
+		if placing_method in ['geometric', 'geo_stochastic', 'random', 'random_stochastic'] :
 			coarse_boundaries = np.stack([np.min([t_[0].mins for t_ in t_obj], axis = 0),
 					np.max([t_[0].maxes for t_ in t_obj], axis = 0)],
 					axis =0) #(2,D)
@@ -351,7 +351,7 @@ class cbc_bank():
 		N_points = lambda t: livepoints*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
-		if placing_method in ['stochastic', 'random', 'uniform', 'qmc']: it = iter(())		
+		if placing_method in ['stochastic', 'random', 'uniform', 'qmc', 'random_stochastic']: it = iter(())		
 		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
 		else: it = range(len(t_obj))
 
@@ -391,7 +391,7 @@ class cbc_bank():
 			N_templates = int( vol_tot/(dist**self.D) )+1
 			new_templates = t_obj.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 			
-		if placing_method == 'random':
+		if placing_method in ['random', 'random_stochastic']:
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
 			N_points_max = int(1e6)
 			N_points_tot = N_points(t_obj)
@@ -414,10 +414,10 @@ class cbc_bank():
 				new_templates_ = place_random(np.sqrt(1-avg_match), p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
 				new_templates.extend(new_templates_)
 			
-		if placing_method in ['geo_stochastic', 'stochastic']:
+		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
 			new_templates = place_stochastically(avg_match, t_obj,
 					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
-					seed_bank =  None if placing_method == 'stochastic' else new_templates)
+					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 
 		new_templates = np.stack(new_templates, axis =0)

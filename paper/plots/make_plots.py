@@ -3,6 +3,7 @@ Script to make all the plots for the paper. It loads several files around and pl
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 plt.style.use(['science','ieee', 'bright']) #https://github.com/garrettj403/SciencePlots
 import matplotlib
 from matplotlib.lines import Line2D
@@ -39,9 +40,13 @@ def plot_metric_accuracy(filenames, savefile = None):
 	fig, axes = plt.subplots(len(dict_list), 1, sharex = True)
 	
 	for i, (ax, out_dict) in enumerate(zip(axes, dict_list)):
-	
+
+		#out_dict['MM_list'].remove(0.95) #this is to remove the 0.95 part
+
 		#ax.title('{}'.format(out_dict['variable_format']))
 		next(ax._get_lines.prop_cycler)
+		#print("N datapoints: ",len(out_dict[0.999]))
+		
 		for MM in out_dict['MM_list']:
 			bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
 			bins = np.logspace(np.log10(0.93), 0, nbins)
@@ -57,8 +62,8 @@ def plot_metric_accuracy(filenames, savefile = None):
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
 	axes[-1].tick_params(axis = 'x', labelleft = True)
-	axes[-1].set_xticks([0.93+0.01*i for i in range(7)], labels = [], minor = True)
-	axes[-1].set_xlim([0.93,1.02])
+	axes[-1].set_xticks([0.94+0.01*i for i in range(6)], labels = [], minor = True)
+	axes[-1].set_xlim([0.94,1.02])
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 	#plt.show()
@@ -176,29 +181,40 @@ def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
 		bank = cbc_bank(var_format, bank_file)
 		templates = bank.templates
 
-
 		fig, axes = plt.subplots(1, N_colums, figsize = size, sharey = True)	
 		if isinstance(t,str): plt.suptitle(t)
 		
 		hist_kwargs = {'bins': min(50, int(len(templates)/50 +1)), 'histtype':'step', 'color':'orange'}
 		fs = 10
+		ticks_y = ticker.FuncFormatter(lambda x, pos: '{0:g}K'.format(int(x/1e3)) if x >2 else '') #formatter
+		
 		for i, ax_ in enumerate(axes):
+
 			if i>= templates.shape[1]:
-				ax_.clear()
 				ax_.axis('off')
 				continue
+			
+			ax_.yaxis.set_major_formatter(ticks_y)
 			ax_.yaxis.label.set_visible(False)
 			ax_.hist(templates[:,i], **hist_kwargs)
 			if i==0: ax_.set_ylabel("templates", fontsize = fs)
 			ax_.set_xlabel(vh.labels(var_format, latex = True)[i])#, fontsize = fs)
+			
+				#removing the spines
+			ax_.spines.right.set_visible(False)
+			ax_.spines.top.set_visible(False)
+			ax_.xaxis.set_ticks_position('bottom')
+			ax_.yaxis.set_ticks_position('left')
+			if i !=0: ax_.tick_params(labelleft=False)
+
 			min_, max_ = np.min(templates[:,i]), np.max(templates[:,i])
 			d_ = 0.1*(max_-min_)
 			ax_.set_xlim((min_-d_, max_+d_ ))
 			ax_.tick_params(axis='x', labelsize=fs)
 			ax_.tick_params(axis='y', labelsize=fs)
+		
 		if isinstance(savefile, str):
 			plt.savefig(savefile.format(t.replace(' ', '_')))
-		
 	plt.show()	
 
 ########################################################################################################
@@ -209,7 +225,6 @@ if __name__ == '__main__':
 		#metric accuracy plots
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
 				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl']
-				#'metric_accuracy/paper_Mq_s1z_s2z.pkl', 'metric_accuracy/paper_Mq_s1xz_s2z.pkl']
 	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
 		###
@@ -225,28 +240,28 @@ if __name__ == '__main__':
 		#Comparison with sbank - injections
 	sbank_list_injs = []
 	mbank_list_injs = []
-	for ct in ['nonspinning', 'alignedspin', 'alignedspin']:
+	for ct in ['nonspinning', 'alignedspin', 'alignedspin_lowmass', 'gstlal']:
 		sbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_sbank.pkl'.format(ct))
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
-	title = ['Nonspinning', 'Aligned Spins', 'GstLAL O3 bank']
-	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	title = ['Nonspinning', 'Aligned Spins', 'Aligned Spins Lowmass', 'Gstlal O3 bank']
+	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###
 		#Bank case studies
 	format_list = ['Mq_s1xz', 'Mq_s1xz', 'Mq_nonspinning_e']
-	bank_list = ['precessing_bank_hessian/bank_paper_precessing.dat', 'precessing_bank_hessian/bank_paper_precessing.dat',
+	bank_list = ['precessing_bank/bank_paper_precessing.dat', 'precessing_bank/bank_paper_precessing.dat',
 		'eccentric_bank/bank_paper_eccentric.dat']
 	title_list = ['Precessing', 'Aligned spins HM', 'Nonspinning eccentric']
-	injs_list = ['precessing_bank_hessian/bank_paper_precessing-injections_stat_dict.pkl', 'precessing_bank_hessian/bank_paper_precessing-injections_stat_dict.pkl',
+	injs_list = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'precessing_bank/bank_paper_precessing-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.pkl']
 
 		#plotting bank histograms
-	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
+	plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('match','match'), MM = 0.97, title = title_list, savefile = savefile)
+	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

@@ -20,7 +20,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, create_mesh_new, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries, place_iterative
+from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries, place_iterative
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -374,7 +374,6 @@ class cbc_bank():
 					#if stochastic option is set, we create a first guess for stochastic placing method 
 				#new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
 				new_templates_ = create_mesh(2*np.sqrt(1-avg_match), t, coarse_boundaries = None) #(N,D)
-				#new_templates_ = create_mesh_new(dist, t, coarse_boundaries = None) #(N,D)
 			
 			elif placing_method == 'iterative':
 				new_templates_ = place_iterative(avg_match, t)

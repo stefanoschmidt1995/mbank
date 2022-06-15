@@ -185,24 +185,27 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 10000
+	N_points = 2000
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = False
+	load = True
 	overlap = (run_name.find('overlap')>-1)
+	print('overlap: ', overlap)
 	
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 
 	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
+	#boundaries = np.array([[6, .1],[16, .25]]); variable_format = 'mceta_nonspinning'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., 0.1, 0., 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))
+	print("boundaries: ", *boundaries)
 	
 		#metric and calling the function
 	m_obj = cbc_metric(variable_format,

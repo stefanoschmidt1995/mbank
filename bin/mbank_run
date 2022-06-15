@@ -85,6 +85,9 @@ parser.add_argument(
 	"--livepoints", default = 50, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
+	"--empty-iterations", default = 100, type = float,
+	help="Number of consecutive proposal inside a tile to be rejected before the tile is considered full for the `stochastic` placement method")
+parser.add_argument(
 	"--tile-tolerance", default = 0.1, type = float,
 	help="Maximum tolerated variation of the relative difference of the metric determinant between parent and child in the iterative splitting procedure")
 parser.add_argument(
@@ -226,7 +229,7 @@ if format_info['mass_format'] == 'm1m2':
 else:
 	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, tolerance = args.tile_tolerance,
 		placing_method = args.placing_method, metric_type = args.metric_type, grid_list = args.grid_size,
-		livepoints = args.livepoints, max_depth = args.max_depth, use_ray = args.use_ray)
+		livepoints = args.livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth, use_ray = args.use_ray)
 	
 	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
 

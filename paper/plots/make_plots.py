@@ -36,7 +36,7 @@ def plot_metric_accuracy(filenames, savefile = None):
 	
 	
 		#creating the figures
-	nbins = 100
+	nbins = 50
 	fig, axes = plt.subplots(len(dict_list), 1, sharex = True)
 	
 	for i, (ax, out_dict) in enumerate(zip(axes, dict_list)):
@@ -48,16 +48,27 @@ def plot_metric_accuracy(filenames, savefile = None):
 		#print("N datapoints: ",len(out_dict[0.999]))
 		
 		for MM in out_dict['MM_list']:
-			bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
-			bins = np.logspace(np.log10(0.93), 0, nbins)
-			ax.hist(out_dict[MM], bins = bins, histtype='step', density = True, label = MM if i ==1 else None)
+				#KDE
+			hist_values = np.delete(out_dict[MM], np.where(np.isnan(out_dict[MM])))
+			kde = sts.gaussian_kde(hist_values)
+			x = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)) if MM<0.999 else np.log10(0.995),
+							np.log10(np.nanpercentile(out_dict[MM], 99.9)) if MM<0.999 else 0.,
+							1000)
+			ax.plot(x, kde.pdf(x)/np.max(kde.pdf(x)), lw=1, label = MM if i ==1 else None)
+			
+			#bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
+			#bins = np.logspace(np.log10(0.93), 0, nbins)			
+			#ax.hist(out_dict[MM], bins = bins, histtype='step', density = True, label = MM if i ==1 else None)
+
 			ax.axvline(MM, c = 'k', ls = 'dotted')
+			
 		ax.set_xscale('log')
 		ax.annotate(out_dict['variable_format'], xy = (.03,0.7), xycoords = 'axes fraction')
-		if i==1:
+		if i==1 and False:
 			handles, labels = ax.get_legend_handles_labels()
 			new_handles = [Line2D([], [], c=h.get_edgecolor()) for h in handles]
 			ax.legend(handles=new_handles, labels=labels, handlelength = 1, labelspacing = .1, loc = 'center right')
+		if i ==1: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1)
 	axes[-1].set_xlabel('$1-MM$')
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
@@ -66,36 +77,60 @@ def plot_metric_accuracy(filenames, savefile = None):
 	axes[-1].set_xlim([0.94,1.02])
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
-	#plt.show()
+	plt.show()
 
 def plot_MM_study(ax, out_dict, set_labels = 'both'):
+	id_N_templates = np.where(np.array(out_dict['MM_list'])==0.97)[0]
+	out_dict['N_templates'] = np.log10(out_dict['N_templates'])
+	max_N_templates, min_N_templates = np.max(out_dict['N_templates'][:,id_N_templates]), np.min(out_dict['N_templates'][:,id_N_templates])
+	min_y, max_y = 0.9*min_N_templates, 1.1*max_N_templates
+	
 	for i, N_t in enumerate(out_dict['N_tiles']):
 		perc = np.percentile(out_dict['MM_metric'][i,:], 1) if np.all(out_dict['MM_full'][i,:]==0.) else np.minimum(np.percentile(out_dict['MM_full'][i,:], 1), np.percentile(out_dict['MM_metric'][i,:], 1))
 		perc = np.array([perc, 1])
-		MM_grid = np.linspace(*perc, 30)
+		MM_grid = np.sort([*np.linspace(*perc, 30), 0.97])
 		bw = np.diff(perc)/10
 		
-		ax.plot(np.repeat(N_t, 2), perc, '--', lw = 1, c='k')
 			#creating a KDE for the plots
-		scale_factor = 0.3
+		scale_factor = 0.5
 		kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_metric'][i,:, None])
 		pdf_metric = np.exp(kde.score_samples(MM_grid[:,None]))
-		ax.plot(N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0])), MM_grid,
-						c= 'b', label = 'Metric Match' if i==0 else None)
 
+		N_templates = out_dict['N_templates'][i, id_N_templates]
+		x_hist = N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0]))
+		
+			#dealing with the grid
+		transform_grid = lambda x: (max_N_templates - min_N_templates)*0.3*(x-1)/(1-0.97)
+		id_MM = np.where(MM_grid ==0.97)[0][0]
+		MM_grid = transform_grid(MM_grid)
+		tick_location = MM_grid[[id_MM,-1]]
+
+		ax.plot(np.repeat(N_t, 2), MM_grid[[0,-1]] + N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
+		ax.plot(x_hist, MM_grid + N_templates,
+						c= 'b', label = 'Metric Match' if i==0 else None)
+		ax.scatter(N_t, N_templates, marker ='x', c='k', s = 6) #data point
+		len_red_tick = np.abs(N_t - np.min(x_hist))/2.
+		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates + MM_grid[id_MM]), '-', c= 'r', lw =1) #MM ticks
+		
 		if not np.all(out_dict['MM_full'][i,:]==0.):
+			#TODO: you should tackle the case here...
 			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_full'][i,:, None])
 			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
 			ax.plot(N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0])), MM_grid,
 						c= 'orange', label = 'Full Match' if i==0 else None)
 		
 	#plt.yscale('log')
+	#ax.set_ylim([min_y, max_y])
 	ax.set_xscale('log')
-	ax.axhline(out_dict['MM_inj'], c = 'r')
-	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{tiles}$")
-	if set_labels in ['y', 'both']: ax.set_ylabel(r"${Match}$")
-	ax.set_ylim((0.94,1.001))
+	#ax.axhline(out_dict['MM_inj'], c = 'r')
+	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{\text{tiles}}$")
+	if set_labels in ['y', 'both']: ax.set_ylabel(r"$N_{\text{templates}}$")
+	#ax.set_ylim((0.94,1.001))
 	ax.legend(loc = 'lower right')
+	
+	ticks_y = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(int(10**x)) if x >=0 else '') #formatter
+	ax.yaxis.set_major_formatter(ticks_y)
+
 
 def plot_placing_validation(format_files, placing_methods, savefile = None):
 
@@ -106,10 +141,6 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 	for i, variable_format in enumerate(format_files):
 		for j, method in enumerate(placing_methods):
 			print(variable_format, method)
-			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
-			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
-			text_dict['rotation'] = 'vertical'
-			if i==0: axes[j,i].text(0.05, 0.97, method, text_dict )
 				#load file
 			try:
 				with open(format_files[variable_format].format(method), 'rb') as filehandler:
@@ -119,7 +150,12 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 				continue
 				#plot
 			plot_MM_study(axes[j,i], out_dict, 'x' if i==0 else 'both')
-			
+			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
+			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
+			text_dict['rotation'] = 'vertical'
+			y_center = np.mean(axes[j,i].get_ylim())
+			if i==0: axes[j,i].text(0.03, y_center, method, text_dict )
+
 	
 	plt.tight_layout()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
@@ -233,7 +269,8 @@ if __name__ == '__main__':
 							'Mq_chi': 'placing_methods_accuracy/paper_chi/data_Mq_chi_{}.pkl',
 							'Mq_s1xz_s2z': 'placing_methods_accuracy/paper_precessing/data_Mq_s1xz_s2z_{}.pkl'}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	#plt.show()
 
 
 		###
@@ -258,7 +295,7 @@ if __name__ == '__main__':
 		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.pkl']
 
 		#plotting bank histograms
-	plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
+	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
 	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), MM = 0.97, title = title_list, savefile = savefile)

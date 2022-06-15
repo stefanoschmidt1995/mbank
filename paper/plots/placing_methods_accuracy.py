@@ -165,7 +165,7 @@ if __name__ == '__main__':
 	load_bank = False
 	full_match = False
 
-	MM_list = [0.92, 0.95, 0.97]#, 0.99]
+	MM_list = [0.97]#, 0.99]
 	
 	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
 	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)

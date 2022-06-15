@@ -294,7 +294,7 @@ class cbc_bank():
 		
 		return
 		
-	def place_templates(self, t_obj, avg_match, placing_method, livepoints = 50, verbose = True):
+	def place_templates(self, t_obj, avg_match, placing_method, livepoints = 50, empty_iterations = 100, verbose = True):
 		"""
 		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
@@ -325,6 +325,8 @@ class cbc_bank():
 		livepoints: float
 			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
 		
+		empty_iterations: int
+			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method.
 		
 		verbose: bool
 			Whether to print the output
@@ -415,7 +417,7 @@ class cbc_bank():
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
 			new_templates = place_stochastically(avg_match, t_obj,
-					empty_iterations = 500/self.D, #FIXME: this number should be properly set!! But should also be a very very large number!!
+					empty_iterations = empty_iterations,
 					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
 
@@ -425,7 +427,7 @@ class cbc_bank():
 
 	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance,
 			placing_method = 'random', metric_type = 'hessian',
-			grid_list = None, use_ray = False, livepoints = 50, max_depth = 6):
+			grid_list = None, use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -465,7 +467,10 @@ class cbc_bank():
 			Whether to use ray to parallelize
 		
 		livepoints: float
-			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
+			The ratio between the number of livepoints and the number of templates placed by ``random`` placing method. It only applies to the random placing method
+		
+		empty_iterations: int
+			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method.
 		
 		max_depth: int
 			Maximum number of splitting before quitting the iteration. If None, the iteration will go on until the volume condition is not met
@@ -506,7 +511,7 @@ class cbc_bank():
 			#placing the templates
 			#(if there is KeyboardInterrupt, the tiling is returned anyway)
 		try:
-			self.place_templates(t_obj, avg_match, placing_method = placing_method, livepoints = livepoints, verbose = True)
+			self.place_templates(t_obj, avg_match, placing_method = placing_method, livepoints = livepoints, empty_iterations = empty_iterations, verbose = True)
 		except KeyboardInterrupt:
 			self.templates = None
 		

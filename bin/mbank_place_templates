@@ -57,6 +57,9 @@ parser.add_argument(
 	"--livepoints", default = 50, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
+	"--empty-iterations", default = 100, type = float,
+	help="Number of consecutive proposal inside a tile to be rejected before the tile is considered full for the `stochastic` placement method")
+parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
 parser.add_argument(
@@ -97,7 +100,7 @@ bank = cbc_bank(args.variable_format)
 
 t_obj = tiling_handler(args.tiling_file)
 
-bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, livepoints = args.livepoints,  verbose = True)
+bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, livepoints = args.livepoints, empty_iterations = args.empty_iterations, verbose = True)
 
 	######
 	#	Plotting & saving

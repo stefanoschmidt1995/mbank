@@ -5,6 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 plt.style.use(['science','ieee', 'bright']) #https://github.com/garrettj403/SciencePlots
+#plt.rcParams['axes.spines.right'] = False
+#plt.rcParams['axes.spines.top'] = False
+plt.rcParams['xtick.top'] = False
+plt.rcParams['ytick.right'] = False
+
 import matplotlib
 from matplotlib.lines import Line2D
 
@@ -20,8 +25,60 @@ import warnings
 import shutil
 import pickle
 import os, sys
+import itertools
 
 ########################################################################################################
+
+def corner_plot(bank_file, variable_format, title = None, savefile = None):
+	import corner
+	bank = cbc_bank(variable_format, bank_file)
+	vh = variable_handler()
+	bank_labels = vh.labels(variable_format, latex = True)
+	D = bank.D
+
+	#figure = corner.corner(bank.templates, labels = bank_labels, quantiles = None, show_titles=False)
+	#plt.show()
+	#quit()
+	
+	size = plt.rcParams.get('figure.figsize')
+	size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
+	fig, axes = plt.subplots(D,D, figsize = size)
+	plt.suptitle(t)
+	
+	for i,j in itertools.product(range(D), range(D)):
+		ax = axes[i,j]
+		ax.xaxis.set_ticks_position('bottom')
+		ax.yaxis.set_ticks_position('left')
+		
+			#setting labels
+		if j==0 and i!=0:
+			ax.set_ylabel(bank_labels[i])
+		if i==D-1:
+			ax.set_xlabel(bank_labels[j])
+		
+			#above diagonal elements
+		if i<j: ax.axis('off')
+	
+			#diagonal elements
+		if i==j:
+			hist = bank.templates[:,i]
+			#ax.hist(bank.templates[:,i])
+			kde = sts.gaussian_kde(hist)
+			x = np.linspace(np.min(hist), np.max(hist), 2000)
+			ax.plot(x, kde.pdf(x), lw=1)
+
+			ax.yaxis.set_ticklabels([])
+			ax.spines.right.set_visible(False)
+			ax.spines.top.set_visible(False)
+		
+		if i>j:
+			ax.scatter(bank.templates[:,j], bank.templates[:,i], s = .09, edgecolors='none', alpha = 0.7)
+	
+	
+	plt.tight_layout()
+	if isinstance(savefile, str): plt.savefig(savefile)	
+	#plt.show()
+	#quit()
 
 def plot_metric_accuracy(filenames, savefile = None):
 	"Plot the metric accuracy plots"
@@ -46,41 +103,46 @@ def plot_metric_accuracy(filenames, savefile = None):
 		#ax.title('{}'.format(out_dict['variable_format']))
 		next(ax._get_lines.prop_cycler)
 		#print("N datapoints: ",len(out_dict[0.999]))
-		
+
 		for MM in out_dict['MM_list']:
 				#KDE
-			hist_values = np.delete(out_dict[MM], np.where(np.isnan(out_dict[MM])))
+			id_MM = np.where(np.array(out_dict['MM_list'])==MM)
+			hist_values = np.delete(out_dict[MM], np.where(np.logical_and(
+										np.isnan(out_dict[MM]),
+										np.linalg.norm(out_dict['theta1'][...,id_MM]-out_dict['theta2'][...,id_MM], axis = 1)>1.
+										)))
+			print(out_dict['variable_format'], MM, len(out_dict[MM]), len(hist_values))
 			kde = sts.gaussian_kde(hist_values)
-			x = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)) if MM<0.999 else np.log10(0.995),
-							np.log10(np.nanpercentile(out_dict[MM], 99.9)) if MM<0.999 else 0.,
+			x = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .01)) ,#if MM<0.999 else np.log10(0.99),
+							np.log10(np.nanpercentile(out_dict[MM], 100)) if MM<0.999 else 0.,
 							1000)
-			ax.plot(x, kde.pdf(x)/np.max(kde.pdf(x)), lw=1, label = MM if i ==1 else None)
+			label = None
+			if i==1 and MM<=0.97: label = MM
+			if i==2 and MM>0.97: label = MM
+			ax.plot(x, kde.pdf(x)/np.max(kde.pdf(x)), lw=1, label = label)
 			
 			#bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .1)), 0, nbins)
 			#bins = np.logspace(np.log10(0.93), 0, nbins)			
 			#ax.hist(out_dict[MM], bins = bins, histtype='step', density = True, label = MM if i ==1 else None)
 
-			ax.axvline(MM, c = 'k', ls = 'dotted')
+			ax.axvline(MM, c = 'k', ls = 'dashed', alpha = 0.5)
 			
 		ax.set_xscale('log')
-		ax.annotate(out_dict['variable_format'], xy = (.03,0.7), xycoords = 'axes fraction')
-		if i==1 and False:
-			handles, labels = ax.get_legend_handles_labels()
-			new_handles = [Line2D([], [], c=h.get_edgecolor()) for h in handles]
-			ax.legend(handles=new_handles, labels=labels, handlelength = 1, labelspacing = .1, loc = 'center right')
-		if i ==1: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1)
+		ax.annotate(out_dict['variable_format'], xy = (.03,0.2), xycoords = 'axes fraction')
+		if i ==1 or i ==2: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1)
+		
 	axes[-1].set_xlabel('$1-MM$')
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
 	axes[-1].tick_params(axis = 'x', labelleft = True)
-	axes[-1].set_xticks([0.94+0.01*i for i in range(6)], labels = [], minor = True)
-	axes[-1].set_xlim([0.94,1.02])
+	min_MM_val = 0.91
+	axes[-1].set_xticks([min_MM_val+0.01*i for i in range(int((1-min_MM_val)*100))], labels = [], minor = True)
+	axes[-1].set_xlim([min_MM_val,1.02])
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
-	plt.show()
 
 def plot_MM_study(ax, out_dict, set_labels = 'both'):
-	id_N_templates = np.where(np.array(out_dict['MM_list'])==0.97)[0]
+	id_N_templates = np.where(np.array(out_dict['MM_list'])==out_dict['MM_inj'])[0]
 	out_dict['N_templates'] = np.log10(out_dict['N_templates'])
 	max_N_templates, min_N_templates = np.max(out_dict['N_templates'][:,id_N_templates]), np.min(out_dict['N_templates'][:,id_N_templates])
 	min_y, max_y = 0.9*min_N_templates, 1.1*max_N_templates
@@ -88,7 +150,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 	for i, N_t in enumerate(out_dict['N_tiles']):
 		perc = np.percentile(out_dict['MM_metric'][i,:], 1) if np.all(out_dict['MM_full'][i,:]==0.) else np.minimum(np.percentile(out_dict['MM_full'][i,:], 1), np.percentile(out_dict['MM_metric'][i,:], 1))
 		perc = np.array([perc, 1])
-		MM_grid = np.sort([*np.linspace(*perc, 30), 0.97])
+		MM_grid = np.sort([*np.linspace(*perc, 30), out_dict['MM_inj']])
 		bw = np.diff(perc)/10
 		
 			#creating a KDE for the plots
@@ -100,26 +162,27 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 		x_hist = N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0]))
 		
 			#dealing with the grid
-		transform_grid = lambda x: (max_N_templates - min_N_templates)*0.3*(x-1)/(1-0.97)
-		id_MM = np.where(MM_grid ==0.97)[0][0]
-		MM_grid = transform_grid(MM_grid)
-		tick_location = MM_grid[[id_MM,-1]]
+		transform_grid = lambda x: (max_N_templates - min_N_templates)*0.4*(x-1)/(1-out_dict['MM_inj'])
+		id_MM = np.where(MM_grid ==out_dict['MM_inj'])[0][0]
+		MM_grid_transformed = transform_grid(MM_grid)
+		tick_location = MM_grid_transformed[[id_MM,-1]]
 
-		ax.plot(np.repeat(N_t, 2), MM_grid[[0,-1]] + N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
-		ax.plot(x_hist, MM_grid + N_templates,
+		ax.plot(np.repeat(N_t, 2), MM_grid_transformed[[0,-1]] + N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
+		ax.plot(x_hist, MM_grid_transformed + N_templates,
 						c= 'b', label = 'Metric Match' if i==0 else None)
 		ax.scatter(N_t, N_templates, marker ='x', c='k', s = 6) #data point
 		len_red_tick = np.abs(N_t - np.min(x_hist))/2.
-		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates + MM_grid[id_MM]), '-', c= 'r', lw =1) #MM ticks
+		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates + MM_grid_transformed[id_MM]), '-', c= 'r', lw =1) #MM ticks
 		
 		if not np.all(out_dict['MM_full'][i,:]==0.):
 			#TODO: you should tackle the case here...
 			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_full'][i,:, None])
 			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
-			ax.plot(N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0])), MM_grid,
-						c= 'orange', label = 'Full Match' if i==0 else None)
+			x_hist = N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0]))
+			ax.plot(x_hist, MM_grid_transformed + N_templates,
+						c= 'orange', label = 'Match' if i==0 else None)
 		
-	#plt.yscale('log')
+	#ax.set_yscale('log')
 	#ax.set_ylim([min_y, max_y])
 	ax.set_xscale('log')
 	#ax.axhline(out_dict['MM_inj'], c = 'r')
@@ -128,8 +191,8 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 	#ax.set_ylim((0.94,1.001))
 	ax.legend(loc = 'lower right')
 	
-	ticks_y = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(int(10**x)) if x >=0 else '') #formatter
-	ax.yaxis.set_major_formatter(ticks_y)
+	ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(int(10**x)) if x >=0 else '') #formatter
+	ax.yaxis.set_major_formatter(ticks_y_formatter)
 
 
 def plot_placing_validation(format_files, placing_methods, savefile = None):
@@ -140,7 +203,6 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 	
 	for i, variable_format in enumerate(format_files):
 		for j, method in enumerate(placing_methods):
-			print(variable_format, method)
 				#load file
 			try:
 				with open(format_files[variable_format].format(method), 'rb') as filehandler:
@@ -148,6 +210,7 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 			except FileNotFoundError:
 				axes[j,i].text(0.05, 0.5, 'Work in progress :)', {'fontsize':11})
 				continue
+			print(variable_format, method, out_dict['MM_metric'].shape)
 				#plot
 			plot_MM_study(axes[j,i], out_dict, 'x' if i==0 else 'both')
 			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
@@ -167,7 +230,7 @@ def plot_comparison_injections(list_A, list_b, labels, keys, title = None, MM = 
 	key_A, key_B = keys
 
 	size = plt.rcParams.get('figure.figsize')
-	size = (size[0], size[1]*len(list_A)*0.5)
+	size = (size[0], size[1]*len(list_A)*0.35)
 	fig, axes = plt.subplots(len(list_A), 1, sharex = True, figsize = size)
 
 	if title is None: title = [None for _ in list_A]
@@ -185,6 +248,8 @@ def plot_comparison_injections(list_A, list_b, labels, keys, title = None, MM = 
 		kde_B = sts.gaussian_kde(B_inj[key_B])
 		kde_A = sts.gaussian_kde(A_inj[key_A])
 
+		print(t, len(B_inj[key_B]))
+
 		ax.plot(x, kde_B.pdf(x), lw=1, label=label_B)
 		ax.plot(x, kde_A.pdf(x), lw=1, label=label_A)
 		#ax.hist(B_inj[key_B], label = label_B, density = True, histtype = 'step', bins = 1000)
@@ -193,7 +258,7 @@ def plot_comparison_injections(list_A, list_b, labels, keys, title = None, MM = 
 		if isinstance(MM, float): ax.axvline(MM, c = 'k', ls = '--')
 		if isinstance(t, str): ax.set_title(t)
 	axes[-1].legend(loc = 'upper left')
-	axes[-1].set_xlim([0.94,1.005])
+	axes[-1].set_xlim([0.95,1.005])
 		
 	axes[-1].set_xlabel(r"$\mathcal{M}$")
 	plt.tight_layout()	
@@ -251,7 +316,6 @@ def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
 		
 		if isinstance(savefile, str):
 			plt.savefig(savefile.format(t.replace(' ', '_')))
-	plt.show()	
 
 ########################################################################################################
 if __name__ == '__main__':
@@ -260,17 +324,17 @@ if __name__ == '__main__':
 		###
 		#metric accuracy plots
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
-				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl']
-	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
+				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl',
+				'metric_accuracy/paper_Mq_chi_iota.pkl']
+	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
 		###
 		#validation of placing methods
-	variable_format_files = {'Mq_nonspinning': 'placing_methods_accuracy/paper_nonspinning/data_Mq_nonspinning_{}.pkl',
-							'Mq_chi': 'placing_methods_accuracy/paper_chi/data_Mq_chi_{}.pkl',
-							'Mq_s1xz_s2z': 'placing_methods_accuracy/paper_precessing/data_Mq_s1xz_s2z_{}.pkl'}
+	variable_format_files = {'Mq_nonspinning': 'placing_methods_accuracy/paper_Mq_nonspinning/data_Mq_nonspinning_{}.pkl',
+							'Mq_chi': 'placing_methods_accuracy/paper_Mq_chi/data_Mq_chi_{}.pkl',
+							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl'}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
-	#plt.show()
+	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 
 		###
@@ -287,14 +351,20 @@ if __name__ == '__main__':
 	
 		###
 		#Bank case studies
-	format_list = ['Mq_s1xz', 'Mq_s1xz', 'Mq_nonspinning_e']
-	bank_list = ['precessing_bank/bank_paper_precessing.dat', 'precessing_bank/bank_paper_precessing.dat',
+	format_list = ['Mq_s1xz', 'logMq_chi_iota', 'Mq_nonspinning_e']
+	bank_list = ['precessing_bank/bank_paper_precessing.dat', 'HM_bank/bank_paper_HM.dat',
 		'eccentric_bank/bank_paper_eccentric.dat']
-	title_list = ['Precessing', 'Aligned spins HM', 'Nonspinning eccentric']
-	injs_list = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'precessing_bank/bank_paper_precessing-injections_stat_dict.pkl',
+	title_list = ['Precessing', 'IMBH HM', 'Nonspinning eccentric']
+	injs_list = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.pkl']
 
 		#plotting bank histograms
+	for b, f, t in zip(bank_list, format_list, title_list):
+		filename = img_folder+'bank_scatter_{}.png'.format(t.replace(' ', '_'))
+		print(filename)
+		#corner_plot(b,f,t, savefile = filename)
+		#plt.show()
+		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'

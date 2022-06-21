@@ -29,7 +29,8 @@ def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list,
 			'volume_tiles': np.zeros((len(epsilon_list), )),
 			'MM_metric': np.zeros((len(epsilon_list), N_injs), float),
 			'MM_full': np.zeros((len(epsilon_list), N_injs), float),
-			'N_injs': N_injs, 'N_neigh_templates': N_neigh_templates, 'MM_inj': 0.97
+			'N_injs': N_injs, 'N_neigh_templates': N_neigh_templates, 'MM_inj': 0.97,
+			'N_livepoints': 1000, 'empty_iterations': 100	
 		}
 
 	t = tiling_handler()
@@ -41,7 +42,8 @@ def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list,
 			del t
 			t = tiling_handler(filename)
 		else:
-			t.create_tiling(boundaries, epsilon, m_obj.get_metric, verbose = True)
+			t = tiling_handler() #emptying the handler... If the split is not volume based, you should start again with the tiling
+			t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = 400, verbose = True)
 			t.save(filename)
 		out_dict['N_tiles'][i]= len(t)
 		out_dict['volume_tiles'][i]= t.compute_volume()[0]
@@ -53,22 +55,24 @@ def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list,
 			if load_bank and os.path.exists(bank_name):
 				b.load(bank_name)
 			else: 
-				b.place_templates(t, MM, placing_method = placing_method, verbose = True)
+				b.place_templates(t, MM, placing_method = placing_method, 
+						livepoints = out_dict['N_livepoints'], empty_iterations = out_dict['empty_iterations'],
+						verbose = True)
 				b.save_bank(bank_name)
 			out_dict['N_templates'][i,j] = b.templates.shape[0]
-			print("MM, N_tiles, N_templates\t:", MM, out_dict['N_tiles'][i], out_dict['N_templates'][i,j])
+			print("epsilon, MM, N_tiles, N_templates\t:", epsilon, MM, out_dict['N_tiles'][i], out_dict['N_templates'][i,j])
 		
 				#Throwing injections
 			if MM != out_dict['MM_inj']: continue #injections only for MM = 0.97
 			injs = t.sample_from_tiling(N_injs, seed = 210795)
 					#metric injections
 			inj_dict = compute_metric_injections_match(injs, b, t, N_neigh_templates = N_neigh_templates, verbose = True)
-			out_dict['MM_metric'][i,:] = inj_dict['match']
-			print('\t\tMetric match: ', np.percentile(inj_dict['match'], [1, 5, 50,95])) 
+			out_dict['MM_metric'][i,:] = inj_dict['metric_match']
+			print('\t\tMetric match: ', np.percentile(inj_dict['metric_match'], [1, 5, 50,95])) 
 					#full match injections
 			if full_match:
 				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj, N_neigh_templates = N_neigh_templates,
-							symphony_match = False, cache = True)
+							symphony_match = False, cache = False)
 				out_dict['MM_full'][i,:] = inj_dict['match']
 				print('\t\tFull match: ', np.percentile(inj_dict['match'], [1, 5,50,95]))
 		
@@ -157,25 +161,20 @@ def plot(out_dict, run_name, folder_name = None):
 
 
 ###########################################################################################
+###########################################################################################
 
 if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
-	load_bank = False
-	full_match = False
+	load_bank = True
+	full_match = True
 
-	MM_list = [0.97]#, 0.99]
+	MM_list = [0.97]
 	
-	#V_tile_list = [5, 10, 50, 100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing
-	#V_tile_list = [100, 200, 500, 1000]; variable_format = 'Mq_s1xz_s2z' #for precessing (with reduced tiling for random method)
-	#V_tile_list = [10000, 5000, 1000, 500, 100, 70]; variable_format = 'Mq_s1z_s2z' #for aligned_spin
-	#V_tile_list = [120, 100, 10, 5, 1]; variable_format =  'Mq_nonspinning' #for nonspinning
-	#V_tile_list = [120, 100, 10]; variable_format =  'Mq_nonspinning' #for test
-	
-	epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
-	epsilon_list = [10, 1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (30, 50)
-	epsilon_list = [10, 1, 0.8, 0.5, 0.4]; variable_format =  'Mq_s1xz_s2z'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+	#epsilon_list = [10, 1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+	epsilon_list = [10, 0.5, 0.355, 0.35, 0.3, 0.25, 0.2]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
 	
 			#setting ranges
 	q_range = (1,5)
@@ -185,7 +184,7 @@ if __name__ == '__main__':
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
-	N_injs, N_neigh_templates = 1000, 30
+	N_injs, N_neigh_templates = 5000, 75
 	
 	m_obj = cbc_metric(variable_format,
 			PSD = load_PSD(psd, True, ifo),
@@ -196,6 +195,7 @@ if __name__ == '__main__':
 		#dealing with files
 	if len(sys.argv)>1: run_name, placing_method = sys.argv[1], sys.argv[2]
 	else: raise ValueError("Run name must be given!")
+	run_name = run_name+'_{}'.format(variable_format)
 	
 	folder_name = 'placing_methods_accuracy/{}'.format(run_name)	
 	filename = '{}/data_{}_{}.pkl'.format(folder_name, variable_format, placing_method)

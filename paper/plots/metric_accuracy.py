@@ -62,17 +62,22 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 
 		for j, MM in enumerate(MM_list):
 				#extracting random points
-			metric = metric_obj.get_metric(center, overlap, 'hessian')
-			theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , metric, overlap)
-			ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
-			ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
-			ids_ = np.logical_and(ids_1, ids_2) #(N,)
-
+			try:
+				metric = metric_obj.get_metric(center, overlap, 'hessian')
+				theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , metric, overlap)
+				ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
+				ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
+				ids_ = np.logical_and(ids_1, ids_2) #(N,)
+			except:
+				print("Failed @ center = ",center)
+				ids_ = [False, False, False]
+				
 			if np.any(ids_)>0:
 				theta1 = theta1[ids_,:]
 				theta2 = theta2[ids_,:]
-				id_ok = np.argmin(np.linalg.norm(theta1-theta2, axis =1)) #(N,)
-				#id_ok = 0
+				
+				#id_ok = np.argmin(np.linalg.norm(theta1-theta2, axis =1)) #(N,) #This introduces lots of biases
+				id_ok = 0 #this amounts to take things at random
 					
 				theta1 = theta1[id_ok,:]
 				theta2 = theta2[id_ok,:]
@@ -81,6 +86,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				out_dict['theta2'][i,:,j] = theta2
 				out_dict['theta1'][i,:,j] = theta1
 				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap) #mbank
+				
 				#print(theta1, theta2, out_dict[MM][i])
 			else:
 				out_dict['theta1'][i,:,j] = np.nan
@@ -113,6 +119,23 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 #	ax.set_xticklabels([str(MM) for MM in out_dict['MM_list']])
 
 	if savefile is not None: plt.savefig(savefile)	
+	plt.show()
+
+def plot_hist(out_dict):
+	MM = 0.97
+	id_ = np.where(np.array(out_dict['MM_list'])==MM)
+
+	for i in range(out_dict['center'].shape[1]):
+		plt.figure()
+		plt.title(i)
+		plt.scatter(out_dict['center'][:,i], out_dict[MM][:])
+		plt.axhline(MM, c= 'r')
+
+	plt.figure()
+	plt.title("norm")
+	plt.scatter(np.linalg.norm(out_dict['theta1'][...,id_]-out_dict['theta2'][...,id_], axis = 1), out_dict[0.97])
+	plt.axhline(MM, c= 'r')
+
 	plt.show()
 
 def plot_ellipse(center, MM, metric_obj, boundaries = None):
@@ -185,7 +208,7 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 2000
+	N_points = 15000
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
@@ -199,9 +222,9 @@ if __name__ == '__main__':
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 
 	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
-	#boundaries = np.array([[6, .1],[16, .25]]); variable_format = 'mceta_nonspinning'; approximant = 'IMRPhenomD'
-	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
-	#boundaries = np.array([[20, 1., 0.1, 0., 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
+	boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
+	#boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
+	#boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))
@@ -223,6 +246,9 @@ if __name__ == '__main__':
 	else:
 		with open(filename, 'rb') as filehandler:
 			out_dict = pickle.load(filehandler)
+	
+	plot_hist(out_dict)
+	quit()
 	
 	savefile = None #'../tex/img/metric_accuracy_{}.pdf'.format(variable_format)
 	plot_metric_accuracy_data(out_dict, savefile)

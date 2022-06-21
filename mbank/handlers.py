@@ -1309,13 +1309,11 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				metric_0 = metric_func(nt[0].center)
 				metric_2 = metric_func(nt[2].center)
 					#Computing stopping conditions
-				m0_ok = get_deltaM(metric_0, nt[1].metric) < tolerance 
-				m2_ok = get_deltaM(metric_2, nt[1].metric) < tolerance
-				#split_tile = get_deltaM(metric_2, metric_0) < tolerance #FIXME: do we rather use this?
+				split_tile = get_deltaM(metric_2, metric_0) < tolerance
 
-				extended_list = [ 	(tile(nt[0].rectangle, metric_0), (m0_ok and m2_ok), t[2]+1),
-									(nt[1],	(m0_ok and m2_ok), t[2]+1),
-									(tile(nt[2].rectangle, metric_2), (m0_ok and m2_ok), t[2]+1) ]
+				extended_list = [ 	(tile(nt[0].rectangle, metric_0), split_tile, t[2]+1),
+									(nt[1],	split_tile, t[2]+1),
+									(tile(nt[2].rectangle, metric_2), split_tile, t[2]+1) ]
 				
 					#replacing the old tile with the new ones
 				tiles_list.remove(t)
@@ -1384,7 +1382,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
-	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False):
+	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False, p_equal = False):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
 		
@@ -1404,6 +1402,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			
 			tile_id: bool
 				Whether to output the id of the tile each random point belongs to. Default is `False`
+			
+			p_equal: bool
+				Whether all the tiles should be chosen with equal probability. If False, the probability of having a point in each tile is proportional to its volume
 		
 		Returns
 		-------

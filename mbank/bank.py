@@ -383,7 +383,7 @@ class cbc_bank():
 				new_templates_ = place_stochastically_in_tile(avg_match, t)
 			elif placing_method == 'tile_random':
 				temp_t_ = tiling_handler(t)
-				new_templates_ = place_random(np.sqrt(1-avg_match), temp_t_, N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
+				new_templates_ = place_random(avg_match, temp_t_, N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
 		
 			new_templates.extend(new_templates_)
 
@@ -412,7 +412,7 @@ class cbc_bank():
 			for p in it:
 				#TODO: make this a ray function? Too much memory expensive, probably...
 					#The template volume for random is sqrt(1-MM) (not dist)
-				new_templates_ = place_random(np.sqrt(1-avg_match), p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
+				new_templates_ = place_random(avg_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:

@@ -464,19 +464,21 @@ The results are shown in fig.~\ref{fig:placing_validation}.
 By looking at the number of templates placed by the {\it uniform} method, we see that they all grow with the number of tiles until a certain upper limit. This is the expect behavior of a good tiling generation method. Indeed we expect that an incresing number of tiles provides a better estimation of the overall volume of the space until the estimation converges to the actual value in the limit of infinite tiles. Moreover, according to eq.~\eqref{eq:N_templates}, the number of templates placed by the uniform method is essentially a measure of volume.
 The fact that the tiling generation method is able to reach a stable estimation of the number is then a confirmation of its robustness in estimating the actual volume of the space.
 
-We now analyse the properties of the different placing methods.
+We now analyse the properties of the different methods.
 
-We note that the {\it uniform} placing methods understimates the number of templates with respect to the other two methods. Moreover, it provides a poor coverage of the space, since a very large fraction of the injections has a fitting factor below the target $0.97$. This is expected since, unlike other methods, all the templates are drawn independently from each other: this causes great oscillation in the templates densities, generating overdense and underdense regions.
+We note that the {\it uniform} placing method understimates the number of templates with respect to the other two methods. Moreover, it provides a poor coverage of the space, since a very large fraction of the injections has a fitting factor below the target $0.97$. This is expected since, unlike other methods, all the templates are drawn independently from each other: this causes great oscillation in the templates densities, generating overdense and underdense regions.
 However, it is important to note that, as mentioned before, this methods can still be useful to provide a quick estimation of the bank features and in practice it can be used in the exploratory analysis preceding the generation of a bank.
 
 The {\it random} method provides very nice coverage properties of the two non-precessing manifolds (\texttt{Mq\_nonspinning} and \texttt{Mq\_chi}): this can be seen by the excellent fitting factor of the injection performed. Moreover, the method performances do not depend on the number of tiles.
 For the precessing manifold, \texttt{Mq\_s1xz}, the method's performances sligthly deteriorates as can be seen by the large tails in the fitting factor histogram.
 This is a well known feature of this placing method that leads to bad coverage whenever the metric changes drastically across the space. In this situation, a livepoint from a tile with a low $\sqrt{|M|}$ can ``kill" other livepoints in an unphysically large portion of the parameter space (see the discussion in sec.~\ref{sec:metric_accuracy}). For this reason, the high density regions ca be underpopulated due to the breaking down of the metric approximation. A possible solution for this is to introduce a cut-off on the effect of the metric, hence limiting the unphysical long range action of a quasi-degenerate metric: this will be the scope of future work.
 
-Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed: compared to the {\it stochastic} method it can run one order of magnitude faster.
+Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed. Indeed, compared to the {\it stochastic} method it can run one order of magnitude faster\footnote{This happens because is does not make proposal whenever it is not required...}
 
-
-
+As shown by our results, the {\it stochastic} method is always able to cover the space with the appropriate minimum match. This very nice performance is of course expected: this placing method (with some variations) is the state of the art of bank generation and has proven to be reliable.
+On our implementation of the method, we note that (especially for \texttt{Mq\_chi}) the number of templates {\it do} depend on the number of tiles: this can lead to overcover the space. The reason for that lies in the stopping condition implemented. We stop proposing new templates inside a tile after $N_{max}$ iterations without a template being added in that tile. Hence of course, a large number of tiles provides a more stringent terminating condition (at a constant $N_{max}$) than a small number of tiles.
+A possible solution for this would be to impose a stopping condition on the global volume: this however would consume a lot of computational power as it does not provide a mechanism to stop making proposals in tiles that are already ``full".
+A way around this shortcoming is to tune $N_{max}$ so as to achieve the desidered performance: this can be quickly checked by computing the metric fitting factor on an injection set.
 
 
 

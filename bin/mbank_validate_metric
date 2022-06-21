@@ -212,13 +212,18 @@ if args.save_dir is None and not args.show: quit()
 	# Sampling from the ellipse and computing match
 	######
 points = m_obj.get_points_on_ellipse(args.N_points, center, match = args.match, metric = metric, inside = (not args.on_boundaries), overlap = args.overlap)
-#points = m_obj.get_points_on_ellipse(args.N_points, center, match = 0.8, metric = metric, inside = True, overlap = args.overlap) #larger region (DEBUG)
-matches = np.zeros((points.shape[0],))+np.nan
-ids_inside = m_obj.var_handler.is_theta_ok(points, args.variable_format, raise_error = False)
+matches = np.zeros((args.N_points,))+np.nan
+ids_inside = m_obj.var_handler.is_theta_ok(points, args.variable_format, raise_error = False) #DEBUG
+
+#p1, p2 = m_obj.get_points_at_match(args.N_points, center, match = args.match, metric = metric, overlap = args.overlap)
+#ids_inside = np.logical_and(m_obj.var_handler.is_theta_ok(p1, args.variable_format, raise_error = False),
+#		m_obj.var_handler.is_theta_ok(p2, args.variable_format, raise_error = False))#DEBUG
 
 if sum(ids_inside)>0:
 	matches[ids_inside] = m_obj.match(points[ids_inside, :], center, overlap = args.overlap)
-
+	#matches[ids_inside] = m_obj.match(p1[ids_inside, :], p2[ids_inside, :], overlap = args.overlap) #DEBUG
+#points = np.concatenate([p1, p2], axis = 0)
+#matches = np.concatenate([matches, matches], axis = 0)
 
 	######
 	# Plotting the parabolae

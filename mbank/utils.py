@@ -761,7 +761,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 	if templates.shape[0] >500000: ids_ = np.random.choice(templates.shape[0], 500000, replace = False)
 	else: ids_ = range(templates.shape[0])
 	
-	size_template = [20 if templates.shape[0] < 10000 else 2][0]
+	size_template = [20 if templates.shape[0] < 5000 else 2][0]
 	centers = t_obj.get_centers()
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (15,15))
 	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
@@ -1144,8 +1144,7 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 			yield
 	t_ = tqdm(dummy_iterator()) if verbose else dummy_iterator()
 
-	#MM = 1- avg_dist**2 #old alternative
-	MM = minimum_match 
+	MM = minimum_match
 
 	if seed_bank is None:
 		ran_id_ = np.random.choice(len(t_obj))
@@ -1159,6 +1158,11 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 	#TODO: this should sample from the tiling. Might be more efficient...
 	#You could make a local copy of the tiling and then remove elements from the list: memory expensive but nice, since the sampling would be done with the nice PDF and removing elements from list is fast
 	#The random extraction must be done in batches though (unconvenient)
+	
+	#proposal_list, tile_id_vector = t_obj.sample_from_tiling(100000, seed = 0, tile_id = True, p_equal = True) #DEBUG
+	#ids_ = np.random.permutation(len(proposal_list))
+	#proposal_list, tile_id_vector = proposal_list[ids_,:], tile_id_vector[ids_]
+	
 	try:
 		i=0
 		for _ in t_:
@@ -1176,7 +1180,7 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 			
 			rect = t_obj[tile_id].rectangle
 			proposal = np.random.uniform(rect.mins, rect.maxes, (1, t_obj[tile_id].D))
-			
+
 			diff = new_templates - proposal #(N_templates, D)
 			
 			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, t_obj[tile_id].metric)), axis = -1))
@@ -1271,7 +1275,7 @@ def place_iterative(match, t):
 	return new_templates
 
 #@do_profile(follow=[])
-def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
+def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = True):
 	"""
 	Given a tiling object, it covers the volume with points and covers them with templates.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -1279,8 +1283,8 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 	Parameters
 	----------
 	
-		dist: float
-			Radius of the sphere for the template volume
+		minimum_match: float
+			Minimum match between templates.
 		
 		t_obj: tiling_handler
 			Tiling handler that tiles the parameter space
@@ -1304,10 +1308,25 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 	#i.e. you should add a tiling label to all the generated livepoints and use it somehow...
 	
 	assert 0<tolerance <=1., "The tolerance should be a fraction in (0,1]"
+	assert isinstance(N_points, int) and N_points>0, "N_points should be a positive integer"
 	
-	dist_sq = dist**2
+	MM = minimum_match
 	dtype = np.float32 #better to downcast to single precision! There is a mild speedup there
-	livepoints = t_obj.sample_from_tiling(N_points, dtype = dtype) #(N_points, D)
+	
+	livepoints, id_tile_livepoints = t_obj.sample_from_tiling(N_points,
+				dtype = dtype, tile_id = True, p_equal = False) #(N_points, D)
+	
+	if False:
+		#sorting livepoint by their metric determinant...
+		_, vols = t_obj.compute_volume()
+		v_list_livepoints = [np.linalg.det(t_obj[i].metric) for i in id_tile_livepoints]
+		id_sort = np.argsort(v_list_livepoints)[::-1]
+	else:
+		#random shuffling
+		id_sort = np.random.permutation(N_points)
+
+	livepoints = livepoints[id_sort, :]
+	id_tile_livepoints = id_tile_livepoints[id_sort]
 	
 		#ordering the tile by volume in ascending order...
 	_, vols = t_obj.compute_volume()
@@ -1323,42 +1342,38 @@ def place_random(dist, t_obj, N_points, tolerance = 0.01, verbose = True):
 	else: it = dummy_iterator()
 	
 	for _ in it:
-		id_point = np.random.randint(len(livepoints))
+			#choosing livepoints in whatever order they are set
+		id_point = 0
+		#id_point = np.random.randint(len(livepoints))
 		point = livepoints[id_point,:]
-		
-		if len(livepoints)<=tolerance*N_points:
-			break
-			
-		diff = livepoints - point #(N,D)
-		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric
-		
-		id_ = t_obj.get_tile(point)[0]
+		id_ = id_tile_livepoints[id_point]
 		metric = t_obj[id_].metric
-		#metric = t_obj[id_].projected_metric()
+		
+		diff = livepoints - point #(N,D)
+		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric!!
 		
 				#measuring metric match between livepoints and proposal
 				#Doing things with cholesky is faster but requires non degenerate matrix
-		#L_t = np.linalg.cholesky(metric).astype(dtype) #(D,D)
+		L_t = np.linalg.cholesky(metric).astype(dtype) #(D,D)
 			#BLAS seems to be faster for larger matrices but slower for smaller ones...
 			#Maybe put a threshold on the number of livepoints?
-		#diff_prime = scipy.linalg.blas.sgemm(1, diff, L_t)
-		#diff_prime_np = np.matmul(diff, L_t)
-		#dist_ = np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
+		diff_prime = scipy.linalg.blas.sgemm(1, diff, L_t)
+		match = 1 - np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
 		
-		dist_ = np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1)
-		
-		ids_kill = np.where(dist_< dist_sq)[0]
+		#match = 1 - np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1) #(N,)
 
-		del diff, dist_
+		ids_kill = np.where(match > MM)[0]
 
 			#This operation is very slow! But maybe there is nothing else to do...
-		livepoints = np.delete(livepoints, ids_kill, axis = 0) 
+		livepoints = np.delete(livepoints, ids_kill, axis = 0)
+		id_tile_livepoints = np.delete(id_tile_livepoints, ids_kill, axis = 0)
 		
 				#this is very very subtle: if you don't allocate new memory with np.array, you won't decrease the reference to livepoints, which won't be deallocated. This is real real bad!!
 		new_templates.append(np.array(point, dtype = np.float64))
 		del point
 			
-		if len(livepoints) == 0: break
+			#communication and exit condition
+		if len(livepoints)<=tolerance*N_points: break
 		if len(new_templates) %500 ==0 and verbose: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
 	
 	new_templates = np.column_stack([new_templates])

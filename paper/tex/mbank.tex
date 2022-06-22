@@ -54,6 +54,7 @@ superscriptaddress,10pt]{revtex4-1}
 \newcommand{\scalarnonorm}[2]{\langle #1|#2 \rangle_{\text{not normalized}}}
 \newcommand{\rescalar}[2]{( #1|#2 )}
 \newcommand{\imscalar}[2]{[ #1|#2 ]}
+\newcommand{\mbank}{\texttt{mbank} }
 
 
 % comments command
@@ -111,11 +112,11 @@ In this work, we develop a novel approach to template placing based on the metri
 Our method is specifically designed for dealing with high-dimensional (more than 4 dimensional) template banks of precessing signals. This makes it particulary suitable for investigating exotic regions for BBH parameter space, enabling generation of banks for precessing and eccentric signals. In such situation, where an established standard bank does not exist, it is crucial to allow for a fast, yet accurate, exploration of different bank configuration.
 
 Our model constructs an internal representation of the paramter space of interests, computes the metric for distance computation and exploits this for fast template placing. \sarah{This is nice. I think you will want to have maybe a diagram that gives an overview of the whole package. For instance, to show how the bank code and injection code can make a workflow that gives you a validated bank.} \stefano{Do you mean a map of all the executables that I can run an all the relations between them? Or maybe something more high level saying just the operations (tiling, template placing, injections)?}
-The approach is implemented in an open-source python package \texttt{mbank}, freely available on GitHub\footnote{
+The approach is implemented in an open-source python package \mbank, freely available on GitHub\footnote{
 It available at the repository: \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}}.
 The package offers support for tiling the parameter space of interests and placing templates with an user given average spacing. Moreover, it offers an injection helper that allows for a very fast validation of the bank.
 It is designed to run in parallel the most heavy computations.
-As a summary, \texttt{mbank} is implemented to be:
+As a summary, \mbank is implemented to be:
 \begin{itemize}
 	\item Extremely fast \sarah{This will need to be bench-marked. Do you have some timing numbers already?}
 	\item Suitable for large banks and high dimensional {\it exotic} parameter space
@@ -123,10 +124,10 @@ As a summary, \texttt{mbank} is implemented to be:
 \end{itemize}
 \stefano{Shall you explicitly say a common use case??}
 
-The rest of this paper is devoted to present and validate \texttt{mbank}.
+The rest of this paper is devoted to present and validate \mbank.
 In sec.~\ref{sec:methods} we present the details of the bank generation algorithm.
 Section~\ref{sec:validation} will be devoted to the validation of the performance of the code. We will focus on the comparison with the widely used stochastic placement code \texttt{sbank}.
-To demostrate the capabilities of \texttt{mbank}, we will employ our code to generate two large banks of exotic regions of parameter space: a bank of precessing signals and a bank of eccentric signals. This will be the topic of sec.~\ref{sec:bank_generation}.
+To demostrate the capabilities of \mbank, we will employ our code to generate two large banks of exotic regions of parameter space: a bank of precessing signals and a bank of eccentric signals. This will be the topic of sec.~\ref{sec:bank_generation}.
 Finally, in sec.~\ref{sec:conclusion} we will present some conclusive remarks on our work, with particular attention to future prospects.
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -281,7 +282,7 @@ where the threshold $\epsilon$ can be freely chosen by the user and sets the tot
 The tiling generation algorithm iteratively splits the an initial tile $\mathcal{T}_{0}$ covering all the space of interest, until all the tiles satisfy the condition above.
 To prevent the algorithm from running indefinetely, we also impose a threshold \texttt{max-depth} on the number of ``generations of tiles". This effectively sets a maximum number of tiles equivalent to $3^{\texttt{max-depth}}$.
 
-As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. \stefano{shall we implement this??? Given the new random approach it shouldn't be too difficult...}
+As we limit to rectangular tiles, \mbank is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. \stefano{shall we implement this??? Given the new random approach it shouldn't be too difficult...}
 
 It is important to realise that a tiling defines also an approximation to the uniform probability measure $p$\footnote{
 A probability distribution is said to be {\it uniform} if, for every volume $V$ of the space, it satisfies $p(V) \propto \text{Vol}(V)$.}
@@ -340,15 +341,15 @@ The method runs very fast but provides poor coverage and injection recovery. Nev
 
 A variant, called {\it qmc} allows to sample from each tile using a quasi-Montecarlo sampling, to ensure a more regular separation between points. However, we observe only a mild increase of performance.
 \stefano{Do we want to mention this?}
-\paragraph{Random}\label{par:random}
-\stefano{Mention livepoints and empty iterations}
-The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{templates}$
-The method first appered in \cite{} and has very good properties: the result mildly depends on the tiling chosen and it is able take care of the boundaries. As the livepoints must be stored in the computer memory, it can be quite memory expensive.
 \paragraph{Stochastic}\label{par:stochastic}
 Some proposals are randomly drawn from the parameter space. They are accepted as templates if their minimum metric distance from all the previously added templates is greater than  $\sqrt{1-MM}$.
 This implements the standard approach to template placing \cite{}.
 Whenever $N_{max}$ proposals are consecutively rejected in a single tile, the tile will be considered ``full" and no templates will be proposed inside.
 This methods provides very nice coverage properties, however it can be quite slow to run (but still fast compared to a non metric placement approach). Moreover, due to the stopping condition implemented the number of templates depends on the number of tiles.
+\paragraph{Random}\label{par:random}
+The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{templates}$.
+It is similar in spirit to the {\it stochastic} method but it manages the proposals in a more efficient way.
+The method first appered in \cite{} and has very good properties: the result mildly depends on the tiling chosen and it is able to take care of the boundaries. As the livepoints must be stored in the computer memory, it can be quite memory expensive and for many practical applications it cannot run without splitting the parameter space in subregions.
 \paragraph{Random-Stochastic}\label{par:randomstochastic}
 The outcome of the {\it random} placement is set as a seed bank for the {\it stochastic} method. This make sure that eventual ``holes" left by the random placement are covered. This provides a substantial speed up with respect to the stochastic method while keeping at the same time the same amount of accuracy.
 \paragraph{Tile-Stochastic/Tile-random}\label{par:tilerandom_stochastic}
@@ -363,16 +364,19 @@ In general, this can happen in two situations:
 \begin{enumerate}
 	\item {\it The quadratic approximation fails}. In this case, eq.~\eqref{eq:metric_definition} ceases to be a good approximation for the match. Obviously, whenever this happens, there is no guarantee for the template placement to be optimal.
 	\item {\it The metric changes drastically in a small region of the parameter}. Here, the tiling algorithm may not be able to track the sudden change in the metric and that region of the parameter space will be dramatically under/over-covered.
+	\item {\it The approximant is not numerically stable}. In this case, one or many eigenvalues of the metric will be unphysically large: the metric loses any predictivity.
 	\item {\it The waveform does not depend on one of the dimensions of the space}. In this case the metric is close to be degenerate and it fails to be a good approximation of the match: the region (ellipsoid) where $d_M<\sqrt{1-MM}$ covers an unphysically large coordinate volume. When this happens, the metric approximation loses accuracy as it predict a small value of the match also at large coordinate distance where the limit $\Delta\theta \lesssim 1$ (and the metric approximation) is not valid anymore.
 \end{enumerate}
 
 In general, it is hard to realize when the placement fails and there is not a single recipe for this.
 
-As a rule of thumb, to detect the failure of the metric approximation (case 1.), the user should compare the match with the metric match and measure their discrepancies\footnote{To ease the study of metric accuracy in a given point in space, the script \texttt{mbank\_validate\_metric} is provided together with the \texttt{mbank} package}.
+As a rule of thumb, to detect the failure of the metric approximation (case 1.), the user should compare the match with the metric match and measure their discrepancies\footnote{To ease the study of metric accuracy in a given point in space, the script \texttt{mbank\_validate\_metric} is provided together with the \mbank package}.
 
 On the other hand, a large injection study should be able to discover regions of the parameter space where the metric changes rapidly. Such regions will be over/under-densely populated with templates, giving a small/large injection recovery factor.
 
-If the metric is close to be degenerate (case 3.), the placing methods (especially {\it uniform} and {\it random}) will provide a poor coverage. This can be easily recognized from a poor metric injection recovery. This happens especially at low masses or low mass ratios, where the discrepancy between the first and the last metric eigenvalue can be very large. Problems in this aspect should arise for total mass $M<15 M_{\odot}$.
+Whenever the metric is not numerically stable and there is a diverging metric determinant, an unphysically large number of templates are placed in a small region. This creates a large discontinuity in the template density, which should be easily detectable by plotting a corner plots of the templates.
+
+If the metric is close to be degenerate (case 4.), the placing methods (especially {\it uniform} and {\it random}) will provide a poor coverage. This can be easily recognized from a poor metric injection recovery. This happens especially at low masses or low mass ratios, where the discrepancy between the first and the last metric eigenvalue can be very large. Problems in this aspect should arise for total mass $M<15 M_{\odot}$.
 \stefano{To ease the template placing, one could think of inserting a cutoff on the range of the metric. But how to tune it?}
 
 
@@ -390,7 +394,7 @@ If the metric is close to be degenerate (case 3.), the placing methods (especial
 
 In this section we study the performance of different parts of our model. We begin by assessing the quality of the metric approximation to the match sec.~\ref{sec:metric_accuracy}.
 Next sec.~\ref{sec:placing_accuracy}, we will compare the different placing methods and check their performance on several tiling: this will be useful to decide which placing method and tiling depending on the parameter space to cover.
-Finally, we will compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{} on a selected set of banks. We will compare the two sets of banks based on their size, speed and effectualness.
+Finally, we will compare our code \mbank with the state-of-the-art code \texttt{sbank} \cite{} on a selected set of banks. We will compare the two sets of banks based on their size, speed and effectualness.
 
 In much of what follows we will need to check the performance of a generated bank. To do so, we follow a very standard procedure. We randomly extract a number of signals (usually called injections). Unless otherwise specified, we extract them from the PDF defined by the tiling eq.~\eqref{eq:tiling_pdf}.
 For each injection at a given point on the manifold $\theta$ we compute the fitting factor $FF$ defined as the best match the injection have with a template of the bank:
@@ -404,9 +408,19 @@ Of course, the latter is faster to compute but less accurate. In what follows we
 
 \begin{figure}[t]
 	\includegraphics{metric_accuracy}
-	\caption{Metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $10000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. }
+	\caption{Metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $10000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. \stefano{Rethink this caption}}
 	\label{fig:metric_accuracy}
 \end{figure}
+
+\begin{figure*}[t!]
+	\centering
+	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
+	\caption{Results for the validation of the placing methods on $0.97$ minum match banks. Each row refers to a different placing method whereas each column refers to a different manifold being sampled. In each plot, we report with a cross the number of tiles $N_{\text{tiles}}$ against the number of templates $N_{\text{templates}}$ of the bank.
+	The diamond plot refers to the fitting factor distribution of an injection study performed on the banks. The fitting factor is computed both with the match (orange) and the metric match (blue). The histograms are normalized to arbitrary units and a red tick marks the $0.97$ match threshold.
+	The injections studies are performed with $5000$ injections for \texttt{Mq\_s1xz} and $1000$ injections in the remaining cases.
+	}
+	\label{fig:placing_validation}
+\end{figure*}
 
 Since the whole bank generation method relies on the assumption that the metric match provides a good approximation to the match, it is crucial to have a quantitative estimation of the goodness of this assumption.
 
@@ -433,13 +447,6 @@ Take home messages:
 \end{itemize} 
 
 \stefano{should we write somewhere the manifold naming convention? or do we rather describe it as it is whenever necessary?}
-
-\begin{figure*}[t!]
-	\centering
-	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
-	\caption{Placing validation. 1000 injs for the non precessing thing and 5000 for the precessing ones}
-	\label{fig:placing_validation}
-\end{figure*}
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
@@ -472,16 +479,14 @@ However, it is important to note that, as mentioned before, this methods can sti
 The {\it random} method provides very nice coverage properties of the two non-precessing manifolds (\texttt{Mq\_nonspinning} and \texttt{Mq\_chi}): this can be seen by the excellent fitting factor of the injection performed. Moreover, the method performances do not depend on the number of tiles.
 For the precessing manifold, \texttt{Mq\_s1xz}, the method's performances sligthly deteriorates as can be seen by the large tails in the fitting factor histogram.
 This is a well known feature of this placing method that leads to bad coverage whenever the metric changes drastically across the space. In this situation, a livepoint from a tile with a low $\sqrt{|M|}$ can ``kill" other livepoints in an unphysically large portion of the parameter space (see the discussion in sec.~\ref{sec:metric_accuracy}). For this reason, the high density regions ca be underpopulated due to the breaking down of the metric approximation. A possible solution for this is to introduce a cut-off on the effect of the metric, hence limiting the unphysical long range action of a quasi-degenerate metric: this will be the scope of future work.
-
-Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed. Indeed, compared to the {\it stochastic} method it can run one order of magnitude faster\footnote{This happens because is does not make proposal whenever it is not required...}
+Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed.
 
 As shown by our results, the {\it stochastic} method is always able to cover the space with the appropriate minimum match. This very nice performance is of course expected: this placing method (with some variations) is the state of the art of bank generation and has proven to be reliable.
 On our implementation of the method, we note that (especially for \texttt{Mq\_chi}) the number of templates {\it do} depend on the number of tiles: this can lead to overcover the space. The reason for that lies in the stopping condition implemented. We stop proposing new templates inside a tile after $N_{max}$ iterations without a template being added in that tile. Hence of course, a large number of tiles provides a more stringent terminating condition (at a constant $N_{max}$) than a small number of tiles.
 A possible solution for this would be to impose a stopping condition on the global volume: this however would consume a lot of computational power as it does not provide a mechanism to stop making proposals in tiles that are already ``full".
 A way around this shortcoming is to tune $N_{max}$ so as to achieve the desidered performance: this can be quickly checked by computing the metric fitting factor on an injection set.
 
-
-
+\stefano{Are they clear from the text?}
 Take home messages:
 \begin{itemize}
 	\item Uniform: gets the order of magnitude but does not do a good job in placing templates
@@ -490,67 +495,68 @@ Take home messages:
 \end{itemize}
 
 
-
-\subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
-
-\texttt{sbank} is the standard tool by the LIGO-Virgo collaboration and hence it is important to make sure that our code matches its performance.
-
-IDENTIFY A TEST BANK! (AND PREPARE IT)
-	\begin{itemize}
-		\item Trim O3 gstlal bank to make it comparable (ask for details at the next call)
-		\item Make the comparison with 3D bank (with $\chi_{eff}$)
-	\end{itemize}
-
-
-%\begin{figure}[h]
-%	\includegraphics{jafar}
-%	\caption{Here we may put a plot of the number of templates as a function of $N_{tiles}$. But it may look very messy, and perhaps not too informative. Maybe just put $MM = 0.97$ and set a series for each method; although in this way you will never show the scaling with the $MM$.}
-%	\label{fig:bank_scaling}
-%\end{figure}
-
-Generating 2/3 small non-precessing banks with both \texttt{mbank} and \texttt{sbank}.
-Comparison based on:
-	\begin{itemize}
-		\item size
-		\item effectualness
-		\item speed
-	\end{itemize}
-
-\stefano{Write somewhere about the fitting factor: maybe in the methods??}
-
 \begin{table*}[t!]
 	\centering
 	\setlength\extrarowheight{1pt}
-	 \begin{tabular}{l l c c} 
+	 \begin{tabular}{l l c c c c} 
 	 \hline
 	 	%header
 	 \multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & 
 	 \multicolumn{2}{c}{
-		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ \texttt{sbank} & \texttt{mbank} \\ \end{tabular}	 
-	 } \\	 
+		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ \texttt{sbank} & \mbank \\ \end{tabular}	 
+	 } &
+	  \multicolumn{2}{c}{
+		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Time}}  \\ \texttt{sbank} & \mbank \\ \end{tabular}	 
+	 }\\	 
 	 %\multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{2}{c}{\textbf{Size}} \\	 
-	 %\multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\phantom{Ranges}} & \multicolumn{1}{c}{\texttt{sbank}} & \multicolumn{1}{c}{\texttt{mbank}} \\
+	 %\multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\phantom{Ranges}} & \multicolumn{1}{c}{\texttt{sbank}} & \multicolumn{1}{c}{\mbank} \\
 	 \hline
 	 Nonspinning & \begin{tabular}{@{}l@{}} $M\in [30,50] M_\odot$ \\ $q\in [1,5]$   \\ \end{tabular}  &
-	 		396 & 442 \\
-	 \cdashline{1-4}
+	 		396 & 442 & $O(\text{hours})$ & $O(\text{seconds})$ \\
+	 \cdashline{1-6}
 	 Aligned spin & \begin{tabular}{@{}l@{}} $M\in [30,50]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
-	 	3275 & 4108 \\
-	 \cdashline{1-4}
-	 Aligned spin Lowmass & \begin{tabular}{@{}l@{}} $M\in [10,30]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
-	 	48000 & 127178 \\
-	 \cdashline{1-4}
-	 GstLAL O3 bank & \begin{tabular}{@{}l@{}} $M\in [33,100]$ \\ $q\in [1,10]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
-	 	60166 & 15549 \\
+	 	3275 & 4108 & $O(\text{days})$ & $O(\text{minutes})$ \\
+	 \cdashline{1-6}
+	 Aligned spin low mass & \begin{tabular}{@{}l@{}} $M\in [10,30]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
+	 	48000 & 127178 & $O(\text{weeks})$ &  $O(\text{hours})$\\
+%	 \cdashline{1-4}
+%	 GstLAL O3 bank & \begin{tabular}{@{}l@{}} $M\in [33,100]$ \\ $q\in [1,10]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
+%	 	60166 & 15549 \\
 	 \hline
 	 \end{tabular}
-	 \caption{Comparison between the performance of  \texttt{mbank} and  \texttt{sbank} on 3(4) chosen banks. The details of the injection studies are shown in figure~\ref{fig:sbank_comparison}. The frequency range for all the banks is set to be $f\in [15,1024] Hz$.}
+	 \caption{Comparison between the performance of \mbank and  \texttt{sbank} on 3 chosen regions of the parameter space.
+	 For each bank, we report the range of parameters covered by the templates, the size of the banks generated by the two methods as well as the order of magnitude of the generation time. The frequency range for all the banks is set to be $f\in [15,1024] Hz$.
+	 The details of the injection studies are shown in figure~\ref{fig:sbank_comparison}.
+	 }
  	 \label{tab:sbank_comparison}
 \end{table*}
 
+
+\subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
+
+\texttt{sbank} \cite{sbank} is the standard tool used by the LIGO-Virgo collaboration to generate large template banks for analysis and as such, it has been used sucessfully in the past three observing runs by several pipelines.
+For this reason, it is very important to compare the performance of our code against the benchmark set by \texttt{bank}. The comparison is based on the size, speed and effectualness of the banks generated.
+
+We generate three non-precessing template banks with both codes:
+\begin{itemize}
+	\item A {\it non spinning} bank
+	\item An {\it aligned spins} bank
+	\item An {\it aligned spins low mass} bank
+\end{itemize}
+The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during O2 between GPS times $1164556817$ and $1187740818$.
+In the same table, we report the size of the banks generated and their generation time. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
+
+The first striking feature we observe is that \mbank has a consistently higher number of templates. For the first two banks it has around 30\% more templates whereas in the last case it has around 100\% more templates. This means that the metric template placement tends to overcover the space. This is a kown feature (also observed in \cite{}) and it is inherent to the method: it is the price to pay for a huge speed up.
+
+Looking at the injections fitting factor histograms in fig.~\ref{fig:sbank_comparison}, we see that the histograms have similar tails. This means that \mbank is able to cover the space leaving as few underdense regions as \texttt{sbank}. On the other hand, we see the peak in the fitting factor distributions for \mbank is systematically higher that the one by \texttt{sbank}. This is consistent with the fact that \mbank has more templates, which must provide a higher average fitting factor.
+
+When considering the generation times, we see that \mbank is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \mbank convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
+
 \begin{figure}[t]
 	\includegraphics{sbank_comparison}
-	\caption{Sbank comparison}
+	\caption{Histogram for the fitting factors of the banks used to compare \mbank and \texttt{sbank}. For each parameter space considered, we randomly draw $5000$ points (injections) from the tiling used to generate the \mbank bank and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	The details of the banks generated are reported in table~\ref{tab:sbank_comparison}.
+	}
 	\label{fig:sbank_comparison}
 \end{figure}
 
@@ -559,17 +565,17 @@ Comparison based on:
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bank generation: three case studies} \label{sec:bank_generation}
 
-To demostrate the capabilities of our method, we use \texttt{mbank} to generate three large banks covering interesting un-explored regions of the parameter space.
+To demostrate the capabilities of our method, we use \mbank to generate three large banks covering interesting un-explored regions of the parameter space.
 They are:
 	\begin{itemize}
 		\item A precessing bank
 		\item An Intermediate Mass BH bank with Higher Order Modes
 		\item A nonspinning eccentric bank
 	\end{itemize}
-Generating these banks with a standard approach is extremely costly and such cases represent the ideal situation where \texttt{mbank} is most useful.
+Generating these banks with a standard approach is extremely costly and such cases represent the ideal situation where \mbank is most useful.
 
 For each bank, we perform an injection study, as described in sec.~\ref{sec:sbank_comparison}. We generate $40000$ inections randomly drawn from the tiling: the results are reported in fig.~\ref{fig:bank_injections}. We also plot the templates of the banks in fig.~\ref{fig:bank_scatter}.
-In table~\ref{tab:sbank_comparison}, we summarize the features of each bank, such as the size and the range of physical quantities that they cover.
+In table~\ref{tab:casestudy_banks}, we summarize the features of each bank, such as the size and the range of physical quantities that they cover.
 All the banks are generated with a minimum match $MM$ requirement of $0.97$, using the {\it stochastic} placement method.
 
 In the following subsections, we will describe in details the generated banks and comment on their usability and accuracy.
@@ -581,8 +587,7 @@ In this high mass {\it precessing} bank, we assign a two dimensional precessing 
 This choice of variable is based on the fact that the effect of precession can be absorbed in a single {\it effective spin parameter}, assigned to the most massive BH of a binary \cite{}. Thus this physical approximation allows us to cover a large number or precessing signal using a (relatively) small number of variables. \stefano{This argument works better if we consider also s2z. Shall we do this?}
 
 By looking at the scatter plots of the templates, it is manifest the effect due to the discretization error introduced by the tiles: this causes a discontinuity in the template density. Of course, this effect is unphysical and would have been avoided by a purely stochastic placing method.
-Another possible source of discontinuity can be traced back to numerical noise in the numerical gradients of the waveforms. Depending on the approximant, the gradients (hence the metric) may not behave in a smooth way all across the parameter space, thus explaining (partly) the hard discontinuities.
-\stefano{mention that the approximant can have bad performance?}
+Another possible source of discontinuity can be traced back to numerical noise in the numerical gradients of the waveforms. Depending on the approximant, the gradients (hence the metric) may not behave smoothly all across the parameter space, thus explaining (partly) the hard discontinuities.
 
 Nevertheless, the injection recovery (fig.~\ref{fig:bank_injections}) is satysfying with only $3.45\%$ of the $40000$ injections performed having a recovery less than the target match $MM = 0.97$.
 
@@ -613,7 +618,7 @@ We use the approximant \texttt{EccentricFD} and we limit ourselfs to low eccentr
 As in the case of the HM bank, including eccentricity yields a bank orders of magnitude larger than a standard non-eccentric bank.
 By looking at the injection recovery, we note that only $0.15\%$ of the injections have match below $0.97$ against the bank. Although the metric match still underestimates the fitting factor, this issue is less severe than in the HM case.
 
-From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuities introduced by the metric are less visibile. This is due to the smaller dimension of the space (3 against 4 of the previous cases), which makes easier to cover the space with a reliable tiling. Moreover, since the approximant \texttt{EccentricFD} is analytic, the metric has a smoother dependence on the parameter space, which may also help to avoid discontinuities in the parameter space.
+From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuities introduced by the metric are less visibile. This is due to the smaller dimension of the space (3 against 4 of the previous cases), which makes easier to cover the space with a reliable tiling. Moreover, since the approximant \texttt{EccentricFD} is analytic, the metric has a smoother dependence on the parameter space, which may also help to avoid discontinuities in template density.
 
 
 \begin{table*}[t!]
@@ -624,7 +629,7 @@ From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuiti
 	 %\multicolumn{1}{c}{\phantom{Name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Setting}} & \multicolumn{1}{c}{\textbf{Size}} \\
 	 \multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Settings}} &  
 	 \multicolumn{2}{c}{
-		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ $N_{\text{templates}}$ & N_{\text{tiles}}$ \\ \end{tabular}	 
+		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ $N_{\text{templates}}$ & $N_{\text{tiles}}$ \\ \end{tabular}	 
 	 } \\
 	 \hline
 	 Precessing & \begin{tabular}{@{}l@{}} $M\in [25,100] M_\odot$ \\ $q\in [1,5]$  \\ $s_1\in [0,0.99]$ \\$\theta_1\in [0, \pi]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
@@ -640,14 +645,17 @@ From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuiti
 	 	154472 & 4238 \\
 	 \hline
 	 \end{tabular}
-	 \caption{Summary of three use case banks generate with \texttt{mbank}. For each bank generated, we report the variable being sampled and their ranges. We also report the hyperparameters $\epsilon$ and \texttt{mx-depth} used for the tiling. }
- 	 \label{tab:sbank_comparison}
+	 \caption{Summary of three case study banks generate with \mbank. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{mx-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$  and the number of tiles $N_{\text{tiles}}$. An injection study is performed in fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in fig.~\ref{fig:bank_scatter}.}
+ 	 \label{tab:casestudy_banks}
 \end{table*}
 
 
 \begin{figure}[t]
 	\includegraphics{bank_injections}
-	\caption{Injections true vs recovered for case study banks. $40000$ injections}
+	\caption{
+	Histogram for the fitting factors of the three case study banks. For each bank, we randomly draw $40000$ points (injections) from the tiling and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms both for the match and the metric match. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	The details of the banks generated are reported in table~\ref{tab:casestudy_banks}.
+	}
 	\label{fig:bank_injections}
 \end{figure}
 
@@ -656,7 +664,7 @@ From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuiti
 	\includegraphics{bank_scatter_Precessing}\hfill
 	\includegraphics{bank_scatter_IMBH_HM}\hfill
 	\includegraphics{bank_scatter_Nonspinning_eccentric}
-	\caption{Use case banks}
+	\caption{Corner plots showing the templates for the three banks described in table~\ref{tab:casestudy_banks}. }
 	\label{fig:bank_scatter}
 \end{figure*}
 

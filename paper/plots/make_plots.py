@@ -143,7 +143,7 @@ def plot_metric_accuracy(filenames, savefile = None):
 
 def plot_MM_study(ax, out_dict, set_labels = 'both'):
 	id_N_templates = np.where(np.array(out_dict['MM_list'])==out_dict['MM_inj'])[0]
-	out_dict['N_templates'] = np.log10(out_dict['N_templates'])
+	#out_dict['N_templates'] = np.log10(out_dict['N_templates'])
 	max_N_templates, min_N_templates = np.max(out_dict['N_templates'][:,id_N_templates]), np.min(out_dict['N_templates'][:,id_N_templates])
 	min_y, max_y = 0.9*min_N_templates, 1.1*max_N_templates
 	
@@ -162,27 +162,35 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 		x_hist = N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0]))
 		
 			#dealing with the grid
-		transform_grid = lambda x: (max_N_templates - min_N_templates)*0.4*(x-1)/(1-out_dict['MM_inj'])
+				#this control the length of the support for the MM hist
+		if out_dict['variable_format']=='Mq_s1xz':
+			y_strecth = 4e-5
+		elif out_dict['variable_format']=='Mq_chi':
+			y_strecth = 0.0008
+		else:
+			y_strecth = 0.005
+
+		transform_grid = lambda x: (max_N_templates - min_N_templates)*y_strecth*(x-1)/(1-out_dict['MM_inj'])
 		id_MM = np.where(MM_grid ==out_dict['MM_inj'])[0][0]
 		MM_grid_transformed = transform_grid(MM_grid)
 		tick_location = MM_grid_transformed[[id_MM,-1]]
 
-		ax.plot(np.repeat(N_t, 2), MM_grid_transformed[[0,-1]] + N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
-		ax.plot(x_hist, MM_grid_transformed + N_templates,
+		ax.plot(np.repeat(N_t, 2), np.exp(MM_grid_transformed[[0,-1]])*N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
+		ax.plot(x_hist, np.exp(MM_grid_transformed)* N_templates,
 						c= 'b', label = 'Metric Match' if i==0 else None)
 		ax.scatter(N_t, N_templates, marker ='x', c='k', s = 6) #data point
 		len_red_tick = np.abs(N_t - np.min(x_hist))/2.
-		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates + MM_grid_transformed[id_MM]), '-', c= 'r', lw =1) #MM ticks
+		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates *np.exp( MM_grid_transformed[id_MM])), '-', c= 'r', lw =1) #MM ticks
 		
 		if not np.all(out_dict['MM_full'][i,:]==0.):
 			#TODO: you should tackle the case here...
 			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_full'][i,:, None])
 			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
 			x_hist = N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0]))
-			ax.plot(x_hist, MM_grid_transformed + N_templates,
+			ax.plot(x_hist, np.exp(MM_grid_transformed) * N_templates,
 						c= 'orange', label = 'Match' if i==0 else None)
 		
-	#ax.set_yscale('log')
+	ax.set_yscale('log')
 	#ax.set_ylim([min_y, max_y])
 	ax.set_xscale('log')
 	#ax.axhline(out_dict['MM_inj'], c = 'r')
@@ -191,8 +199,13 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 	#ax.set_ylim((0.94,1.001))
 	ax.legend(loc = 'lower right')
 	
-	ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{0:g}'.format(int(10**x)) if x >=0 else '') #formatter
+	#if out_dict['variable_format']=='Mq_nonspinning':
+	ax.set_ylim(np.array(ax.set_ylim())*[0.95, 1.5])
+	
+	ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{}'.format(int(x)) if (x >=10) else '') #formatter
+	ticks_y_minor_formatter = ticker.FuncFormatter(lambda x, pos: '{}'.format(int(x)) if (x >=10) and (int(x) in [50,200,500]) else '') #formatter
 	ax.yaxis.set_major_formatter(ticks_y_formatter)
+	ax.yaxis.set_minor_formatter(ticks_y_minor_formatter)
 
 
 def plot_placing_validation(format_files, placing_methods, savefile = None):
@@ -216,8 +229,8 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
 			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
 			text_dict['rotation'] = 'vertical'
-			y_center = np.mean(axes[j,i].get_ylim())
-			if i==0: axes[j,i].text(0.03, y_center, method, text_dict )
+			y_center = 10**np.mean(np.log10(axes[j,i].get_ylim()))
+			if i==0: axes[j,i].text(0.005, y_center, method, text_dict )
 
 	
 	plt.tight_layout()
@@ -225,20 +238,24 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 
 	#plt.show()
 
-def plot_comparison_injections(list_A, list_b, labels, keys, title = None, MM = None, savefile = None):
+def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_list = None, MM = None, savefile = None):
 	label_A, label_B = labels
 	key_A, key_B = keys
-
+	
 	size = plt.rcParams.get('figure.figsize')
 	size = (size[0], size[1]*len(list_A)*0.35)
 	fig, axes = plt.subplots(len(list_A), 1, sharex = True, figsize = size)
+	
+	c_A, c_B = {}, {}
+	if c_list is not None:
+		c_A, c_B = {'c':c_list[0]}, {'c':c_list[1]}
 
 	if title is None: title = [None for _ in list_A]
 
-	for sbank_pkl, mbank_pkl, ax, t in zip(list_A, list_b, axes, title):
-		with open(sbank_pkl, 'rb') as filehandler:
+	for A_pkl, B_pkl, ax, t in zip(list_A, list_B, axes, title):
+		with open(A_pkl, 'rb') as filehandler:
 			A_inj = pickle.load(filehandler)
-		with open(mbank_pkl, 'rb') as filehandler:
+		with open(B_pkl, 'rb') as filehandler:
 			B_inj = pickle.load(filehandler)
 
 			#making the KDE with scipy
@@ -250,8 +267,8 @@ def plot_comparison_injections(list_A, list_b, labels, keys, title = None, MM = 
 
 		print(t, len(B_inj[key_B]))
 
-		ax.plot(x, kde_B.pdf(x), lw=1, label=label_B)
-		ax.plot(x, kde_A.pdf(x), lw=1, label=label_A)
+		ax.plot(x, kde_B.pdf(x), lw=1, label=label_B, **c_A)
+		ax.plot(x, kde_A.pdf(x), lw=1, label=label_A, **c_B)
 		#ax.hist(B_inj[key_B], label = label_B, density = True, histtype = 'step', bins = 1000)
 		#ax.hist(A_inj[key_A], label = label_A, density = True, histtype = 'step', bins = 1000)
 		
@@ -326,7 +343,7 @@ if __name__ == '__main__':
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
 				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl',
 				'metric_accuracy/paper_Mq_chi_iota.pkl']
-	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
+	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
 
 		###
 		#validation of placing methods
@@ -341,11 +358,11 @@ if __name__ == '__main__':
 		#Comparison with sbank - injections
 	sbank_list_injs = []
 	mbank_list_injs = []
-	for ct in ['nonspinning', 'alignedspin', 'alignedspin_lowmass', 'gstlal']:
+	for ct in ['nonspinning', 'alignedspin', 'alignedspin_lowmass']:#, 'gstlal']:
 		sbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_sbank.pkl'.format(ct))
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
-	title = ['Nonspinning', 'Aligned Spins', 'Aligned Spins Lowmass', 'Gstlal O3 bank']
+	title = ['Nonspinning', 'Aligned Spins', 'Aligned Spins low mass']#, 'Gstlal O3 bank']
 	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
@@ -368,7 +385,7 @@ if __name__ == '__main__':
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), MM = 0.97, title = title_list, savefile = savefile)
+	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

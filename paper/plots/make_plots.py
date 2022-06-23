@@ -80,9 +80,9 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	#plt.show()
 	#quit()
 
-def plot_metric_accuracy(filenames, savefile = None):
-	"Plot the metric accuracy plots"
-		#loading files
+def plot_distance_vs_match(filenames, savefile = None):
+	"Makes the coordinate distance vs match plots"
+
 	dict_list = []
 	for filename in filenames:
 		try:
@@ -90,28 +90,74 @@ def plot_metric_accuracy(filenames, savefile = None):
 				dict_list.append( pickle.load(filehandler) )
 		except:
 			warnings.warn("No file {} found. Skipping".format(filename) )
-	
-	
+
 		#creating the figures
-	nbins = 50
-	fig, axes = plt.subplots(len(dict_list), 1, sharex = True)
+	MM = 0.97
+	size = plt.rcParams.get('figure.figsize')
+	size = (size[0], size[1]*1.5)
+	fig, axes = plt.subplots(len(dict_list), 1, sharex = False, figsize = size)
+	
+	arg_dict = {'s':.2, 'edgecolors':'none'}
 	
 	for i, (ax, out_dict) in enumerate(zip(axes, dict_list)):
+	
+		id_ = np.where(np.array(out_dict['MM_list'])==MM)[0][0]	
+	
+		try:
+			dist_vector = np.linalg.norm(out_dict['theta'][...,id_]-out_dict['center'], axis = 1)
+		except:
+				#old format for out_dict
+			dist_vector = np.linalg.norm(out_dict['theta1'][...,id_]-out_dict['theta2'][...,id_], axis = 1)
+		
+		ids_plot = np.where(dist_vector<np.nanpercentile(dist_vector, 99))[0]
+		
+		ax.scatter(dist_vector[ids_plot], 1-out_dict[0.97][ids_plot], **arg_dict)
+	
+		ax.axhline(1-MM, ls ='--', c = 'k', alpha = 0.5, lw = 1)
+		ax.axvline(1., ls ='--', c = 'k', alpha = 0.5, lw = 1)
+		ax.set_ylabel(r'$1-\mathcal{M}$')
+		ax.set_yscale('log')
+		ax.set_ylim((1e-3, 1.))
+		
+		ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{:g}'.format(x) if (x in [1, 0.1, 1e-2]) else '') #formatter
+		ax.yaxis.set_major_formatter(ticks_y_formatter)
+		ax.annotate(out_dict['variable_format'], xy = (.97,0.2), xycoords = 'axes fraction', ha = 'right')
+		
+	axes[-1].set_xlabel(r'$||\Delta\theta||$')
+
+
+	plt.tight_layout()
+	#plt.show()
+	if savefile is not None: plt.savefig(savefile, transparent = True)	
+
+def plot_metric_accuracy(filenames, savefile = None):
+	"Plot the metric accuracy plots"
+		#creating the figures
+	nbins = 50
+	fig, axes = plt.subplots(len(filenames), 1, sharex = True)
+	
+	for i, (ax, filename) in enumerate(zip(axes, filenames)):
+		try:
+			with open(filename, 'rb') as filehandler:
+				out_dict = pickle.load(filehandler)
+		except:
+			warnings.warn("No file {} found. Skipping".format(filename) )
+			continue
 
 		#out_dict['MM_list'].remove(0.95) #this is to remove the 0.95 part
 
 		#ax.title('{}'.format(out_dict['variable_format']))
 		next(ax._get_lines.prop_cycler)
-		#print("N datapoints: ",len(out_dict[0.999]))
 
 		for MM in out_dict['MM_list']:
 				#KDE
-			id_MM = np.where(np.array(out_dict['MM_list'])==MM)
-			hist_values = np.delete(out_dict[MM], np.where(np.logical_and(
+			id_MM = np.where(np.array(out_dict['MM_list'])==MM)[0][0]
+			hist_values = np.delete(out_dict[MM], np.where(np.logical_or(
 										np.isnan(out_dict[MM]),
-										np.linalg.norm(out_dict['theta1'][...,id_MM]-out_dict['theta2'][...,id_MM], axis = 1)>1.
+										np.linalg.norm(out_dict['theta'][...,id_MM]-out_dict['center'], axis = 1)>1.
 										)))
-			print(out_dict['variable_format'], MM, len(out_dict[MM]), len(hist_values))
+			#print(out_dict['variable_format'], MM, len(out_dict[MM]), len(hist_values))
+			
 			kde = sts.gaussian_kde(hist_values)
 			x = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .01)) ,#if MM<0.999 else np.log10(0.99),
 							np.log10(np.nanpercentile(out_dict[MM], 100)) if MM<0.999 else 0.,
@@ -343,7 +389,8 @@ if __name__ == '__main__':
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
 				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl',
 				'metric_accuracy/paper_Mq_chi_iota.pkl']
-	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
+	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
+	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_distance.png')
 
 		###
 		#validation of placing methods
@@ -385,7 +432,7 @@ if __name__ == '__main__':
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
+	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

@@ -42,10 +42,11 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 	
 	pycbc_match_obj = psd_pycbc(metric_obj)
 	
+	#TODO: store the metric or the eigenvalues
 		#initializing out_dict
 	out_dict = {'center': np.zeros((N_points,metric_obj.D)),
-				'theta1': np.zeros((N_points,metric_obj.D, len(MM_list))),
-				'theta2': np.zeros((N_points,metric_obj.D, len(MM_list))),
+				'theta': np.zeros((N_points,metric_obj.D, len(MM_list))),
+				'metric': np.zeros((N_points,metric_obj.D, metric_obj.D)), #this can be pretty heavy?
 				'MM_list': MM_list,
 				'overlap': overlap,
 				'variable_format': metric_obj.variable_format,
@@ -58,39 +59,41 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 	
 	for i in tqdm(range(N_points), desc='Drawing points'):
 		center = np.random.uniform(*boundaries)
+		WF_center = metric_obj.get_WF(center)
 		out_dict['center'][i,:] = center
-
+		
+			#Computing the metric
+		try:
+			metric = metric_obj.get_metric(center, overlap, 'hessian')
+			out_dict['metric'][i,...] = metric
+		except KeyboardInterrupt:
+				quit()
+		except:
+			out_dict['metric'][i,...] = np.nan
+		
 		for j, MM in enumerate(MM_list):
 				#extracting random points
-			try:
-				metric = metric_obj.get_metric(center, overlap, 'hessian')
-				theta1, theta2 = metric_obj.get_points_at_match(500, center, MM , metric, overlap)
-				ids_1 = metric_obj.var_handler.is_theta_ok(theta1, metric_obj.variable_format)
-				ids_2 = metric_obj.var_handler.is_theta_ok(theta2, metric_obj.variable_format)
-				ids_ = np.logical_and(ids_1, ids_2) #(N,)
-			except:
+			if np.any(np.isnan(out_dict['metric'][i,...])):
 				print("Failed @ center = ",center)
 				ids_ = [False, False, False]
-				
+			else:
+				theta = metric_obj.get_points_on_ellipse(500, center, MM , metric, overlap)
+				ids_ = metric_obj.var_handler.is_theta_ok(theta, metric_obj.variable_format)
+
 			if np.any(ids_)>0:
-				theta1 = theta1[ids_,:]
-				theta2 = theta2[ids_,:]
+				theta = theta[ids_,:]
 				
-				#id_ok = np.argmin(np.linalg.norm(theta1-theta2, axis =1)) #(N,) #This introduces lots of biases
 				id_ok = 0 #this amounts to take things at random
 					
-				theta1 = theta1[id_ok,:]
-				theta2 = theta2[id_ok,:]
+				theta = theta[id_ok,:]
+				WF_theta = metric_obj.get_WF(theta)
 
 					#storing to out_dict
-				out_dict['theta2'][i,:,j] = theta2
-				out_dict['theta1'][i,:,j] = theta1
-				out_dict[MM][i] = metric_obj.match(theta1, theta2, overlap=overlap) #mbank
+				out_dict['theta'][i,:,j] = theta
+				out_dict[MM][i] = metric_obj.WF_match(WF_center, WF_theta, overlap=overlap) #mbank
 				
-				#print(theta1, theta2, out_dict[MM][i])
 			else:
-				out_dict['theta1'][i,:,j] = np.nan
-				out_dict['theta2'][i,:,j] = np.nan
+				out_dict['theta'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
 				#print('nan!!! ', center)
 			
@@ -123,7 +126,7 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 
 def plot_hist(out_dict):
 	MM = 0.97
-	id_ = np.where(np.array(out_dict['MM_list'])==MM)
+	id_ = np.where(np.array(out_dict['MM_list'])==MM)[0][0]
 
 	for i in range(out_dict['center'].shape[1]):
 		plt.figure()
@@ -133,7 +136,13 @@ def plot_hist(out_dict):
 
 	plt.figure()
 	plt.title("norm")
-	plt.scatter(np.linalg.norm(out_dict['theta1'][...,id_]-out_dict['theta2'][...,id_], axis = 1), out_dict[0.97])
+	
+	L_t = np.linalg.cholesky(out_dict['metric']) #(N,D,D)
+	dist = out_dict['theta'][...,id_]-out_dict['center']
+	dist_prime = np.einsum('ikj,ij->ik', L_t, dist) #(N,D)
+	
+	plt.scatter(np.linalg.norm(dist_prime, axis = 1), out_dict[MM])
+	
 	plt.axhline(MM, c= 'r')
 
 	plt.show()
@@ -208,7 +217,7 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 15000
+	N_points = 1500
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
@@ -222,7 +231,7 @@ if __name__ == '__main__':
 	MM_list = [0.999, 0.99, 0.97, 0.95]
 
 	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
-	boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
+	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
 	#boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
 

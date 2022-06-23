@@ -1,12 +1,12 @@
 all: mbank.pdf
 
-mbank.pdf: mbank.tex mbank.bbl mbank.aux
+mbank.pdf: mbank.tex mbank.aux bib
 	pdflatex -synctex=1 -interaction=nonstopmode "mbank".tex
 
-mbank.aux:
+mbank.aux: mbank.tex
 	pdflatex -synctex=1 -interaction=nonstopmode "mbank".tex
 
-mbank.bbl: mbank.aux
+bib: mbank.aux biblio.bib
 	bibtex "mbank".aux
 
 clean:

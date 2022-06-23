@@ -79,7 +79,7 @@ def plot_parabolae(center, metric_hessian, parabolae):
 		#ax.plot(x, y_6th(x, *p_6th), '-.', label = '6th fit: {} | {} | {}'.format(np.format_float_scientific(p_6th[2],2),
 		#		np.format_float_scientific(p_6th[1],2), np.format_float_scientific(p_6th[0],2)))
 		ax.plot(x, y_2nd(x, eigval, 0), '-', label = 'hessian: {}'.format(np.format_float_scientific(eigval,2)))
-		ax.plot(x, y_2nd_sin(x, eigval), '-', label = 'hessian sine: {}'.format(np.format_float_scientific(eigval,2)))
+		#ax.plot(x, y_2nd_sin(x, eigval), '-', label = 'hessian sine: {}'.format(np.format_float_scientific(eigval,2)))
 		ax.set_ylabel(r"$1-\mathcal{M}$")
 		#ax.set_xscale('log')
 		#ax.set_yscale('log')

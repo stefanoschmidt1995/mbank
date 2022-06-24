@@ -130,7 +130,7 @@ def plot_distance_vs_match(filenames, savefile = None):
 	#plt.show()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 
-def plot_metric_accuracy(filenames, savefile = None):
+def plot_metric_accuracy(filenames, savefile = None, dist_cutoff = np.inf):
 	"Plot the metric accuracy plots"
 		#creating the figures
 	nbins = 50
@@ -154,7 +154,7 @@ def plot_metric_accuracy(filenames, savefile = None):
 			id_MM = np.where(np.array(out_dict['MM_list'])==MM)[0][0]
 			hist_values = np.delete(out_dict[MM], np.where(np.logical_or(
 										np.isnan(out_dict[MM]),
-										np.linalg.norm(out_dict['theta'][...,id_MM]-out_dict['center'], axis = 1)>1.
+										np.linalg.norm(out_dict['theta'][...,id_MM]-out_dict['center'], axis = 1)>dist_cutoff
 										)))
 			#print(out_dict['variable_format'], MM, len(out_dict[MM]), len(hist_values))
 			
@@ -389,7 +389,9 @@ if __name__ == '__main__':
 	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
 				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl',
 				'metric_accuracy/paper_Mq_chi_iota.pkl']
-	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf')
+	metric_accuracy_parabolic_filenames = [m.replace('paper', 'test_parabolic') for m in metric_accuracy_filenames]
+	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf', 1.)
+	plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', np.inf)
 	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_distance.png')
 
 		###

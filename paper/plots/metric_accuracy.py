@@ -64,7 +64,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 		
 			#Computing the metric
 		try:
-			metric = metric_obj.get_metric(center, overlap, 'hessian')
+			metric = metric_obj.get_metric(center, overlap, 'parabolic_fit_hessian')
 			out_dict['metric'][i,...] = metric
 		except KeyboardInterrupt:
 				quit()
@@ -137,12 +137,15 @@ def plot_hist(out_dict):
 	plt.figure()
 	plt.title("norm")
 	
-	L_t = np.linalg.cholesky(out_dict['metric']) #(N,D,D)
-	dist = out_dict['theta'][...,id_]-out_dict['center']
-	dist_prime = np.einsum('ikj,ij->ik', L_t, dist) #(N,D)
+	eigvals, eigvec = np.linalg.eig(out_dict['metric'])
+	dist = out_dict['theta'][...,id_]-out_dict['center'] #(N,D)
+	dist_prime = np.einsum('ijk,ik->ij', eigvec, dist) #(N,D)
+	dist_prime = dist_prime/eigvals
+
+	plt.scatter(np.linalg.norm(dist, axis = 1)/np.sqrt(np.linalg.det(out_dict['metric'])), out_dict[MM])
+	#plt.scatter(np.linalg.norm(dist_prime, axis = 1), out_dict[MM])
 	
-	plt.scatter(np.linalg.norm(dist_prime, axis = 1), out_dict[MM])
-	
+	plt.xscale('log')
 	plt.axhline(MM, c= 'r')
 
 	plt.show()
@@ -217,14 +220,14 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 1500
+	N_points = 200
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = True
+	load = False
 	overlap = (run_name.find('overlap')>-1)
 	print('overlap: ', overlap)
 	
@@ -232,8 +235,8 @@ if __name__ == '__main__':
 
 	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
-	#boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
-	#boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
+	boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
+	boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

@@ -216,7 +216,7 @@ In this expression and everywhere else, we assume Einstein summation convention 
 \end{align}
 where $\Delta\theta = \theta_1-\theta_2$ is a D-dimensional vector.
 The distance induced by the metric approximates the distance between two points of the manifold.
-It is worth noting that, like any Taylor expansion, eq.~\eqref{eq:metric_definition} holds only in the limit $||\Delta\theta||\lesssim 1$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For large values of $||\Delta\theta||$ the metric approximation loses its predictivity power and the validity of the approximation needs to be checked in every situation.
+It is worth noting that, like any Taylor expansion, eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit $||\Delta\theta||\lesssim 1$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For large values of $||\Delta\theta||$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
 
 It is not trivial to make a good guess of the appropriate value of the metric. In general, we can compute it through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}. Formally, we can write the metric as:
 
@@ -226,9 +226,9 @@ It is not trivial to make a good guess of the appropriate value of the metric. I
 		\right]^2
 \end{equation}
 where the integration extends on a D-ball with radius $d_{target}$ centered around theta. The value $d_{target}$ controls the range of validity of the approximation.
-Although the problem can be easily tackled using one standard optimization techniques of Machine Learning \stefano{Shall I try t do this?}, it is very computationally expensive to get a solution and, to make the metric generation feasible, we should find faster heuristic solution.
+Although the problem can be easily tackled using one standard optimization techniques of numerical optimizaton, it is very computationally expensive to get a solution and, to make the metric generation feasible, we should find faster {\it heuristic} solution.
 
-A good guess for the solution is to identify the metric with the bilinear term of the Taylor expansion of the match.
+A good guess is to identify the metric with the bilinear term of the Taylor expansion of the match.
 It turns out that this depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression:
 \begin{equation}\label{eq:metric_expression}
 	M(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
@@ -239,8 +239,12 @@ The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 
 For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{something}, such gradients are available analytically (thus speeding up the computation).
 
-Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. 
-\stefano{Do we mention here the parabolic fit hessian? It's not used afterwards but still may be interesting to discuss}
+Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}.
+The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$.
+A possible solution to this problem is to update the eigenvalues of the Hessian eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance.
+In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}.
+Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
+\stefano{Is thi paragraph clear? I fear not... :(}
 
 Equipped with the metric eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes an Euclidean manifold with line element:
 \begin{equation}\label{eq:line_element}
@@ -397,16 +401,29 @@ Of course, the latter is faster to compute but less accurate. In what follows we
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
+\stefano{This section is still work in progress: a possible story to tell here could be. The hessian metric does not always work well at large distances while the metric with the adjusted eigenvalues ({\it parabolic fit hessian}) does. See figs.\ref{fig:metric_accuracy}-\ref{fig:metric_accuracy_parabolic}.\\
+This however clashes with the fact that the {\it parabolic fit hessian} seems to have poor performance when it comes to template placing. This needs to be understood, otherwise one may naturally wonder why we don't use the {\it parabolic fit hessian} for all the template placing. I would like to understand this better before finalizing the paper.
+}
+
+
 \begin{figure}[t]
 	\includegraphics{metric_accuracy}
-	\caption{Metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. In the plots are considered only pair of points with mutual coordinate distance $||\Delta\theta||$ smaller than $1$: this is the range where we expect the metric approximation to be valid.}
+	\caption{{\it Hessian} metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. In the plots are considered only pair of points with mutual coordinate distance $||\Delta\theta||$ smaller than $1$: this is the range where we expect the metric approximation to be valid.}
 	\label{fig:metric_accuracy}
+\end{figure}
+
+\begin{figure}[t]
+	\includegraphics{metric_accuracy_parabolic}
+	\caption{{\it Parabolic fit hessian} metric accuracy study for different manifolds. Same as above but {\bf no} cut off on $||\Delta\theta||$! It's clear that the metric is {\bf lots more accurate}. \stefano{This is still a test, with very very few points}}
+	\label{fig:metric_accuracy_parabolic}
 \end{figure}
 
 \begin{figure}[t]
 	\includegraphics{metric_accuracy_distance}
 	\caption{On the y axis we report the mis-match $1-\mathcal{M}$ between points with constant metric match $0.97$; on the x axis we plot the coordinate distance $||\Delta\theta||$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values.
-We note that for $||\Delta\theta||<1$ the matches are close to the target mismatch $0.03$; the performance of the metric approximation degrades as the coordinate distance increases.}
+We note that for $||\Delta\theta||<1$ the matches are close to the target mismatch $0.03$; the performance of the metric approximation degrades as the coordinate distance increases.
+\stefano{This is not entirely true, as for the HM metric, we don't see this trend. The problem is not in the large distances but rather in the metric accuracy}
+}
 	\label{fig:metric_accuracy_distance}
 \end{figure}
 
@@ -456,7 +473,7 @@ This happens whenever an eigenvalue of the metric is too small (i.e. the metric 
 \end{itemize}
 The tuning and the validation of those two methods will be investigated in future works.
 
-\stefano{Uncorfotable question: why HM metric works also for $||\Delta\theta||>1$?? This challenges all our understanding: we need to take into account the magnitude of the eigenvalues, but how? Just plot $||\Delta\theta||/|M|^{1/D}$? Lots of thinking there...}
+\stefano{Uncorfotable question: why HM metric works also for $||\Delta\theta||>1$?? This challenges our understanding: we need to take into account the magnitude of the eigenvalues, but how? Just plot $||\Delta\theta||/|M|^{1/D}$? Lots of thinking there...}
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 

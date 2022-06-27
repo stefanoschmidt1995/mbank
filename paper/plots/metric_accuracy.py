@@ -47,6 +47,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 	out_dict = {'center': np.zeros((N_points,metric_obj.D)),
 				'theta': np.zeros((N_points,metric_obj.D, len(MM_list))),
 				'metric': np.zeros((N_points,metric_obj.D, metric_obj.D)), #this can be pretty heavy?
+				'metric_type': 'parabolic_fit_hessian',
 				'MM_list': MM_list,
 				'overlap': overlap,
 				'variable_format': metric_obj.variable_format,
@@ -64,7 +65,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 		
 			#Computing the metric
 		try:
-			metric = metric_obj.get_metric(center, overlap, 'parabolic_fit_hessian')
+			metric = metric_obj.get_metric(center, overlap, out_dict['metric_type'])
 			out_dict['metric'][i,...] = metric
 		except KeyboardInterrupt:
 				quit()
@@ -220,7 +221,7 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 200
+	N_points = 15000
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
@@ -235,8 +236,8 @@ if __name__ == '__main__':
 
 	boundaries = np.array([[20, 1.],[50, 5.]]); variable_format = 'Mq_nonspinning'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
-	boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
-	boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
+	#boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
+	#boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))

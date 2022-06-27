@@ -407,7 +407,7 @@ This however clashes with the fact that the {\it parabolic fit hessian} seems to
 
 
 \begin{figure}[t]
-	\includegraphics{metric_accuracy}
+	\includegraphics{metric_accuracy_hessian}
 	\caption{{\it Hessian} metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. In the plots are considered only pair of points with mutual coordinate distance $||\Delta\theta||$ smaller than $1$: this is the range where we expect the metric approximation to be valid.}
 	\label{fig:metric_accuracy}
 \end{figure}
@@ -419,10 +419,18 @@ This however clashes with the fact that the {\it parabolic fit hessian} seems to
 \end{figure}
 
 \begin{figure}[t]
-	\includegraphics{metric_accuracy_distance}
+	\includegraphics{metric_accuracy_hessian_distance}
 	\caption{On the y axis we report the mis-match $1-\mathcal{M}$ between points with constant metric match $0.97$; on the x axis we plot the coordinate distance $||\Delta\theta||$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values.
 We note that for $||\Delta\theta||<1$ the matches are close to the target mismatch $0.03$; the performance of the metric approximation degrades as the coordinate distance increases.
 \stefano{This is not entirely true, as for the HM metric, we don't see this trend. The problem is not in the large distances but rather in the metric accuracy}
+}
+	\label{fig:metric_accuracy_distance}
+\end{figure}
+
+\begin{figure}[t]
+	\includegraphics{metric_accuracy_parabolic_distance}
+	\caption{Same as the other but with parabolic metric
+	\stefano{Those two sets of plots should be put together}
 }
 	\label{fig:metric_accuracy_distance}
 \end{figure}
@@ -563,6 +571,7 @@ Take home messages:
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
+\stefano{Should I make an mbank bank also for the parabolic hessian? Might be interesting for validation...}
 \texttt{sbank} \cite{sbank} is the standard tool used by the LIGO-Virgo collaboration to generate large template banks for analysis and as such, it has been used sucessfully in the past three observing runs by several pipelines.
 For this reason, it is very important to compare the performance of our code against the benchmark set by \texttt{bank}. The comparison is based on the size, speed and effectualness of the banks generated.
 

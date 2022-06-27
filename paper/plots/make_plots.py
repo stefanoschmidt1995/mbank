@@ -386,13 +386,14 @@ if __name__ == '__main__':
 
 		###
 		#metric accuracy plots
-	metric_accuracy_filenames = ['metric_accuracy/paper_Mq_nonspinning.pkl',
-				'metric_accuracy/paper_Mq_chi.pkl', 'metric_accuracy/paper_Mq_s1xz_iota.pkl',
-				'metric_accuracy/paper_Mq_chi_iota.pkl']
-	metric_accuracy_parabolic_filenames = [m.replace('paper', 'test_parabolic') for m in metric_accuracy_filenames]
-	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy.pdf', 1.)
+	metric_accuracy_filenames = ['metric_accuracy/paper_hessian_Mq_nonspinning.pkl',
+				'metric_accuracy/paper_hessian_Mq_chi.pkl', 'metric_accuracy/paper_hessian_Mq_s1xz_iota.pkl',
+				'metric_accuracy/paper_hessian_Mq_chi_iota.pkl']
+	metric_accuracy_parabolic_filenames = [m.replace('paper_hessian', 'paper_parabolic') for m in metric_accuracy_filenames]
+	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', np.inf)
 	plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', np.inf)
-	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_distance.png')
+	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.png')
+	plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
 
 		###
 		#validation of placing methods

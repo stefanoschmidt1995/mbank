@@ -12,6 +12,7 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage{afterpage}
 %\usepackage{float}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \graphicspath{{img/}} %setting img path
 
 \usepackage{tabularx, longtable, makecell}
@@ -406,46 +407,25 @@ This however clashes with the fact that the {\it parabolic fit hessian} seems to
 }
 
 
-\begin{figure}[t]
-	\includegraphics{metric_accuracy_hessian}
-	\caption{{\it Hessian} metric accuracy study for different manifolds. Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values. In the plots are considered only pair of points with mutual coordinate distance $||\Delta\theta||$ smaller than $1$: this is the range where we expect the metric approximation to be valid.}
-	\label{fig:metric_accuracy}
-\end{figure}
-
-\begin{figure}[t]
-	\includegraphics{metric_accuracy_parabolic}
-	\caption{{\it Parabolic fit hessian} metric accuracy study for different manifolds. Same as above but {\bf no} cut off on $||\Delta\theta||$! It's clear that the metric is {\bf lots more accurate}. \stefano{This is still a test, with very very few points}}
-	\label{fig:metric_accuracy_parabolic}
-\end{figure}
-
-\begin{figure}[t]
-	\includegraphics{metric_accuracy_hessian_distance}
-	\caption{On the y axis we report the mis-match $1-\mathcal{M}$ between points with constant metric match $0.97$; on the x axis we plot the coordinate distance $||\Delta\theta||$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values.
-We note that for $||\Delta\theta||<1$ the matches are close to the target mismatch $0.03$; the performance of the metric approximation degrades as the coordinate distance increases.
-\stefano{This is not entirely true, as for the HM metric, we don't see this trend. The problem is not in the large distances but rather in the metric accuracy}
-}
-	\label{fig:metric_accuracy_distance}
-\end{figure}
-
-\begin{figure}[t]
-	\includegraphics{metric_accuracy_parabolic_distance}
-	\caption{Same as the other but with parabolic metric
-	\stefano{Those two sets of plots should be put together}
-}
-	\label{fig:metric_accuracy_distance}
-\end{figure}
-
-\begin{figure*}[t!]
+\begin{figure*}[t]
 	\centering
-	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
-	\caption{Results for the validation of the placing methods on $0.97$ minum match banks. Each row refers to a different placing method whereas each column refers to a different manifold being sampled. In each plot, we report with a cross the number of tiles $N_{\text{tiles}}$ against the number of templates $N_{\text{templates}}$ of the bank.
-	The diamond plot refers to the fitting factor distribution of an injection study performed on the banks. The fitting factor is computed both with the match (orange) and the metric match (blue). The histograms are normalized to arbitrary units and a red tick marks the $0.97$ match threshold.
-	The injections studies are performed with $5000$ injections for \texttt{Mq\_s1xz} and $1000$ injections in the remaining cases.
-	}
-	\label{fig:placing_validation}
+	\begin{subfigure}{0.4\textwidth}
+		\includegraphics{metric_accuracy_hessian}
+		\caption{Accuracy study with Hessian}
+		\label{fig:metric_accuracy_hessian}
+	\end{subfigure}\hfill
+	\begin{subfigure}{0.4\textwidth}
+		\includegraphics{metric_accuracy_parabolic}
+		\caption{Accuracy study with Parabolic fit Hessian}
+		\label{fig:metric_accuracy_parabolic}
+	\end{subfigure}
+	\caption{Metric accuracy study for different manifolds, using the two proposed metric computation methods - hessian (left) and parabolic fit hessian (right).
+	Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values.}
+	\label{fig:metric_accuracy}
 \end{figure*}
 
-Since the whole bank generation method relies on the assumption that the metric match provides a good approximation to the match, it is crucial to have a quantitative estimation of the goodness of this assumption.
+
+As the bank generation method relies on the assumption that the metric match provides a good approximation to the match, it is crucial to have a quantitative estimation of the goodness of this assumption.
 
 To do this, we choose 4 different manifolds of templates $\mathcal{B}$ which cover different physical quantities of interests. For each manifold, we uniformly draw $15000$ samples and we compute the metric at each of this point.
 For each of this points we pick a random point at a constant metric match $\mathcal{M}_{\text{metric}}$ with respect to the center $\theta_C$\footnote{
@@ -464,24 +444,44 @@ The experiment is performed on the following manifolds:
 \end{itemize}
 
 For the first two manifolds we use the approximant \texttt{IMRPhenomD}, whereas for the latter two we use \texttt{IMRPhenomPv2} and \texttt{IMRPhenomXPHM}. The frequency range for the metric computation is always set to be $[10, 1024]Hz$.
+We repeat the experiment for the two metric computation methods described in sec.~\ref{sec:metric}: {\it hessian} and {\it parabolic fit hessian}.
 The results are reported in fig.~\ref{fig:metric_accuracy}.
 
-As discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and we cannot rely on the metric for larger distance. For this reason, in fig.~\ref{fig:metric_accuracy} we only consider pairs of points satisfying $||\Delta\theta||\leq 1$.
-We see that, under this condition, the metric provides a nice approximation to the match: the actual matches are only mildly scattered around their metric match and the random fluctuations are well centered around the expected value.
+By looking at the results for the metric hessian fig.~\ref{fig:metric_accuracy_hessian}, we note indeed a large scatter in the match values at a constant metric match. On the other hand, the random fluctuations of the match are well centered around the expected value.
+For the manifold \texttt{Mq\_chi\_iota} (where an HM approximant was used), the situation is different, as the hessian metric provides a more reliable approximation to the match. However, in this case the match is underestimated by the metric match.
 
-The only exception to this is the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM). In this situation, even in the limit $||\Delta\theta||\leq 1$, the metric match {\it underestimates} the actual match. The reason for this is still unknown and requires more investigation. This discrepancy is consistent with the discrepancy between match and metric match observed for the HM bank generated in sec.~\ref{sec:HM_bank}.
+The picture changes drastically for the parabolic fit hessian fig.~\ref{fig:metric_accuracy_parabolic}: here the scatter of the match values is smaller (i.e. the metric approximation is more reliable) but the metric underestimates the match.
 
-As already seen, the metric approximation breaks down for $||\Delta\theta|| \geq 1$. This can be clearly seen in fig.~\ref{fig:metric_accuracy_distance}, where we plot, for each of the $15000$ pairs of points considered, the match $\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$.
-The results are straightforward to interpret: for $||\Delta\theta|| \leq 1$ the metric approximation works well and we see that the actual matches are scattered around the value of $0.97$. On the other hand, for larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
+Trying to draw some general conclusions, the {\it hessian} metric approximation can yield to large errors in match estimation but it is not biased: given two points with a metric match $\mathcal{M}_{\text{metric}}$ the most likely match value between them is $\mathcal{M} = \mathcal{M}_{\text{metric}}$. 
+On the other hand, the {\it parabolic fit hessian} metric approximation has smaller discrepancies but it consisently underestimates the match: if two points have metric match $\mathcal{M}_{\text{metric}}$ the most likely match value is often $\mathcal{M} > \mathcal{M}_{\text{metric}}$.
+A separate conclusion holds for any HM metric. In this situation, the two metric computation methods do not differ significantly and the remarks made for the {\it parabolic fit hessian} seem to be valid.
 
-This happens whenever an eigenvalue of the metric is too small (i.e. the metric is close to be degenerate). In this situation, the metric will predict an unphysically large coordinate distance. There might be several ways to cure this, which will be investigated in future work:
-\begin{itemize}
-	\item Fix the metric eigenvalues by looking at the actual match \stefano{I already did this. Should we mention this somewhere?}
-	\item Insert an exponential ``damping" term $\propto e^{-||\Delta\theta||}$ to the metric distance eq.~\eqref{eq:metric_definition}. This would make the metric predictions more physical at the price of leaving the bilinear approximation to the match.
-\end{itemize}
-The tuning and the validation of those two methods will be investigated in future works.
+When it comes to template placing, the overall picture is somehow conterintuitive: althogh less accurate, due to its smaller bias, the {\it hessian} metric has better performance, whereas the {\it parabolic fit hessian} leads to an overcovered bank (as it underestimates the match). This will be manifest in sec.\ref{sec:HM_bank} where an HM bank, covering the manifold \texttt{Mq\_chi\_iota}, is shown to overcover the space. The same bias is not observed in non-HM banks generated with the hessian metric.
+
+For this reason, in the remainder of the paper we will focus only on the {\it hessian} metric, as the other alternative seem
+
+
+%As discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and we cannot rely on the metric for larger distance. For this reason, in fig.~\ref{fig:metric_accuracy} we only consider pairs of points satisfying $||\Delta\theta||\leq 1$. We see that, under this condition, the metric provides a nice approximation to the match: the actual matches are only mildly scattered around their metric match and the random fluctuations are well centered around the expected value. The only exception to this is the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM). In this situation, even in the limit $||\Delta\theta||\leq 1$, the metric match {\it underestimates} the actual match. The reason for this is still unknown and requires more investigation. This discrepancy is consistent with the discrepancy between match and metric match observed for the HM bank generated in sec.~\ref{sec:HM_bank}.
+%As already seen, the metric approximation breaks down for $||\Delta\theta|| \geq 1$. This can be clearly seen in fig.~\ref{fig:metric_accuracy_distance}, where we plot, for each of the $15000$ pairs of points considered, the match $\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The results are straightforward to interpret: for $||\Delta\theta|| \leq 1$ the metric approximation works well and we see that the actual matches are scattered around the value of $0.97$. On the other hand, for larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
+
+%This happens whenever an eigenvalue of the metric is too small (i.e. the metric is close to be degenerate). In this situation, the metric will predict an unphysically large coordinate distance. There might be several ways to cure this, which will be investigated in future work:
+%\begin{itemize}
+%	\item Fix the metric eigenvalues by looking at the actual match \stefano{I already did this. Should we mention this somewhere?}
+%	\item Insert an exponential ``damping" term $\propto e^{-||\Delta\theta||}$ to the metric distance eq.~\eqref{eq:metric_definition}. This would make the metric predictions more physical at the price of leaving the bilinear approximation to the match.
+%\end{itemize}
+%The tuning and the validation of those two methods will be investigated in future works.
 
 \stefano{Uncorfotable question: why HM metric works also for $||\Delta\theta||>1$?? This challenges our understanding: we need to take into account the magnitude of the eigenvalues, but how? Just plot $||\Delta\theta||/|M|^{1/D}$? Lots of thinking there...}
+
+\begin{figure*}[t!]
+	\centering
+	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
+	\caption{Results for the validation of the placing methods on $0.97$ minum match banks. Each row refers to a different placing method whereas each column refers to a different manifold being sampled. In each plot, we report with a cross the number of tiles $N_{\text{tiles}}$ against the number of templates $N_{\text{templates}}$ of the bank.
+	The diamond plot refers to the fitting factor distribution of an injection study performed on the banks. The fitting factor is computed both with the match (orange) and the metric match (blue). The histograms are normalized to arbitrary units and a red tick marks the $0.97$ match threshold.
+	The injections studies are performed with $5000$ injections for \texttt{Mq\_s1xz} and $1000$ injections in the remaining cases.
+	}
+	\label{fig:placing_validation}
+\end{figure*}
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 

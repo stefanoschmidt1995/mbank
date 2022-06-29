@@ -10,6 +10,10 @@ build:
   os: ubuntu-20.04
   tools:
     python: "3.9"
+  jobs:
+    install_mbank:
+      - pip install -r requirements.txt
+      - pip install -e .
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -19,5 +23,3 @@ sphinx:
 python:
    install:
    - requirements: docs/requirements.txt
-   - requirements: requirements.txt
-   - requirements: -e .

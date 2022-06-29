@@ -2,7 +2,7 @@
 `mbank` is a code for fast Gravitational Waves bank generation. It creates a bank of binary black hole (BBH) systems. It is very handy for generating precessing and eccentric banks.
 The repository is still work-in-progress!
 
-If you want more details, you can take a look at the [documentation](www.mbank_docs.org).
+If you want more details, you can take a look at the [documentation](https://mbank.readthedocs.io/en/latest/).
 Otherwise, you can keep reading and learn the essentials below.
 
 ## How it works

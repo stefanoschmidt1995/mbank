@@ -61,8 +61,10 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	See paper plan: \href{https://docs.google.com/document/d/1O8z0aDlXtV0LyrtK60vaQDzk9iiCsrjj1ThRGX1tX-0/edit}{google-doc}
-
+	We introduce a novel method to generate a bank of templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO and Virgo data. Unlike standard approach, our method relies on a metric approximation to the distance between templates, which makes the template placement order of magnitude faster than the existing techniques.
+	Our method works on a variety of different manifold of signals and is particularly suitable to cover high dimensional spaces.
+	We compare our method with the state-of-the-art code \texttt{sbank} and we find that our code slightly overcover the space, while achieving similar covering properties. To demonstrate the capabilities of our code, we generate a precessing bank, an Intermediate Mass Black Hole bank with Higher Order Modes and an eccentric bank and show that they cover the space in a satisfactory way.
+	Our publicly released code \mbank will enable searches of exotic signals, hitherto unfeasible to the prohibitive cost of bank generation.
 \end{abstract}
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
@@ -74,13 +76,11 @@ superscriptaddress,10pt]{revtex4-2}
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 
 	\author{Bhooshan \surname{Gadre}}
-		%\email{b.u.gadre@uu.nl}
         \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
         
         %
 	\author{Sarah \surname{Caudill}}
-		%\email{s.e.caudill@uu.nl}
         \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
         \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
@@ -106,7 +106,7 @@ Our method is specifically designed for dealing with high-dimensional (more than
 
 Our model constructs an internal representation of the paramter space of interests, computes the metric for distance computation and exploits this for fast template placing. \sarah{This is nice. I think you will want to have maybe a diagram that gives an overview of the whole package. For instance, to show how the bank code and injection code can make a workflow that gives you a validated bank.} \stefano{Do you mean a map of all the executables that I can run an all the relations between them? Or maybe something more high level saying just the operations (tiling, template placing, injections)?}
 The approach is implemented in an open-source python package \mbank, freely available on GitHub\footnote{
-It available at the repository: \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}}.
+It is available at the repository \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}.
 The package offers support for tiling the parameter space of interests and placing templates with an user given average spacing. Moreover, it offers an injection helper that allows for a very fast validation of the bank.
 It is designed to run in parallel the most heavy computations.
 As a summary, \mbank is implemented to be:
@@ -240,12 +240,9 @@ The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 
 For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{something}, such gradients are available analytically (thus speeding up the computation).
 
-Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}.
-The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$.
-A possible solution to this problem is to update the eigenvalues of the Hessian eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance.
-In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}.
-Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
-\stefano{Is thi paragraph clear? I fear not... :(}
+%%%
+%%%%%%%%% THIS PART IS ABOUT THE PARABOLIC FIT HESSIAN: AS IT DOES NOT REALLY WORK. IT IS PROBLEMATIC TO MENTION IT IN THE PAPER.
+%Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}. The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$. A possible solution to this problem is to update the eigenvalues of the Hessian eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance. In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}. Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
 
 Equipped with the metric eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes an Euclidean manifold with line element:
 \begin{equation}\label{eq:line_element}
@@ -329,15 +326,15 @@ Below we describe briefly each of them.
 
 \paragraph{Uniform}\label{par:uniform}
 The templates are randomly drawn from the probabilty distribution defined by the metric $p(\theta) \propto \sqrt{M(\theta)}$.
-Of course, we only have access to an approximation to it given by the tiling. To sample from it, we use Gibb's sampling: first we randomly choose a tile with a probability proportional to its volume and, second, we randomly draw a point within the chosen tile.
-The total number of templates $N_{templates}$ is set by the equation
+Of course, we only have access to the approximation eq.~\eqref{eq:tiling_pdf} given by the tiling. To sample from it, we use Gibb's sampling: first we randomly choose a tile with a probability proportional to its volume and, second, we randomly draw a point within the chosen tile.
+The total number of templates $N_{templates}$ to sample is set by the equation
 \begin{equation} \label{eq:N_templates}
 	N_{templates} = \frac{\text{Vol}(\mathcal{B}_D)}{d(MM)^D}
 \end{equation}
-The method runs very fast but provides poor coverage and injection recovery. Nevertheless, due to its speed, it provides a rough estimation of the bank size and features.
+The method runs very fast but provides poor coverage and injection recovery. Nevertheless, due to its speed, it is useful to provide a rough estimation of the bank size and features.
 
 A variant, called {\it qmc} allows to sample from each tile using a quasi-Montecarlo sampling, to ensure a more regular separation between points. However, we observe only a mild increase of performance.
-\stefano{Do we want to mention this?}
+\stefano{Do we mention this?}
 \paragraph{Stochastic}\label{par:stochastic}
 Some proposals are randomly drawn from the parameter space. They are accepted as templates if their minimum metric distance from all the previously added templates is greater than  $\sqrt{1-MM}$.
 This implements the standard approach to template placing \cite{}.
@@ -402,28 +399,13 @@ Of course, the latter is faster to compute but less accurate. In what follows we
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
-\stefano{This section is still work in progress: a possible story to tell here could be. The hessian metric does not always work well at large distances while the metric with the adjusted eigenvalues ({\it parabolic fit hessian}) does. See figs.\ref{fig:metric_accuracy}-\ref{fig:metric_accuracy_parabolic}.\\
-This however clashes with the fact that the {\it parabolic fit hessian} seems to have poor performance when it comes to template placing. This needs to be understood, otherwise one may naturally wonder why we don't use the {\it parabolic fit hessian} for all the template placing. I would like to understand this better before finalizing the paper.
-}
-
-
-\begin{figure*}[t]
+\begin{figure}[t]
 	\centering
-	\begin{subfigure}{0.4\textwidth}
-		\includegraphics{metric_accuracy_hessian}
-		\caption{Accuracy study with Hessian}
-		\label{fig:metric_accuracy_hessian}
-	\end{subfigure}\hfill
-	\begin{subfigure}{0.4\textwidth}
-		\includegraphics{metric_accuracy_parabolic}
-		\caption{Accuracy study with Parabolic fit Hessian}
-		\label{fig:metric_accuracy_parabolic}
-	\end{subfigure}
-	\caption{Metric accuracy study for different manifolds, using the two proposed metric computation methods - hessian (left) and parabolic fit hessian (right).
+	\includegraphics{metric_accuracy_hessian}
+	\caption{Metric accuracy study for different manifolds.
 	Each histogram shows the distribution of matches between $15000$ pairs of random points with metric match $0.95, 0.97, 0.99, 0.999$. The masses of the test points are chosen in the $M-q$ space within the rectangle ${[20, 50] M_\odot \times [1,5]}$; the other variables are chosen in the largest possible set of accetable values.}
 	\label{fig:metric_accuracy}
-\end{figure*}
-
+\end{figure}
 
 As the bank generation method relies on the assumption that the metric match provides a good approximation to the match, it is crucial to have a quantitative estimation of the goodness of this assumption.
 
@@ -444,36 +426,15 @@ The experiment is performed on the following manifolds:
 \end{itemize}
 
 For the first two manifolds we use the approximant \texttt{IMRPhenomD}, whereas for the latter two we use \texttt{IMRPhenomPv2} and \texttt{IMRPhenomXPHM}. The frequency range for the metric computation is always set to be $[10, 1024]Hz$.
-We repeat the experiment for the two metric computation methods described in sec.~\ref{sec:metric}: {\it hessian} and {\it parabolic fit hessian}.
 The results are reported in fig.~\ref{fig:metric_accuracy}.
 
-By looking at the results for the metric hessian fig.~\ref{fig:metric_accuracy_hessian}, we note indeed a large scatter in the match values at a constant metric match. On the other hand, the random fluctuations of the match are well centered around the expected value.
-For the manifold \texttt{Mq\_chi\_iota} (where an HM approximant was used), the situation is different, as the hessian metric provides a more reliable approximation to the match. However, in this case the match is underestimated by the metric match.
+\begin{figure}[t]
+	\includegraphics{metric_accuracy_hessian_distance}
+	\caption{Writeme}
+	\label{fig:metric_accuracy_distance}
+\end{figure}
 
-The picture changes drastically for the parabolic fit hessian fig.~\ref{fig:metric_accuracy_parabolic}: here the scatter of the match values is smaller (i.e. the metric approximation is more reliable) but the metric underestimates the match.
-
-Trying to draw some general conclusions, the {\it hessian} metric approximation can yield to large errors in match estimation but it is not biased: given two points with a metric match $\mathcal{M}_{\text{metric}}$ the most likely match value between them is $\mathcal{M} = \mathcal{M}_{\text{metric}}$. 
-On the other hand, the {\it parabolic fit hessian} metric approximation has smaller discrepancies but it consisently underestimates the match: if two points have metric match $\mathcal{M}_{\text{metric}}$ the most likely match value is often $\mathcal{M} > \mathcal{M}_{\text{metric}}$.
-A separate conclusion holds for any HM metric. In this situation, the two metric computation methods do not differ significantly and the remarks made for the {\it parabolic fit hessian} seem to be valid.
-
-When it comes to template placing, the overall picture is somehow conterintuitive: althogh less accurate, due to its smaller bias, the {\it hessian} metric has better performance, whereas the {\it parabolic fit hessian} leads to an overcovered bank (as it underestimates the match). This will be manifest in sec.\ref{sec:HM_bank} where an HM bank, covering the manifold \texttt{Mq\_chi\_iota}, is shown to overcover the space. The same bias is not observed in non-HM banks generated with the hessian metric.
-
-For this reason, in the remainder of the paper we will focus only on the {\it hessian} metric, as the other alternative seem
-
-
-%As discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and we cannot rely on the metric for larger distance. For this reason, in fig.~\ref{fig:metric_accuracy} we only consider pairs of points satisfying $||\Delta\theta||\leq 1$. We see that, under this condition, the metric provides a nice approximation to the match: the actual matches are only mildly scattered around their metric match and the random fluctuations are well centered around the expected value. The only exception to this is the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM). In this situation, even in the limit $||\Delta\theta||\leq 1$, the metric match {\it underestimates} the actual match. The reason for this is still unknown and requires more investigation. This discrepancy is consistent with the discrepancy between match and metric match observed for the HM bank generated in sec.~\ref{sec:HM_bank}.
-%As already seen, the metric approximation breaks down for $||\Delta\theta|| \geq 1$. This can be clearly seen in fig.~\ref{fig:metric_accuracy_distance}, where we plot, for each of the $15000$ pairs of points considered, the match $\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The results are straightforward to interpret: for $||\Delta\theta|| \leq 1$ the metric approximation works well and we see that the actual matches are scattered around the value of $0.97$. On the other hand, for larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
-
-%This happens whenever an eigenvalue of the metric is too small (i.e. the metric is close to be degenerate). In this situation, the metric will predict an unphysically large coordinate distance. There might be several ways to cure this, which will be investigated in future work:
-%\begin{itemize}
-%	\item Fix the metric eigenvalues by looking at the actual match \stefano{I already did this. Should we mention this somewhere?}
-%	\item Insert an exponential ``damping" term $\propto e^{-||\Delta\theta||}$ to the metric distance eq.~\eqref{eq:metric_definition}. This would make the metric predictions more physical at the price of leaving the bilinear approximation to the match.
-%\end{itemize}
-%The tuning and the validation of those two methods will be investigated in future works.
-
-\stefano{Uncorfotable question: why HM metric works also for $||\Delta\theta||>1$?? This challenges our understanding: we need to take into account the magnitude of the eigenvalues, but how? Just plot $||\Delta\theta||/|M|^{1/D}$? Lots of thinking there...}
-
-\begin{figure*}[t!]
+\begin{figure*}[th!]
 	\centering
 	\includegraphics[width=.75\textwidth,keepaspectratio]{placing_validation}
 	\caption{Results for the validation of the placing methods on $0.97$ minum match banks. Each row refers to a different placing method whereas each column refers to a different manifold being sampled. In each plot, we report with a cross the number of tiles $N_{\text{tiles}}$ against the number of templates $N_{\text{templates}}$ of the bank.
@@ -482,6 +443,31 @@ For this reason, in the remainder of the paper we will focus only on the {\it he
 	}
 	\label{fig:placing_validation}
 \end{figure*}
+%%%%%%
+%%%%%%%%%%%% OLD PART CONCERNING THE PARABOLIC FIT HESSIAN
+%By looking at the results for the metric hessian fig.~\ref{fig:metric_accuracy_hessian}, we note indeed a large scatter in the match values at a constant metric match. On the other hand, the random fluctuations of the match are well centered around the expected value. For the manifold \texttt{Mq\_chi\_iota} (where an HM approximant was used), the situation is different, as the hessian metric provides a more reliable approximation to the match. However, in this case the match is underestimated by the metric match. The picture changes drastically for the parabolic fit hessian fig.~\ref{fig:metric_accuracy_parabolic}: here the scatter of the match values is smaller (i.e. the metric approximation is more reliable) but the metric underestimates the match.\\Trying to draw some general conclusions, the {\it hessian} metric approximation can yield to large errors in match estimation but it is not biased: given two points with a metric match $\mathcal{M}_{\text{metric}}$ the most likely match value between them is $\mathcal{M} = \mathcal{M}_{\text{metric}}$. On the other hand, the {\it parabolic fit hessian} metric approximation has smaller discrepancies but it consisently underestimates the match: if two points have metric match $\mathcal{M}_{\text{metric}}$ the most likely match value is often $\mathcal{M} > \mathcal{M}_{\text{metric}}$. A separate conclusion holds for any HM metric. In this situation, the two metric computation methods do not differ significantly and the remarks made for the {\it parabolic fit hessian} seem to be valid. When it comes to template placing, the overall picture is somehow conterintuitive: althogh less accurate, due to its smaller bias, the {\it hessian} metric has better performance, whereas the {\it parabolic fit hessian} leads to an overcovered bank (as it underestimates the match). This will be manifest in sec.\ref{sec:HM_bank} where an HM bank, covering the manifold \texttt{Mq\_chi\_iota}, is shown to overcover the space. The same bias is not observed in non-HM banks generated with the hessian metric.For this reason, in the remainder of the paper we will focus only on the {\it hessian} metric, as the other alternative seem
+
+We first consider the first three manifolds, covered with a non-HM approximant.
+By looking at the results in fig.~\ref{fig:metric_accuracy}, we observe a very large scatter in the match values between points at constant metric match: this seems to challenge the accuracy of the metric match.
+However, as discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only guaranteed to be valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and many pairs of points considered in the histogram do not satysfy $||\Delta\theta||\lesssim 1$.
+
+In order to clarify this point, in fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The results are straightforward to interpret: for $||\Delta\theta|| \lesssim 1$ the metric approximation works well and we see that the actual matches are scattered around the value of $0.97$. On the other hand, for larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
+
+This support the picture outlined above: the metric approximation is {\it guaranteed} to be realiable only in the region $||\Delta\theta|| \lesssim 1$. This does not imply that for $||\Delta\theta|| \geq 1$, the metric approximation does not work altogher: it only means that in this situation the metric may (and sometimes does) fail to provide a reliable approximation to the match. This is what we observe in the large spread of the match distribution in fig.~\ref{fig:metric_accuracy}.
+
+Despite this, the template placing does not seem to be affected by the metric inaccuracy. As shown in the next sections, the fitting factors of a set of injections seem to be properly estimated by the metric match as the low discrepancy between metric match and match in figs.\ref{fig:placing_validation}-\ref{fig:bank_injections} seems to prove.
+
+The picture changes by inspecting the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM).
+We note that the metric approximation consistently {\it underestimates} the actual match and provides a lower limit to the true match. This does not depend on the coordinate distance $||\Delta\theta||$ between points.
+In this situation it seems that the metric provides a biased approximation to the match, yielding systematically smaller values of the match. This biased is not observed in the non HM metric. This is consistent with the discrepancy between match and metric match observed for the HM bank generated in sec.~\ref{sec:HM_bank}, which suggests a systematic bias. The same bias is not observed for non-HM banks.
+The reason for such different qualitative behaviour is still unknown and requires more investigation. 
+
+%This happens whenever an eigenvalue of the metric is too small (i.e. the metric is close to be degenerate). In this situation, the metric may predict an unphysically large coordinate distance and the approximation breaks down. There might be several ways to cure this, which will be investigated in future work:
+%\begin{itemize}
+%	\item Fix the metric eigenvalues by looking at the actual match
+%	\item Insert an exponential ``damping" term $\propto e^{-||\Delta\theta||}$ to the metric distance eq.~\eqref{eq:metric_definition}. This would make the metric predictions more physical at the price of leaving the bilinear approximation to the match.
+%\end{itemize}
+
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
@@ -505,7 +491,8 @@ The number of injections are the same order of magnitude of the number of templa
 For the stochastic placement we set the parameter $N_{max} = 100$, while for the random method we employ $1000 N_{\text{templates}}$ livepoints (where $N_{\text{templates}}$ is defined in eq.~\eqref{eq:N_templates}).
 The results are shown in fig.~\ref{fig:placing_validation}.
 
-By looking at the number of templates placed by the {\it uniform} method, we see that they all grow with the number of tiles until a certain upper limit. This is the expect behavior of a good tiling generation method. Indeed we expect that an incresing number of tiles provides a better estimation of the overall volume of the space until the estimation converges to the actual value in the limit of infinite tiles. Moreover, according to eq.~\eqref{eq:N_templates}, the number of templates placed by the uniform method is essentially a measure of volume.
+According to eq.~\eqref{eq:N_templates}, the number of templates $N_{\text{templates}}$ placed by the {\it uniform} method is a measure of the volume of the space. For this reason, it is interesting to look how the number of templates placed by the {\it uniform} method depends on the number of tiles.
+We note that $N_{\text{templates}}$ grow with the number of tiles until a certain upper limit. Indeed we expect that an incresing number of tiles provides a better estimation of the overall volume of the space until the estimation converges to the actual value in the limit of infinite tiles. 
 The fact that the tiling generation method is able to reach a stable estimation of the number is then a confirmation of its robustness in estimating the actual volume of the space.
 
 We now analyse the properties of the different methods.
@@ -514,8 +501,9 @@ We note that the {\it uniform} placing method understimates the number of templa
 However, it is important to note that, as mentioned before, this methods can still be useful to provide a quick estimation of the bank features and in practice it can be used in the exploratory analysis preceding the generation of a bank.
 
 The {\it random} method provides very nice coverage properties of the two non-precessing manifolds (\texttt{Mq\_nonspinning} and \texttt{Mq\_chi}): this can be seen by the excellent fitting factor of the injection performed. Moreover, the method performances do not depend on the number of tiles.
-For the precessing manifold, \texttt{Mq\_s1xz}, the method's performances sligthly deteriorates as can be seen by the large tails in the fitting factor histogram.
-This is a well known feature of this placing method that leads to bad coverage whenever the metric changes drastically across the space. In this situation, a livepoint from a tile with a low $\sqrt{|M|}$ can ``kill" other livepoints in an unphysically large portion of the parameter space (see the discussion in sec.~\ref{sec:metric_accuracy}). For this reason, the high density regions ca be underpopulated due to the breaking down of the metric approximation. A possible solution for this is to introduce a cut-off on the effect of the metric, hence limiting the unphysical long range action of a quasi-degenerate metric: this will be the scope of future work.
+For the precessing manifold, \texttt{Mq\_s1xz}, the method's performance sligthly deteriorates as can be seen by the large tails in the fitting factor histogram.
+This is a well known feature of this placing method that leads to bad coverage whenever the metric changes drastically across the space. In this situation, a livepoint can ``kill" other livepoints in an unphysically large portion of the parameter space: in fact, as seen sec.~\ref{sec:metric_accuracy} the metric can predict an unphysical small metric match even at large coordinate distance $||\Delta\theta||$. This is more likely to happen for small values of $\sqrt{|M|}$, where small eigenvalues can extend the region of constant metric match to very large distances.
+Due to this effect, the high density regions can be underpopulated due to the breaking down of the metric approximation. A possible solution for this is to introduce a cut-off on the effect of the metric, hence limiting the unphysical long range action of a quasi-degenerate metric: this will be the scope of future work.
 Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed.
 
 As shown by our results, the {\it stochastic} method is always able to cover the space with the appropriate minimum match. This very nice performance is of course expected: this placing method (with some variations) is the state of the art of bank generation and has proven to be reliable.
@@ -568,6 +556,22 @@ Take home messages:
  	 \label{tab:sbank_comparison}
 \end{table*}
 
+\begin{figure}[t!]
+	\includegraphics{sbank_comparison}
+	\caption{Histogram for the fitting factors of the banks used to compare \mbank and \texttt{sbank}. For each parameter space considered, we randomly draw $5000$ points (injections) from the tiling used to generate the \mbank bank and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	The details of the banks generated are reported in table~\ref{tab:sbank_comparison}.
+	}
+	\label{fig:sbank_comparison}
+\end{figure}
+
+\begin{figure}[t!]
+	\includegraphics{bank_injections}
+	\caption{
+	Histogram for the fitting factors of the three case study banks. For each bank, we randomly draw $40000$ points (injections) from the tiling and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms both for the match and the metric match. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	The details of the banks generated are reported in table~\ref{tab:casestudy_banks}.
+	}
+	\label{fig:bank_injections}
+\end{figure}
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
@@ -590,15 +594,45 @@ Looking at the injections fitting factor histograms in fig.~\ref{fig:sbank_compa
 
 When considering the generation times, we see that \mbank is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \mbank convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
 
-\begin{figure}[t]
-	\includegraphics{sbank_comparison}
-	\caption{Histogram for the fitting factors of the banks used to compare \mbank and \texttt{sbank}. For each parameter space considered, we randomly draw $5000$ points (injections) from the tiling used to generate the \mbank bank and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
-	The details of the banks generated are reported in table~\ref{tab:sbank_comparison}.
-	}
-	\label{fig:sbank_comparison}
-\end{figure}
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{table*}[t!]
+	\centering
+	\setlength\extrarowheight{1pt}
+	 \begin{tabular}{l l l c c} 
+	 \hline
+	 %\multicolumn{1}{c}{\phantom{Name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Setting}} & \multicolumn{1}{c}{\textbf{Size}} \\
+	 \multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Settings}} &  
+	 \multicolumn{2}{c}{
+		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ $N_{\text{templates}}$ & $N_{\text{tiles}}$ \\ \end{tabular}	 
+	 } \\
+	 \hline
+	 Precessing & \begin{tabular}{@{}l@{}} $M\in [25,100] M_\odot$ \\ $q\in [1,5]$  \\ $s_1\in [0,0.99]$ \\$\theta_1\in [0, \pi]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
+	 \begin{tabular}{@{}l@{}} IMRPhenomPv2 \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 10 \\ \end{tabular}  &
+	 54750 & 33774 \\
+	 \cdashline{1-5}
+	 IMBH HM & \begin{tabular}{@{}l@{}} $M\in [50, 600] M_\odot$ \\ $q\in [1,5]$  \\ $\chi \in [0,0.99]$ \\ $f\in [10,1024] Hz$ \\ \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} IMRPhenomXPHM \\ $\epsilon = 0.2 $ \\ \texttt{max-depth}: 8 \\ \end{tabular}  &
+	 	273650 & 33792 \\
+	 \cdashline{1-5}
+	 Nonspinning eccentric & \begin{tabular}{@{}l@{}} $M\in [10,75] M_\odot$ \\ $q\in [1,5]$ \\ $e \in [0,0.3]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} EccentricFD \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 9 \\  \end{tabular}  &
+	 	154472 & 4238 \\
+	 \hline
+	 \end{tabular}
+	 \caption{Summary of three case study banks generate with \mbank. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{mx-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$  and the number of tiles $N_{\text{tiles}}$. An injection study is performed in fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in fig.~\ref{fig:bank_scatter}.}
+ 	 \label{tab:casestudy_banks}
+\end{table*}
+
+
+\begin{figure*}[t]
+	\includegraphics{bank_scatter_Precessing}\hfill
+	\includegraphics{bank_scatter_IMBH_HM}\hfill
+	\includegraphics{bank_scatter_Nonspinning_eccentric}
+	\caption{Corner plots showing the templates for the three banks described in table~\ref{tab:casestudy_banks}. }
+	\label{fig:bank_scatter}
+\end{figure*}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bank generation: three case studies} \label{sec:bank_generation}
@@ -642,10 +676,8 @@ As before in table~\ref{tab:sbank_comparison}, we report the ranges for each of 
 The inclusion of HM makes the bank much larger (i.e. $|M|$ is larger): for reference, a non HM bank, covering the masses and $\chi$ ranges (of course, without $\iota$) has $\sim 1000$ templates: that is a 2 orders of magnitude difference!
 %By looking at the scatter plot fig.~\ref{fig:bank_scatter}, we can note the effect of the discretization introduced by the tiling.
 
-By looking at the injection recovery fig.~\ref{fig:bank_injections} it is striking the discrepancy between the recovery factor computed by the metric and the un-approximated one. Indeed, in the HM case the metric strongly {\it underestimates} the match, yielding an overpopulated bank. With the metric injection recovery, approximately $6\%$ of the injections have a recovery below $0.97$: this is consistent with the placing method used, which only ``knows" about metric matches. On the other hand, only $0.5\%$ are below the $0.98$ recovery factor: the bank generated is effectively a $98\%$ bank.
-\stefano{What's the cause of the discrepancy?}
-\stefano{To quantify this, should we do another plot in fig.~\ref{fig:metric_accuracy} for the XPHM approximant?}
-
+By looking at the injection recovery fig.~\ref{fig:bank_injections} it is striking the discrepancy between the fitting factor computed by the metric and the un-approximated one. Indeed, in the HM case the metric strongly {\it underestimates} the match, yielding an overpopulated bank. With the metric injection recovery, approximately $6\%$ of the injections have a recovery below $0.97$: this is consistent with the placing method used, which only ``knows" about metric matches. On the other hand, only $0.5\%$ are below the $0.98$ recovery factor: the bank generated is effectively a $98\%$ bank.
+This effect is consistent with what observed in fig.~\ref{fig:metric_accuracy} and it is only observed whenever an HM approximant is used: as discussed above, the cause of this is unknown and requires more investigation.
 
 \subsection{An eccentric nonspinning bank}\label{sec:eccentric_bank}
 
@@ -659,63 +691,45 @@ By looking at the injection recovery, we note that only $0.15\%$ of the injectio
 
 From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuities introduced by the metric are less visibile. This is due to the smaller dimension of the space (3 against 4 of the previous cases), which makes easier to cover the space with a reliable tiling. Moreover, since the approximant \texttt{EccentricFD} is analytic, the metric has a smoother dependence on the parameter space, which may also help to avoid discontinuities in template density.
 
-
-\begin{table*}[t!]
-	\centering
-	\setlength\extrarowheight{1pt}
-	 \begin{tabular}{l l l c c} 
-	 \hline
-	 %\multicolumn{1}{c}{\phantom{Name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Setting}} & \multicolumn{1}{c}{\textbf{Size}} \\
-	 \multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\textbf{Ranges}} & \multicolumn{1}{c}{\textbf{Settings}} &  
-	 \multicolumn{2}{c}{
-		\begin{tabular}{c c} \multicolumn{2}{c}{\textbf{Size}}  \\ $N_{\text{templates}}$ & $N_{\text{tiles}}$ \\ \end{tabular}	 
-	 } \\
-	 \hline
-	 Precessing & \begin{tabular}{@{}l@{}} $M\in [25,100] M_\odot$ \\ $q\in [1,5]$  \\ $s_1\in [0,0.99]$ \\$\theta_1\in [0, \pi]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
-	 \begin{tabular}{@{}l@{}} IMRPhenomPv2 \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 10 \\ \end{tabular}  &
-	 54750 & 33774 \\
-	 \cdashline{1-5}
-	 IMBH HM & \begin{tabular}{@{}l@{}} $M\in [50, 600] M_\odot$ \\ $q\in [1,5]$  \\ $\chi \in [0,0.99]$ \\ $f\in [10,1024] Hz$ \\ \end{tabular}  &
-	 	 \begin{tabular}{@{}l@{}} IMRPhenomXPHM \\ $\epsilon = 0.2 $ \\ \texttt{max-depth}: 8 \\ \end{tabular}  &
-	 	273650 & 33792 \\
-	 \cdashline{1-5}
-	 Nonspinning eccentric & \begin{tabular}{@{}l@{}} $M\in [10,75] M_\odot$ \\ $q\in [1,5]$ \\ $e \in [0,0.3]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
-	 	 \begin{tabular}{@{}l@{}} EccentricFD \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 9 \\  \end{tabular}  &
-	 	154472 & 4238 \\
-	 \hline
-	 \end{tabular}
-	 \caption{Summary of three case study banks generate with \mbank. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{mx-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$  and the number of tiles $N_{\text{tiles}}$. An injection study is performed in fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in fig.~\ref{fig:bank_scatter}.}
- 	 \label{tab:casestudy_banks}
-\end{table*}
-
-
-\begin{figure}[t]
-	\includegraphics{bank_injections}
-	\caption{
-	Histogram for the fitting factors of the three case study banks. For each bank, we randomly draw $40000$ points (injections) from the tiling and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms both for the match and the metric match. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
-	The details of the banks generated are reported in table~\ref{tab:casestudy_banks}.
-	}
-	\label{fig:bank_injections}
-\end{figure}
-
-
-\begin{figure*}[t]
-	\includegraphics{bank_scatter_Precessing}\hfill
-	\includegraphics{bank_scatter_IMBH_HM}\hfill
-	\includegraphics{bank_scatter_Nonspinning_eccentric}
-	\caption{Corner plots showing the templates for the three banks described in table~\ref{tab:casestudy_banks}. }
-	\label{fig:bank_scatter}
-\end{figure*}
-
 \section{Final remarks and future prospects} \label{sec:conclusion}
-Usual stuff
-\blindtext
-\blindtext
-\blindtext
-\blindtext
-\blindtext
-\blindtext
-\blindtext
+Summary of the section:
+\begin{itemize}
+	\item summary of what we've done
+	\item Future improvments:
+	\begin{itemize}
+		\item Better metric computation?
+		\item Fix random method (exponential cutoff)
+		\item Why HM does not work?
+		\item Interpolating the metric between tiles to make the templates placement more smooth
+		\item post process the bank to make it more effective
+	\end{itemize}
+	\item Open the possibility to search large parameter spaces (without years of bank developments)
+\end{itemize}
+
+We presented a novel method to generate template banks to cover a high dimensional manifold of (possibly) precessing/HM/eccentric Binary Black Holes signals.
+We rely on the metric approximation to the match eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling we are able to implement several strategies to place templates around the space with a given minimum match target.
+The code implementing our method is publicy available as a package \mbank and it comes with a number of tools to make the bank generation and validation easy.
+
+To validate our method, we compared the output of our code to the one of the state-of-the-art \texttt{sbank}: we find that mbank is able to faithfully cover the space, although with a larger number of templates when compared with \texttt{sbank}.
+To demostrate the capabilities of our code, we generated three banks covering some interesting and up to now unexplored regions of the parameter space. We found the \mbank is able to provid a faithfully coverage.
+
+\mbank is order of magnitude faster than the non-metric state-of-the-art bank generation codes. This makes our code particularly suitable for a large dimensional parameter space and makes feasible the generation of banks for which the template placing was hitherto unfeasible, due to computational limitations.
+
+Our work can be improved and extended in several directions:
+\begin{itemize}
+	\item {\it Improving the metric computation} As discussed in sec.~\ref{sec:metric_accuracy}, the metric accuracy may not be optimal, especially for large coordinate distance $||\Delta\theta||$. While this has proven not to be a big problem in template placing, it would still be desiderable to have a better estimation of the match. Future developments can concern a better estimation of the metric by solving the problem in eq.~\eqref{eq:metric_optmization} or even departing from the bilinear approximation\footnote{
+Although this strategy may sound tempting, it would cease to provide a meaningful estimation of volume, which may be problematic.}.
+	\item {\it Make the random placing method more efficient} As discussed in sec.~\ref{sec:placing_accuracy}, the random placing method may fail whenever the metric predicts an unphysically large region of constant match. A possible way to fix this is to introduce an exponential damping to the metric effect $\propto e^{-||\Delta\theta||}$ at large coordinate distance $||\Delta\theta||$. This could solve the undercovering problem, enabling to fully exploit the strength of the method.
+	Of course, an eventual better metric computation method may naturally solve this problem.
+	\item {\it Investigate the performance for HM}. We observed in sec.~\ref{sec:HM_bank} that the metric placement overcovers the space, due to the fact that the metric underestimates the match. This is puzzling and it requires more investigation.
+	\item {\it Interpolate between different tiles} Due to the discrete nature of the tiles, a bank can show large discontinuities on the template densities. While this may not be necessarly a problem for filtering, avoiding this could improve the bank performance by reducing the number of templates without affecting the bank's effectualness. To create a smooth dependence of the metric on the parameter space, we could set up an interpolation scheme, based on the tiling. This could be achieved by gaussian process regression.
+	\item {\it Post process the bank} Regardless of the placing method, the templates in a bank may not be placed optimally, creating over(under)dense regions. It may be good to add a post-processing step to move or remove some templates: this would rely on a large injection set to trim the bank. The overall result can be a smaller bank with better covering properties.
+	It is worth to note that this method may be also applied to any bank, not only those generated by \mbank 
+\end{itemize}
+
+As a final remark, we emphasize that our work can really enable the GW communnity to run searches on novel regions of the BBH signals parameter space. By cutting the bank generation and validation time by orders of magnitude, the computational cost of searching new regions of the parameter space will be dominated by the actual cost of the analysis rather than the cost of prior steps.
+This will enable to optimally allocate resourches to search for signature of precession, eccentricity and/or HMs, hopefully leading to new exciting physics.
+\stefano{Maybe this last remark can be made more precise/longer?}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ACKNOWLEDGMENTS
         \begin{acknowledgments}
@@ -724,6 +738,7 @@ Usual stuff
         \end{acknowledgments}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% APPENDIX
+\newpage
 \appendix
 \section{Details of the metric computation}\label{app:metric}
 

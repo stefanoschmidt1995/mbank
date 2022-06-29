@@ -11,7 +11,7 @@ build:
   tools:
     python: "3.9"
   jobs:
-    pre_install:
+    pre_build:
       - pip install -r requirements.txt
       - pip install -e .
 

@@ -105,6 +105,8 @@ def plot_distance_vs_match(filenames, savefile = None):
 	
 		try:
 			dist_vector = np.linalg.norm(out_dict['theta'][...,id_]-out_dict['center'], axis = 1)
+			#dist_vector = np.sqrt(np.linalg.det(out_dict['metric']))
+			#dist_vector = out_dict['center'][:,0]
 		except:
 				#old format for out_dict
 			dist_vector = np.linalg.norm(out_dict['theta1'][...,id_]-out_dict['theta2'][...,id_], axis = 1)
@@ -117,6 +119,7 @@ def plot_distance_vs_match(filenames, savefile = None):
 		ax.axvline(1., ls ='--', c = 'k', alpha = 0.5, lw = 1)
 		ax.set_ylabel(r'$1-\mathcal{M}$')
 		ax.set_yscale('log')
+		#ax.set_xscale('log')
 		ax.set_ylim((1e-3, 1.))
 		
 		ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{:g}'.format(x) if (x in [1, 0.1, 1e-2]) else '') #formatter
@@ -124,17 +127,20 @@ def plot_distance_vs_match(filenames, savefile = None):
 		ax.annotate(out_dict['variable_format'], xy = (.97,0.2), xycoords = 'axes fraction', ha = 'right')
 		
 	axes[-1].set_xlabel(r'$||\Delta\theta||$')
+	#axes[-1].set_xlabel(r'$\sqrt{|M|}$')
+	#axes[-1].set_xlabel(r'$q$')
 
 
 	plt.tight_layout()
 	#plt.show()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 
-def plot_metric_accuracy(filenames, savefile = None, dist_cutoff = np.inf):
+def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff = np.inf):
 	"Plot the metric accuracy plots"
 		#creating the figures
 	nbins = 50
 	fig, axes = plt.subplots(len(filenames), 1, sharex = True)
+	if isinstance(title, str): plt.suptitle(title)
 	
 	for i, (ax, filename) in enumerate(zip(axes, filenames)):
 		try:
@@ -173,15 +179,14 @@ def plot_metric_accuracy(filenames, savefile = None, dist_cutoff = np.inf):
 
 			ax.axvline(MM, c = 'k', ls = 'dashed', alpha = 0.5)
 			
-		ax.set_xscale('log')
 		ax.annotate(out_dict['variable_format'], xy = (.03,0.2), xycoords = 'axes fraction')
 		if i ==1 or i ==2: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1)
 		
-	axes[-1].set_xlabel('$1-MM$')
+	axes[-1].set_xlabel('$\mathcal{M}$')
 
 	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
 	axes[-1].tick_params(axis = 'x', labelleft = True)
-	min_MM_val = 0.91
+	min_MM_val = 0.9
 	axes[-1].set_xticks([min_MM_val+0.01*i for i in range(int((1-min_MM_val)*100))], labels = [], minor = True)
 	axes[-1].set_xlim([min_MM_val,1.02])
 
@@ -380,6 +385,26 @@ def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
 		if isinstance(savefile, str):
 			plt.savefig(savefile.format(t.replace(' ', '_')))
 
+def plot_injection_distance_hist(inj_pkl_list, variable_format_list, title = None, savefile = None):
+
+	raise NotImplementedError("This does not work as promised!")
+	
+	for (inj_pkl, bank_file), variable_format in zip(inj_pkl_list, variable_format_list):
+		with open(inj_pkl, 'rb') as filehandler:
+			inj_dict = pickle.load(filehandler)
+		bank = cbc_bank(variable_format, bank_file)
+		h = bank.var_handler
+		
+		inj_theta = h.get_theta(inj_dict['theta_inj'], variable_format)
+		id_match = inj_dict['id_match']
+		id_metric_match = np.zeros(id_match.shape, dtype = int) # inj_dict['id_metric_match']
+		delta_theta_metric_match =  np.linalg.norm(bank.templates[id_metric_match, :]-inj_theta, axis = 1)
+		delta_theta_match = np.linalg.norm(bank.templates[id_match, :]-inj_theta, axis = 1)
+		dist_templates = np.linalg.norm(bank.templates[id_metric_match, :]-bank.templates[id_match, :], axis = 1)
+
+	if isinstance(savefile, str):
+		plt.savefig(savefile.format(t.replace(' ', '_')))
+
 ########################################################################################################
 if __name__ == '__main__':
 	img_folder = '../tex/img/'
@@ -390,8 +415,8 @@ if __name__ == '__main__':
 				'metric_accuracy/paper_hessian_Mq_chi.pkl', 'metric_accuracy/paper_hessian_Mq_s1xz_iota.pkl',
 				'metric_accuracy/paper_hessian_Mq_chi_iota.pkl']
 	metric_accuracy_parabolic_filenames = [m.replace('paper_hessian', 'paper_parabolic') for m in metric_accuracy_filenames]
-	plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', np.inf)
-	plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', np.inf)
+	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', None, np.inf)
+	#plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', None, np.inf)
 	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.png')
 	plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
 

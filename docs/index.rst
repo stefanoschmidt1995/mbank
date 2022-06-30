@@ -16,6 +16,7 @@ Welcome to ``mbank``'s documentation!
    usage/bank_generation.md
    usage/injections.md
    usage/metric.md
+   usage/flow.md
 
 .. toctree::
    :maxdepth: 2
@@ -26,6 +27,7 @@ Welcome to ``mbank``'s documentation!
    package_reference/metric.rst
    package_reference/utils.rst
    package_reference/handlers.rst
+   package_reference/mbankflow.rst
  
 .. toctree::
    :maxdepth: 2

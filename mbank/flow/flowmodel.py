@@ -19,10 +19,13 @@ try:
 	from nflows.distributions.base import Distribution
 	from nflows.distributions.uniform import BoxUniform
 	from nflows.utils import torchutils
+	from nflows.transforms.base import InputOutsideDomain
 
 	from nflows.transforms.base import Transform
 except:
 	raise ImportError("Unable to find packages `torch` and/or `nflows`: try installing them with `pip install torch nflows`.")
+
+from .utils import ks_metric
 
 ########################################################################
 
@@ -43,8 +46,8 @@ class TanhTransform(Transform):
 				High corner of the rectangle
 		"""
 		super().__init__()
-		self.low = torch.tensor(low)
-		self.high = torch.tensor(high)
+		self.low = torch.tensor(low, dtype=torch.float32)
+		self.high = torch.tensor(high, dtype=torch.float32)
 	
 	def inverse(self, inputs, context=None):
 		inputs = torch.tanh(inputs)
@@ -81,7 +84,7 @@ class GW_Flow(Flow):
 		"""
 		super().__init__(transform=transform, distribution=distribution)
 		
-	def train_flow(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, callback = None, verbose = False):
+	def train_flow(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, verbose = False):
 		"""
 		Trains the flow.
 		
@@ -98,17 +101,18 @@ class GW_Flow(Flow):
 		if isinstance(callback, tuple): callback, callback_step = callback
 		else: callback_step = 1
 		
-		val_loss=np.zeros(N_epochs)
-		train_loss=np.zeros(N_epochs)
-		IPM = np.zeros(N_epochs) #Kolmogorov–Smirnov test
-		
 			#Are you sure you want float32?
 		train_data = torch.tensor(train_data, dtype=torch.float32)
 		validation_data = torch.tensor(validation_data, dtype=torch.float32)
 		
 		N_train = train_data.shape[0]
-		
-		desc_str = 'Training loop. Loss: {:5f}:{:5f}'
+
+		metric_computer = ks_metric(validation_data, self, 5000)
+		val_loss=[]
+		train_loss=[]
+		metric = [(metric_computer.metric_mean, metric_computer.metric_std)] #Kolmogorov–Smirnov metric (kind of)
+				
+		desc_str = 'Training loop - loss: {:5f}:{:5f}'
 		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf))
 		else: it = range(N_epochs)
 		
@@ -125,17 +129,22 @@ class GW_Flow(Flow):
 			loss.backward()
 			optimizer.step()
 
-			train_loss[i] = loss.item()
+			train_loss.append(loss.item())
 
-			with torch.no_grad():			
-				loss = -self.log_prob(inputs=validation_data).mean()
-			val_loss[i]=loss
+
+			if not (i%validation_step):
+				with torch.no_grad():			
+					loss = -self.log_prob(inputs=validation_data).mean()
+				val_loss.append([i, loss])
+				
+				metric.append([i, metric_computer.get_metric()])
+				
+				#print(metric[-1][0],val_loss[-1][1], metric[-1][1], metric_computer.metric_mean, metric_computer.metric_std)
 			
-			#if verbose: print(train_loss[i], val_loss[i])
 			if callable(callback) and not (i%callback_step): callback(self, i)
-			if not (i%(N_train//100+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[i]))
+			if not (i%int(N_train//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1][1]))
 
-		return train_loss, val_loss, IPM
+		return train_loss, val_loss, metric
 
 
 

@@ -116,7 +116,7 @@ def plot_distance_vs_match(filenames, savefile = None):
 		ax.scatter(dist_vector[ids_plot], 1-out_dict[0.97][ids_plot], **arg_dict)
 	
 		ax.axhline(1-MM, ls ='--', c = 'k', alpha = 0.5, lw = 1)
-		ax.axvline(1., ls ='--', c = 'k', alpha = 0.5, lw = 1)
+		#ax.axvline(1., ls ='--', c = 'k', alpha = 0.5, lw = 1)
 		ax.set_ylabel(r'$1-\mathcal{M}$')
 		ax.set_yscale('log')
 		#ax.set_xscale('log')

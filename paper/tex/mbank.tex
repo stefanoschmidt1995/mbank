@@ -64,7 +64,7 @@ superscriptaddress,10pt]{revtex4-2}
 	We introduce a novel method to generate a bank of templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO and Virgo data. Unlike standard approach, our method relies on a metric approximation to the distance between templates, which makes the template placement order of magnitude faster than the existing techniques.
 	Our method works on a variety of different manifold of signals and is particularly suitable to cover high dimensional spaces.
 	We compare our method with the state-of-the-art code \texttt{sbank} and we find that our code slightly overcover the space, while achieving similar covering properties. To demonstrate the capabilities of our code, we generate a precessing bank, an Intermediate Mass Black Hole bank with Higher Order Modes and an eccentric bank and show that they cover the space in a satisfactory way.
-	Our publicly released code \mbank will enable searches of exotic signals, hitherto unfeasible to the prohibitive cost of bank generation.
+	Our publicly released code \mbank will enable searches of exotic space of BBH signal, hitherto unfeasible due to the prohibitive cost of bank generation.
 \end{abstract}
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
@@ -96,9 +96,9 @@ As the gravitational waves astronomy enters in a mature state, the parameter spa
 All these efforts requires to generate accurate templates banks that covers the parameter space of interests. This is a highly non trivial and computationally expensive, task and its accuracy is crucial for the outcome of the searches.
 
 The most widely used approach to bank generation ({\it stochastic} method) consists in scattering templates around the parameter space with a rejection technique \cite{sbank}. A proposed template is included in the bank only if its distance between all the other templates is smaller than a given user defined threshold. While this method is very accurate and proved to work in many situation, it is very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
-As we are moving toward larger banks, that cover more exotic parameter space, such approach may become unfeasibly expensive.
+As we are moving toward larger banks, covering a larger and more exotic parameter space, such approach will soon become unfeasibly expensive, thus severly limiting the ability to perform new searches.
 
-For this reason, there has been a recent growing interest on metric template placing \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, other?}. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
+To overcome this heavy limitation, there has been a recent growing interest on {\it metric template placing} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, other?}. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 Following the seminal work by Owen \cite{owen_metric}, a large number of approaches that use metric approximation (in some form) have been introduced.
 
 In this work, we develop a novel approach to template placing based on the metric approximation of the match.
@@ -111,37 +111,45 @@ The package offers support for tiling the parameter space of interests and placi
 It is designed to run in parallel the most heavy computations.
 As a summary, \mbank is implemented to be:
 \begin{itemize}
-	\item Extremely fast \sarah{This will need to be bench-marked. Do you have some timing numbers already?}
+	\item Extremely fast
 	\item Suitable for large banks and high dimensional {\it exotic} parameter space
 	\item Fairly accurate
 \end{itemize}
-\stefano{Shall you explicitly say a common use case??}
+\stefano{Shall you explicitly say a common use case?? Maybe not...}
 
 The rest of this paper is devoted to present and validate \mbank.
 In sec.~\ref{sec:methods} we present the details of the bank generation algorithm.
-Section~\ref{sec:validation} will be devoted to the validation of the performance of the code. We will focus on the comparison with the widely used stochastic placement code \texttt{sbank}.
-To demostrate the capabilities of \mbank, we will employ our code to generate two large banks of exotic regions of parameter space: a bank of precessing signals and a bank of eccentric signals. This will be the topic of sec.~\ref{sec:bank_generation}.
+Section~\ref{sec:validation} will be devoted to the validation of the performance of the code. We will assess the accuracy of the metric approximation and of the tamplate placing methods we implemented. We also compare our code with the widely used stochastic placement code \texttt{sbank}.
+To demostrate the capabilities of \mbank, we will employ our code to generate three large banks of exotic regions of parameter space: a bank of precessing signals, a bank of Intermediate Mass Black Hole (IMBH) with Higher Order Modes (HM) and a bank of eccentric signals. This will be the topic of sec.~\ref{sec:bank_generation}.
 Finally, in sec.~\ref{sec:conclusion} we will present some conclusive remarks on our work, with particular attention to future prospects.
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Methods} \label{sec:methods}
 
 \stefano{This introductory part must be trimmed a lot}
-When searching for a BBH signal in the gravitational waves data, it is custom to used a frequentist detection statistics $\Lambda$. It is a measure of the probability ratio between the hypothesis that a signal $s$ is buried in the data and the hypotesis that only noise $n$ is inside th data $d$. In symbols:
+When searching for a BBH signal in the gravitational waves data, it is custom to used a frequentist detection statistics $\Lambda$.
+We model the detector output $s(t)$ to be composed of {\it gaussian} noise $n(t)$ and by possibly a known GW signal $h(t)$.
+Given some observed data $d(t)$, the detection statistics is then a measure of the (log)probability ratio between the signal hypothesis $s = n+h$ and the noise hyphothesis $s = n$
+In symbols:
 \begin{equation}\label{eq:LL}
 	\Lambda(\theta) = \log\frac{p(s(\theta)|d)}{p(n|d)}
 \end{equation}
-where we assume that the signal model is parameterized by a set of parameters $\theta$.
+where we assume that the signal model is parameterized by a set of parameters $\theta$, which characterize the GW signal $h(t)$.
 For every given observation time, the search consists in maximizing such probability with respect to $\theta$. 
 The generic eccentric BBH signal registered at detector is characterized by 17 quantitities. Luckily, it turns out that one is able to maximize analytically over some of them. For the other quantities, a brute force approach is required: to find the maximum, $\Lambda(\theta)$ is evaluated on a large set of values, usually called {\it template bank}. 
 
 Thus in principle, a template for a generic BBH gravitational waves signal can depend on a set of 12 physical quantities: two BH masses ($m_1$, $m_2$), two 3 dimensional spins $s_1$, $s_2$), the inclination angle $\iota$, the reference phase $\phi$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$.
 
-Of course, based on some experimental assumptions on the nature of the signal such space can be further reduced to a limited sub-space. Moreover, in some situation is might be possible to maximize analitically the likelihood over certain quantities\footnote{
-For example, a common situation is when we look for a non-precessing BBH and we neglect the Higher Order Modes of the waveforms. In this situation, the paramters space to search by brute force has only 4 dimensions (the two masses and the two z components of the spins).}.
-In such cases, the parameters that do not enter the bank can be freely neglected (i.e. set to $0$ or to a meaningful default value).
+Of course, based on the scope of the search, the signal space can be further reduced to target a limited interesting sub-space. Moreover, in some situation is might be possible to maximize analitically the likelihood over certain quantities, effectively reducing the dimensionality of the manifold.
+In the case of a a non-precessing BBH, where we neglect the Higher Order Modes (HM) of the waveforms, the paramters space to search by brute force has only 4 dimensions (the two masses and the two z components of the spins). In this situation, the maximized likelihood has the following expression:
+\begin{equation}\label{eq:LL_filtering}
+	\Lambda(\theta) = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta) \tilde{d}(f)}{S_n(f)}
+\end{equation}
+where$\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density of the gaussian noise $n(t)$.
+In practice a search aims to {\it filter} the data in order to compute (at each time) $\Lambda(\theta)$ for a large number of different values $\theta$
 
 It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$ embedded in a large 12 dimensonal manifold $\mathcal{B}$: each point of the manifold corresponds to a GW signal. The number $D$ of dimensions depends on the BBH variables under consideration.
+As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful default value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the full manifold $\mathcal{B}$.
 
 Placing templates on $\mathcal{B}_D$ is a highly non-trivial task, as one has to struggle to ensure a good coverage (to avoid missing any signal) while keeping a low number of templates (to save computational power).
 Throughtout the years many different techniques have been devised to achieve such goal.
@@ -169,7 +177,7 @@ We will devote the rest of this section to go through all the details of the ste
 
 In this section we define a metric distance on the manifold of templates $\mathcal{B}_D$. Such metric approximates the {\it match} between templates and can be used a fast-to-compute surrogate. We will also derive an explicit expression for the metric in terms of the waveform and its gradients.
 
-We can introduce a complex \textit{scalar product}\footnote{
+Motivated by the search likelihood eq.~\eqref{eq:LL_filtering}, we can introduce a complex \textit{scalar product}\footnote{
 Technically, this is a scalar product on the $L^2$ space of the waveforms $h$ and not (yet) on the D-manifold of the parameters
 } between two \textit{waveforms} $h$ as:
 
@@ -177,17 +185,17 @@ Technically, this is a scalar product on the $L^2$ space of the waveforms $h$ an
 	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}_+^*(f;\theta_1) \tilde{h}_+(f;\theta_2)}{S_n(f)}
 \end{equation}
 
-where $h_+(\cdot; \theta)$ denotes the plus polarization of the waveform evaluated at the point $\theta$ of the manifold, $\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density.
+where $h_+(\cdot; \theta)$ denotes the plus polarization of the waveform evaluated at the point $\theta$ of the manifold.
 It is important to note that the parameters $\theta$ may not fully specify the BBH parameter space: in this case, the expression $h(\theta)$ assumes that the waveform is generated at some default constant paramters for the quantities not constrained by $\theta$.
 We also define $\rescalar{h_1}{h_2} = \Re\scalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2} = \Im\scalar{h_1}{h_2}$.
+The expression above is a measure of the detection statistics $\Lambda(\theta_1)$ that is measured when a signal $h(t; \theta_2)$ is present in the data.
 
 A waveform $h(\theta)$ can be normalized using the scalar product above:
 \begin{equation} \label{eq:normalization}
 	\hat{h}(\theta) = \frac{h(\theta)}{\scalar{h(\theta)}{h(\theta)}}.
 \end{equation}
-If the scalar product is computed between two normalized WFs $\hat{h}$, it will take values between $0$ and $1$.
 
-While eq.~\eqref{eq:scalar_product} can be already used to equip the manifold with a distance, it is more common, due to the details of the statistics used for searches \cite{something}, to introduce a different distance on the manifold.
+We can use the scalar product to define the sought for distance between signals.
 For each parameter $t$, we define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized WFs as:
 \begin{align}\label{eq:overlap}
 	\mathcal{O}(\theta_1,\theta_2, t) &= \left\| \int\limits_{-\infty}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\| \nonumber\\
@@ -201,12 +209,13 @@ Based on the overlap, we can eventually define the {\it match} as:
 	&= \max_t \sqrt{ \rescalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}}^2 + \imscalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i2\pi ft}}^2 }  \nonumber 
 \end{align}
 
-The match definition is motivated by the expression of the detection statistics \cite{something} in use for non-precessing signals. It takes values in the range $[0,1]$ and trivially $\mathcal{M}(\theta,\theta) = 1$.
-It can be used to define a {\it distance}\footnote{
+The match takes values in the range $[0,1]$ and trivially $\mathcal{M}(\theta,\theta) = 1$.
+
+We are now ready to define a {\it distance}\footnote{
 From a strict geometrical point of view, this is not a distance since it does not satisfy triangular inequality. However, this does not affect its effectivness in measuring the ``dissimilarity" between two waveforms, hence two points of the manifold.}
 on the D-manifold $\mathcal{B}_D$:
 \begin{align}\label{eq:distance}
-	d(\theta_1,\theta_2) = \sqrt{1 - \mathcal{M}(\theta_1,\theta_2)}
+	d(\theta_1,\theta_2) \vcentcolon= \sqrt{1 - \mathcal{M}(\theta_1,\theta_2)}
 \end{align}
 The quantity $1-\mathcal{M}$ above is also called {\it mismatch}.
 
@@ -217,9 +226,10 @@ In this expression and everywhere else, we assume Einstein summation convention 
 \end{align}
 where $\Delta\theta = \theta_1-\theta_2$ is a D-dimensional vector.
 The distance induced by the metric approximates the distance between two points of the manifold.
-It is worth noting that, like any Taylor expansion, eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit $||\Delta\theta||\lesssim 1$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For large values of $||\Delta\theta||$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
+It is worth noting that, like any expansion, eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit of small $||\Delta\theta||$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For $||\Delta\theta|| \gtrsim 1$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
 
-It is not trivial to make a good guess of the appropriate value of the metric. In general, we can compute it through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}. Formally, we can write the metric as:
+Of course, there is not a {\it correct} expression for the metric $M(\theta)$, but its exact value may depend on the application and on the range of applicability of the approximation.
+A fair guess of the metric can be done through through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}. We can write the metric as:
 
 \begin{equation} \label{eq:metric_optmization}
 	M(\theta) = \argmin_{M^\prime} \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_{target}\}} \hspace{-3.8em}
@@ -227,9 +237,11 @@ It is not trivial to make a good guess of the appropriate value of the metric. I
 		\right]^2
 \end{equation}
 where the integration extends on a D-ball with radius $d_{target}$ centered around theta. The value $d_{target}$ controls the range of validity of the approximation.
-Although the problem can be easily tackled using one standard optimization techniques of numerical optimizaton, it is very computationally expensive to get a solution and, to make the metric generation feasible, we should find faster {\it heuristic} solution.
+Although the problem can be tackled using one standard optimization techniques of numerical optimizaton, it is unfeasible to use it as is\footnote{
+Future work may try to tacke this optimization problem finding a solution at an acceptable computational cost.},
+since it requires to compute many waveforms to evaluate $d(\theta,\theta^\prime)$ eq.~\eqref{eq:distance} and to sample from a ``complicate" set such as $\{d(\theta,\theta^\prime) < d_{target}\}}$.
 
-A good guess is to identify the metric with the bilinear term of the Taylor expansion of the match.
+To make the metric generation feasible, we should find faster {\it heuristic} solution to eq.~\eqref{eq:metric_optmization}: a good guess is to identify it with the bilinear term of the Taylor expansion of the match.
 It turns out that this depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression:
 \begin{equation}\label{eq:metric_expression}
 	M(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
@@ -449,11 +461,11 @@ The results are reported in fig.~\ref{fig:metric_accuracy}.
 
 We first consider the first three manifolds, covered with a non-HM approximant.
 By looking at the results in fig.~\ref{fig:metric_accuracy}, we observe a very large scatter in the match values between points at constant metric match: this seems to challenge the accuracy of the metric match.
-However, as discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only guaranteed to be valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and many pairs of points considered in the histogram do not satysfy $||\Delta\theta||\lesssim 1$.
+However, as discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition} is only guaranteed to be valid in the limit of small {\it coordinate} distance $||\Delta\theta||$ and many pairs of points considered in the histogram do not satysfy $||\Delta\theta||\lll 1$. This also explains why the performance of the metric accuracy degrades as the target match $\mathcal{M}$ decreases.
 
-In order to clarify this point, in fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The results are straightforward to interpret: for $||\Delta\theta|| \lesssim 1$ the metric approximation works well and we see that the actual matches are scattered around the value of $0.97$. On the other hand, for larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
+In order to clarify this point, in fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The results are straightforward to interpret: for $||\Delta\theta|| \lll 1$ the metric approximation works well and we see that the actual matches are well clustered around the value of $0.97$. For larger distances the true matches can be as low as $0$, even though the metric predicts a match of $0.97$.
 
-This support the picture outlined above: the metric approximation is {\it guaranteed} to be realiable only in the region $||\Delta\theta|| \lesssim 1$. This does not imply that for $||\Delta\theta|| \geq 1$, the metric approximation does not work altogher: it only means that in this situation the metric may (and sometimes does) fail to provide a reliable approximation to the match. This is what we observe in the large spread of the match distribution in fig.~\ref{fig:metric_accuracy}.
+This support the picture outlined above: the metric approximation is {\it guaranteed} to be realiable only in the region $||\Delta\theta|| \lll 1$. This does not imply that for $||\Delta\theta|| \gtrsim 1$, the metric approximation does not work altogher: it only means that in this situation the metric may (and sometimes does) fail to provide a reliable approximation to the match. This is what we observe in the large spread of the match distribution in fig.~\ref{fig:metric_accuracy}.
 
 Despite this, the template placing does not seem to be affected by the metric inaccuracy. As shown in the next sections, the fitting factors of a set of injections seem to be properly estimated by the metric match as the low discrepancy between metric match and match in figs.\ref{fig:placing_validation}-\ref{fig:bank_injections} seems to prove.
 
@@ -511,6 +523,8 @@ On our implementation of the method, we note that (especially for \texttt{Mq\_ch
 A possible solution for this would be to impose a stopping condition on the global volume: this however would consume a lot of computational power as it does not provide a mechanism to stop making proposals in tiles that are already ``full".
 A way around this shortcoming is to tune $N_{max}$ so as to achieve the desidered performance: this can be quickly checked by computing the metric fitting factor on an injection set.
 
+As a finale note, we recommend to use, due to its speed and precision, the {\it random} method, whenever it gives good performance. In the cases where it should fails, the method {\it stochastic} or even {\it random-stochastic} are very likely to give the performance required.
+
 \stefano{Are they clear from the text?}
 Take home messages:
 \begin{itemize}
@@ -552,6 +566,7 @@ Take home messages:
 	 \caption{Comparison between the performance of \mbank and  \texttt{sbank} on 3 chosen regions of the parameter space.
 	 For each bank, we report the range of parameters covered by the templates, the size of the banks generated by the two methods as well as the order of magnitude of the generation time. The frequency range for all the banks is set to be $f\in [15,1024] Hz$.
 	 The details of the injection studies are shown in figure~\ref{fig:sbank_comparison}.
+	 The comparison are made on a machine with CPU Intel(R) Xeon(R) CPU E5-2630 installed at CIT cluster \stefano{How do I reference CIT?}.
 	 }
  	 \label{tab:sbank_comparison}
 \end{table*}
@@ -575,7 +590,6 @@ Take home messages:
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
-\stefano{Should I make an mbank bank also for the parabolic hessian? Might be interesting for validation...}
 \texttt{sbank} \cite{sbank} is the standard tool used by the LIGO-Virgo collaboration to generate large template banks for analysis and as such, it has been used sucessfully in the past three observing runs by several pipelines.
 For this reason, it is very important to compare the performance of our code against the benchmark set by \texttt{bank}. The comparison is based on the size, speed and effectualness of the banks generated.
 
@@ -583,7 +597,7 @@ We generate three non-precessing template banks with both codes:
 \begin{itemize}
 	\item A {\it non spinning} bank
 	\item An {\it aligned spins} bank
-	\item An {\it aligned spins low mass} bank
+	\item An {\it aligned spins low mass} bank\footnote{Work in progress!}
 \end{itemize}
 The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during O2 between GPS times $1164556817$ and $1187740818$.
 In the same table, we report the size of the banks generated and their generation time. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.

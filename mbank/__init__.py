@@ -1,9 +1,9 @@
 """
 mbank
 =====
-	A package for generating a template bank of compact binary coalescence with metric placement.
+	A [package](https://github.com/stefanoschmidt1995/mbank) for generating a template bank of compact binary coalescence with metric placement.
 	
-	Generating a template bank is a crucial step for searching a gravitational wave signal in gravitational waves (GW) interferometric data. A template bank is a collection of signals that will be compared against the data, in order to look for a match. As the noise in the data is very high, it is very hard to detect a signal without looking for it: this is why a bank should cover the space of physical parameter with a great accuracy.
+	Generating a template bank is a crucial step for searching a gravitational wave signal in gravitational waves (GW) interferometric data. A template bank is a collection of signals that will be compared with the data, in order to look for a match (in jargon matched filtering). As the noise in the data is very high, it is very hard to detect a signal without looking for it: this is why a bank should cover the space of physical parameter with a great accuracy.
 	
 	Each template is characterized by the parameters of the compact binary system. They usually are the two masses and the spins. In addition, for precessing or eccentric searches, one can specify two orientation angles (inclination and reference phase) and two eccentric paramters (eccentricity and mean periastron anomaly).
 	Ideally the templates should cover the paramter space as evenly as possible, so that

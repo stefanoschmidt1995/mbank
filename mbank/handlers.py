@@ -915,6 +915,10 @@ class tile(tuple):
 	@property
 	def metric(self):
 		return self[1]
+
+	@property
+	def det(self):
+		return np.abs(np.linalg.det(self[1]))
 	
 	def projected_metric(self, min_eig = 1e-3):
 		#return self.metric 

@@ -680,7 +680,8 @@ class cbc_bank():
 			#FIXME: understand whether you want to change the thin factor... it is likely it is underestimated during the burn-in phase
 			#On the other hand, it makes difficult to predict how many steps you will need
 			#updating thin factor
-		if thin_factor is None and False:
+			#FIXME: this needs to be taken into account!
+		if thin_factor is None and True:
 			tau = sampler.get_autocorr_time(tol = 0)
 			thin = max(int(0.5 * np.min(tau)),1)
 			if verbose: print('Updated -- Thin factor: {} | burn-in: {} '.format( thin, burnin_steps(tau)))
@@ -688,7 +689,7 @@ class cbc_bank():
 		print(sampler.chain.shape)
 		chain = sampler.get_chain(discard = burnin_steps(tau), thin = thin, flat=True)[-N_templates:,:]
 		
-		if isinstance(save_chain, str):
+		if isinstance(save_chain, str) and (state is not None):
 			chain_to_save = state.coords #(n_walkers, D)
 			to_save = np.concatenate([tau[None,:], chain_to_save], axis = 0)
 			np.savetxt(save_chain, to_save)

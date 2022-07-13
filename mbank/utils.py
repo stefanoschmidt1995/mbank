@@ -700,14 +700,15 @@ def get_ellipse(metric, center, dist, **kwargs):
 	return ellipse	
 
 
-def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, show = False):
+def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False):
 	"""
 	Make some plots of the templates and the tiling.
 		
 	Parameters
 	----------
 		t_obj: tiling_handler
-			Tiling handler that tiles the parameter space
+			Tiling handler that tiles the parameter space. If `None`, no tiling will be plotted
+			```#TODO: move this to the back of the args list```
 		
 		templates: np.ndarray
 			shape: (N,D) -
@@ -731,6 +732,9 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 		dist_ellipse: float
 			The distance for the match countour ellipse to draw. If `None`, no contour will be drawn.
 		
+		fs: int
+			Font size for the labels and axis
+		
 		save_folder: str
 			Folder where to save the plots
 			If `None`, no plots will be saved
@@ -744,8 +748,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 		#Plotting templates
 		###
 	if isinstance(save_folder, str): 
-		if not save_folder.endswith('/'): save_folder.out_dir = save_folder.out_dir+'/'
-	fs = 15 #font size
+		if not save_folder.endswith('/'): save_folder = save_folder+'/'
 	
 	if isinstance(dist_ellipse, float): #computing a tile for each template
 		dist_template = []
@@ -762,8 +765,8 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 	else: ids_ = range(templates.shape[0])
 	
 	size_template = [20 if templates.shape[0] < 5000 else 2][0]
-	centers = t_obj.get_centers()
-	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (15,15))
+	fsize = 4* templates.shape[1]-1
+	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (fsize, fsize))
 	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	if templates.shape[1]-1 == 1:
 		axes = np.array([[axes]])
@@ -790,16 +793,18 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 	if isinstance(save_folder, str): plt.savefig(save_folder+'bank.png', transparent = False)
 
 		#Plot the tiling
-	plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
-	for ax_ in combinations(range(templates.shape[1]), 2):
-		currentAxis = axes[ax_[1]-1, ax_[0]]
-		ax_ = list(ax_)
-		currentAxis.scatter(*centers[:,ax_].T, s = 30, marker = 'x', c= 'r', alpha = 1)
-		for t in t_obj:
-			d = t[0].maxes- t[0].mins
-			currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
+	if isinstance(t_obj,list):
+		centers = t_obj.get_centers()
+		plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+		for ax_ in combinations(range(templates.shape[1]), 2):
+			currentAxis = axes[ax_[1]-1, ax_[0]]
+			ax_ = list(ax_)
+			currentAxis.scatter(*centers[:,ax_].T, s = 30, marker = 'x', c= 'r', alpha = 1)
+			for t in t_obj:
+				d = t[0].maxes- t[0].mins
+				currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 
-	if isinstance(save_folder, str): plt.savefig(save_folder+'tiling.png', transparent = False)
+		if isinstance(save_folder, str): plt.savefig(save_folder+'tiling.png', transparent = False)
 
 		#Plotting the injections, if it is the case
 	if isinstance(injections, np.ndarray):
@@ -1327,6 +1332,9 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 
 	livepoints = livepoints[id_sort, :]
 	id_tile_livepoints = id_tile_livepoints[id_sort]
+	det_list = [t_.det for t_ in t_obj]
+	det_livepoints = np.array([det_list[id_] for id_ in id_tile_livepoints])
+	del det_list
 	
 		#ordering the tile by volume in ascending order...
 	_, vols = t_obj.compute_volume()
@@ -1358,15 +1366,28 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 			#BLAS seems to be faster for larger matrices but slower for smaller ones...
 			#Maybe put a threshold on the number of livepoints?
 		diff_prime = scipy.linalg.blas.sgemm(1, diff, L_t)
-		match = 1 - np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
+		dist = np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
 		
 		#match = 1 - np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1) #(N,)
 
-		ids_kill = np.where(match > MM)[0]
+		if False:
+			print(len(ids_kill))
+			
+			plt.hist(np.log10(scaled_dist[1:]), bins = 50, histtype = 'step', label = 'scaled')
+			plt.hist(np.log10(dist[1:]), bins = 50, histtype = 'step', label = 'normal')
+			plt.axvline(np.log10(1-MM))
+			plt.legend()
+			plt.show()
+	
+		ids_kill = np.where(dist < 1- MM)[0]
+			#This variant is pointless!! The way to go (probably) is to use normalizing flows to interpolate the metric
+		#scaled_dist = dist * np.power(det_livepoints/np.linalg.det(metric), 1/t_obj[0].D)		
+		#ids_kill = np.where(np.logical_and(dist < 1- MM, scaled_dist < 1- MM) )[0]
 
 			#This operation is very slow! But maybe there is nothing else to do...
 		livepoints = np.delete(livepoints, ids_kill, axis = 0)
 		id_tile_livepoints = np.delete(id_tile_livepoints, ids_kill, axis = 0)
+		det_livepoints = np.delete(det_livepoints, ids_kill, axis = 0)
 		
 				#this is very very subtle: if you don't allocate new memory with np.array, you won't decrease the reference to livepoints, which won't be deallocated. This is real real bad!!
 		new_templates.append(np.array(point, dtype = np.float64))

@@ -61,30 +61,34 @@ class ks_metric():
 		
 		return metric
 	
-def plot_loss_functions(train_loss, validation_loss, metric, savefolder = None):
+def plot_loss_functions(history, savefolder = None):
 	"Makes some basic plots of the validation"
 
 	if isinstance(savefolder, str):
 		if not savefolder.endswith('/'): savefolder = savefolder+'/'
 	
-	validation_loss = np.array(validation_loss)
-	metric_mean, metric_std = metric[0]
-	metric = np.array(metric[1:])
+	train_loss = history['train_loss']
+	validation_loss = history['validation_loss']
+	metric_mean, metric_std = history['log_pvalue_mean'], history['log_pvalue_std']
+	metric = history['log_pvalue']
+	validation_epoch = range(0, len(train_loss), history['validation_step'])
 	
 	plt.figure()
 	plt.plot(range(len(train_loss)), train_loss, label = 'train')
-	plt.plot(validation_loss[:,0], validation_loss[:,1], label = 'validation')
+	plt.plot(validation_epoch, validation_loss, label = 'validation')
 	plt.xlabel("Epoch")
 	plt.ylabel("Loss")
-	if isinstance(savefolder, str): plt.savefig(validation_folder+"loss.png")
+	plt.legend()
+	if isinstance(savefolder, str): plt.savefig(savefolder+"loss.png")
 	
 	plt.figure()
-	plt.plot(metric[:,0], metric[:,1], c= 'b')
-	plt.gca().fill_between(metric[:,0], metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
-	plt.axhline(metric_mean, c = 'r')
+	plt.plot(validation_epoch, metric, c= 'b', label = 'validation metric')
+	plt.gca().fill_between(validation_epoch, metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
+	plt.axhline(metric_mean, c = 'r', label = 'expected value')
 	plt.xlabel("Epoch")
 	plt.ylabel(r"$\log(p_{value})$")
-	if isinstance(savefolder, str): plt.savefig(validation_folder+"p_value_metric.png")
+	plt.legend()
+	if isinstance(savefolder, str): plt.savefig(savefolder+"p_value_metric.png")
 	
 	return
 
@@ -111,14 +115,20 @@ def create_gif(folder, savefile, fps = 1):
 	return
 
 
-def plotting_callback(model, epoch, dirname, data_to_plot, variable_format):
+def plotting_callback(model, epoch, dirname, data_to_plot, variable_format, basefilename = None):
 	"An example callback for plotting the KDE pairplots."
 
 	if not os.path.isdir(dirname): os.mkdir(dirname)
 	if not dirname.endswith('/'): dirname= dirname+'/'
 	
+	if isinstance(basefilename, str):
+		savefile= '{}/{}_{}.png'.format(dirname, basefilename, epoch)
+	else:
+		savefile= '{}/{}.png'.format(dirname, epoch)
+	
+	
 	data_flow = model.sample(data_to_plot.shape[0]).detach().numpy()
-	compare_probability_distribution(data_flow, data_true = data_to_plot, variable_format = variable_format, title = 'epoch = {}'.format(epoch), savefile = '{}/{}.png'.format(dirname, epoch) )
+	compare_probability_distribution(data_flow, data_true = data_to_plot, variable_format = variable_format, title = 'epoch = {}'.format(epoch), savefile = savefile )
 	return
 
 def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, savefile = None):
@@ -159,7 +169,7 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 
 	g = sns.PairGrid(plot_data, hue="distribution", hue_order = [ 'train','flow'])
 	g.map_upper(sns.scatterplot, s = 1)
-	g.map_lower(sns.kdeplot)
+	g.map_lower(sns.kdeplot, levels=8)
 	#g.map_diag(sns.kdeplot, lw=2, legend=False)
 	g.map_diag(sns.histplot, element = 'step')
 	g.add_legend()

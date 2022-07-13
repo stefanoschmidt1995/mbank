@@ -20,7 +20,8 @@ from torch import optim
 
 from nflows.distributions.normal import StandardNormal
 from nflows.transforms.base import CompositeTransform
-from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
+from nflows.transforms.nonlinearities import Sigmoid, LeakyReLU
+from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform,  MaskedPiecewiseLinearAutoregressiveTransform
 from nflows.transforms.permutations import ReversePermutation
 from nflows.transforms.linear import NaiveLinear
 
@@ -45,7 +46,7 @@ class Std2DTransform(CompositeTransform):
 		D = 2
 		N_layers = 15
 
-		low, high = [10, 1.3], [40, 7]
+		low, high = [0.98, 1.42], [np.log10(40)+0.01, 7.06]
 
 		base_dist = StandardNormal(shape=[D])
 		
@@ -77,7 +78,7 @@ class Std3DTransform(CompositeTransform):
 		D = 3
 		N_layers = 15
 
-		low, high = [10, 1.3, -1], [40, 7, 1]
+		low, high = [0.98, 0.98, -0.93], [np.log10(40)+0.01, 7.06, 0.93]
 
 		transform_list = []
 		transform_list.append(TanhTransform(low=low, high=high))
@@ -92,7 +93,39 @@ class Std3DTransform(CompositeTransform):
 			#transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=D))
 		return transform_list
 
+class Test5DTransform(CompositeTransform):
+	def __init__(self):
+		transform_list = self.get_transformation_list()
+		super().__init__(transform_list)
+		return
+		
+	def get_transformation_list(self):
+		"""
+		This defines the architecture of the flow.
+		"""
+		
+		D = 5
+		N_layers = 20
 
+		low, high = [0.98, 0.98, -0.05, -0.05, -0.93], [np.log10(40)+0.01, 6.06, 0.73, np.pi+0.01, 0.93]
+
+		transform_list = []
+		transform_list.append(TanhTransform(low=low, high=high))
+
+		for _ in range(N_layers):
+			
+			#transform_list.append(NaiveLinear(features=D))
+			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=2*D))
+
+				#Why does this say OutsideDomain
+			#transform_list.append( MaskedPiecewiseLinearAutoregressiveTransform(num_bins = 10,features=D, hidden_features=D))
+			
+				#Another possible architecture
+				#Seems worse
+			#transform_list.append(ReversePermutation(features=D))
+			#transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=D))
+
+		return transform_list
 
 
 

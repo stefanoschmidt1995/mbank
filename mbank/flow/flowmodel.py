@@ -107,44 +107,53 @@ class GW_Flow(Flow):
 		
 		N_train = train_data.shape[0]
 
-		metric_computer = ks_metric(validation_data, self, 5000)
+		metric_computer = ks_metric(validation_data, self, 1000)
 		val_loss=[]
 		train_loss=[]
-		metric = [(metric_computer.metric_mean, metric_computer.metric_std)] #Kolmogorov–Smirnov metric (kind of)
+		metric = [] #Kolmogorov–Smirnov metric (kind of)
 				
-		desc_str = 'Training loop - loss: {:5f}:{:5f}'
+		desc_str = 'Training loop - loss: {:5f}|{:5f}'
 		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf))
 		else: it = range(N_epochs)
 		
-		for i in it:
+		try:
+			for i in it:
 
-			if isinstance(batch_size, int):
-				ids_ = torch.randperm(N_train)[:batch_size]
-			else:
-				ids_ = range(N_train)
-
-
-			optimizer.zero_grad()
-			loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
-			loss.backward()
-			optimizer.step()
-
-			train_loss.append(loss.item())
+				if isinstance(batch_size, int):
+					ids_ = torch.randperm(N_train)[:batch_size]
+				else:
+					ids_ = range(N_train)
 
 
-			if not (i%validation_step):
-				with torch.no_grad():			
-					loss = -self.log_prob(inputs=validation_data).mean()
-				val_loss.append([i, loss])
-				
-				metric.append([i, metric_computer.get_metric()])
-				
-				#print(metric[-1][0],val_loss[-1][1], metric[-1][1], metric_computer.metric_mean, metric_computer.metric_std)
-			
-			if callable(callback) and not (i%callback_step): callback(self, i)
-			if not (i%int(N_train//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1][1]))
+				optimizer.zero_grad()
+				loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
+				loss.backward()
+				optimizer.step()
 
-		return train_loss, val_loss, metric
+				train_loss.append(loss.item())
+
+
+				if not (i%validation_step):
+					with torch.no_grad():			
+						loss = -self.log_prob(inputs=validation_data).mean()
+					val_loss.append(loss)
+					
+					metric.append(metric_computer.get_metric())
+					
+				if callable(callback) and not (i%callback_step): callback(self, i)
+				if not (i%int(N_train//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
+		except KeyboardInterrupt:
+			print("KeyboardInterrupt: quitting the training loop")
+
+		history = {'validation_step': validation_step,
+			'train_loss': np.array(train_loss),
+			'validation_loss': np.array(val_loss),
+			'log_pvalue': np.array(metric),
+			'log_pvalue_mean': metric_computer.metric_mean,
+			'log_pvalue_std': metric_computer.metric_std
+		}
+
+		return history
 
 
 

@@ -1,2 +1,0 @@
-.. automodule:: mbank.utils
-	:members:

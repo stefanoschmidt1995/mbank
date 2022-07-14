@@ -19,15 +19,11 @@ Welcome to ``mbank``'s documentation!
    usage/flow.md
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Package reference
    :name: package_reference
    
-   package_reference/bank.rst
-   package_reference/metric.rst
-   package_reference/utils.rst
-   package_reference/handlers.rst
-   package_reference/mbankflow.rst
+   package_reference/mbank.rst
  
 .. toctree::
    :maxdepth: 2

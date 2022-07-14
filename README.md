@@ -21,7 +21,7 @@ The bank generation algorithm works in 4 steps:
 
 ## How to install
 
-To install the latest released verion (no release has been done yet):
+To install the latest [released](https://pypi.org/project/mbank/) verion (no release has been done yet):
 
 ```Bash
 pip install mbank
@@ -83,7 +83,7 @@ mbank_run --help
 ```
 This is how the output bank look like:
 
-![](docs/img/bank_README.png)
+![](https://github.com/stefanoschmidt1995/mbank/raw/master/docs/img/bank_README.png)
 
 You can also use the metric to estimate the fitting factor for a bunch of injections: 
 
@@ -105,7 +105,7 @@ You can also throw some injection chosen from a file: you just need to set an in
 
 Here's the injection recovery:
 
-![](docs/img/injections_README.png)
+![](https://github.com/stefanoschmidt1995/mbank/raw/master/docs/img/injections_README.png)
 
 If you don't feel like typing all the options every time, you can add them to a text file `myFirstBank.ini` and pass it to the command: it will figure out by itself. You can find some example [ini files](https://github.com/stefanoschmidt1995/mbank/tree/master/examples) in the repo. To run them:
 

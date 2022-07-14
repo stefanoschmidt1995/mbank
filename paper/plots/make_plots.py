@@ -41,9 +41,10 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	#quit()
 	
 	size = plt.rcParams.get('figure.figsize')
-	size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
+	size = (1.5**2*size[0]*bank.D/4., 1.5*size[1]*1.5/4*bank.D)
+	#size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
 	fig, axes = plt.subplots(D,D, figsize = size)
-	plt.suptitle(t)
+	if isinstance(title, str): plt.suptitle(title)
 	
 	for i,j in itertools.product(range(D), range(D)):
 		ax = axes[i,j]
@@ -341,7 +342,8 @@ def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
 	vh = variable_handler()
 	N_colums = np.max([vh.D(f) for f in format_list])
 	size = plt.rcParams.get('figure.figsize')
-	size = (size[0], size[1]*0.5)
+	#size = (size[0], size[1]*0.5)
+	size = (size[0]*4, size[1]*0.5)
 	
 	if title is None: title = [None for _ in bank_list]
 

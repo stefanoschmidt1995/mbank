@@ -35,7 +35,7 @@ import scipy.stats
 import scipy.integrate
 import scipy.spatial
 
-from .utils import project_metric, get_projected_metric
+from .utils import get_projected_metric
 
 ####################################################################################################################
 
@@ -67,7 +67,7 @@ class variable_handler(object):
 		MassFormat_SpinFormat_AnglesFormat	
 		MassFormat_SpinFormat_EccentricityFormat
 		MassFormat_SpinFormat_EccentricityFormat_AnglesFormat
-	
+
 	Valid format for the two masses are:
 	
 	- ``Mq``: Total mass and q
@@ -90,8 +90,7 @@ class variable_handler(object):
 	Regarding the spins, we stick to the following conventions:
 
 	- If a spin is aligned to the z axis the spin variable is the value of the z component of the spin (with sign): ``s1z`` or ``s2z``.
-	- If a generic spin is assigned to a BH, the spin is *always** expressed in sperical coordinates ``s1``, ``theta1``, ``phi``.
-	``s1`` (or ``s2``) represents the spin magnitude (between 0 and 1). The angle ``theta1`` (``theta2``) corresponds to the polar angle of the spin, which controls the magnitude of in-plane spin. The angle ``phi1``(``phi2``) is the aximuthal angle (if set), which controls the mixing between x and y components.
+	- If a generic spin is assigned to a BH, the spin is *always** expressed in sperical coordinates ``s1``, ``theta1``, ``phi``. ``s1`` (or ``s2``) represents the spin magnitude (between 0 and 1). The angle ``theta1`` (``theta2``) corresponds to the polar angle of the spin, which controls the magnitude of in-plane spin. The angle ``phi1``(``phi2``) is the aximuthal angle (if set), which controls the mixing between x and y components.
 
 	On top of the spins, the user can **optionally** specify a format for Angles and for the Eccentricity
 	
@@ -172,7 +171,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
@@ -212,7 +211,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
@@ -382,7 +381,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		BBH_components: np.ndarray
+		BBH_components: :class:`~numpy:numpy.ndarray`
 			shape: (N,12)/(12,) -
 			Parameters of the BBHs.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
@@ -392,7 +391,7 @@ class variable_handler(object):
 		
 		Returns
 		-------
-			theta: np.ndarray
+			theta: :class:`~numpy:numpy.ndarray`
 				shape: (N,D)/(D,) -
 				Components of the BBH in the format suitable for the bank.
 				The dimensionality depends on variable_format
@@ -482,7 +481,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray (N,D)
+		theta: :class:`~numpy:numpy.ndarray` (N,D)
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: string
@@ -491,7 +490,7 @@ class variable_handler(object):
 		Returns
 		-------
 		
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: np.ndarray
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: :class:`~numpy:numpy.ndarray`
 			Components of the BBH in the std parametrization.
 			Each has shape (N,)
 		"""
@@ -581,7 +580,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
@@ -590,7 +589,7 @@ class variable_handler(object):
 		
 		Returns
 		-------
-			mchirp: np.ndarray
+			mchirp: :class:`~numpy:numpy.ndarray`
 				Chirp mass of each BBH
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -614,7 +613,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
@@ -623,7 +622,7 @@ class variable_handler(object):
 		
 		Returns
 		-------
-			q: np.ndarray
+			q: :class:`~numpy:numpy.ndarray`
 				Chirp mass of each BBH
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -646,27 +645,27 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		m1, m2: np.ndarray
+		m1, m2: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			Masses of the two BHs
 			It assumes m1>=m2
 
-		s1x, s1y: np.ndarray
+		s1x, s1y: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			In-plane spins of the primary black hole
 		
-		s1z: np.ndarray
+		s1z: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter
 		
-		s2x, s2y: np.ndarray
+		s2x, s2y: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			In-plane spins of the secondary black hole
 		
 		Returns
 		-------
 		
-		chiP: np.ndarray
+		chiP: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			The precessing spin parameter
 		"""
@@ -700,23 +699,23 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		m1, m2: np.ndarray
+		m1, m2: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			Masses of the two BHs
 
-		s1x, s1y: np.ndarray
+		s1x, s1y: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			In-plane spins of the primary black hole
 		
-		s1z: np.ndarray
+		s1z: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			Aligned spin for the primary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
 		
-		s2x, s2y: np.ndarray
+		s2x, s2y: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			In-plane spins of the secondary black hole
 
-		s2z: np.ndarray
+		s2z: :class:`~numpy:numpy.ndarray`
 			shape: (N,)/() -
 			Aligned spin for the secondary black hole. Used to enforce Kerr limit in the spin parameter (if it is the case)
 		
@@ -727,11 +726,11 @@ class variable_handler(object):
 		Returns
 		-------
 		
-		chiP_2D_1: np.ndarray
+		chiP_2D_1: :class:`~numpy:numpy.ndarray`
 			shape: (N,2)/(2,) -
 			In-plane (x and y) components of the two dimensional precessing spin parameter on the primary BH
 		
-		chiP_2D_2: np.ndarray
+		chiP_2D_2: :class:`~numpy:numpy.ndarray`
 			shape: (N,2)/(2,) -
 			In-plane (x and y) components of the two dimensional precessing spin parameter on the secondary BH
 		
@@ -787,7 +786,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		BBH_components: np.ndarray
+		BBH_components: :class:`~numpy:numpy.ndarray`
 			shape: (N,12) -
 			Parameters of the BBHs.
 			Each row should keep: ``m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi``
@@ -802,7 +801,7 @@ class variable_handler(object):
 		Returns
 		-------
 		
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: np.ndarray
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: :class:`~numpy:numpy.ndarray`
 			Components of the BBH in the std parametrization after the spin parameter mapping has been applied.
 			Each has shape (N,)
 		"""
@@ -833,7 +832,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
@@ -842,7 +841,7 @@ class variable_handler(object):
 		
 		Returns
 		-------
-			theta: np.ndarray
+			theta: :class:`~numpy:numpy.ndarray`
 				Theta with two dimensions (N,D)
 			
 			squeeze: bool
@@ -890,7 +889,7 @@ class tile(tuple):
 				If an `np.ndarray` is given, it must be of shape `(2,D)` and it is interpreted s.t. `rectangle[0,:]` is the minimum and `rectangle[1,:]` is the maximum.
 				If metric is None, it can be initialized with a tuple: in this case it is understood that the tuple is (Rect, metric) and it will be unwrapped authomatically
 				
-			metric: np.ndarray
+			metric: :class:`~numpy:numpy.ndarray`
 				shape (D,D)
 		"""
 		#FIXME: check here can be done a bit better...
@@ -1049,7 +1048,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		Returns
 		-------
-			centers: np.ndarray
+			centers: :class:`~numpy:numpy.ndarray`
 				shape (N,D) -
 				All the centers of the tiles
 			
@@ -1071,7 +1070,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		Parameter
 		---------
-			points: np.ndarray
+			points: :class:`~numpy:numpy.ndarray`
 				shape (N,D)/(D,) - 
 				A set of points
 		
@@ -1195,7 +1194,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		Parameters
 		----------
 		
-		boundaries: np.ndarray
+		boundaries: :class:`~numpy:numpy.ndarray`
 			shape: (2,D) -
 			Boundaries of the space to tile.
 			Lower limit is ``boundaries[0,:]`` while upper limits is ``boundaries[1,:]``
@@ -1412,7 +1411,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		Returns
 		-------
-			samples: np.ndarray
+			samples: :class:`~numpy:numpy.ndarray`
 				shape: (N_samples, D) - 
 				`N_samples` samples drawn from the tiling
 		"""

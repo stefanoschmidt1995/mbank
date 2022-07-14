@@ -168,7 +168,7 @@ if args.full_match or args.full_match_symphony: #in this case we need to load th
 			variable_format = args.variable_format)
 
 	######
-	#	Loading the bank and instatianting a spin handler
+	#	Loading the bank and instatianting a variable handler
 	######
 bank = cbc_bank(args.variable_format, args.bank_file)
 print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
@@ -305,9 +305,8 @@ if args.plot:
 
 	if isinstance(args.mm, (float, int)):
 		ids_to_plot = np.where(plotted_matches<args.mm)[0]
-		#ids_to_plot = range(len(plotted_matches))
 	else:
-		ids_to_plot = np.where(best_matches<np.percentile(plotted_matches, 50))[0]
+		ids_to_plot = range(len(plotted_matches))
 
 
 		###

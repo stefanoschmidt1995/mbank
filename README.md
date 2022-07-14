@@ -1,6 +1,5 @@
 # mbank
-`mbank` is a code for fast Gravitational Waves bank generation. It creates a bank of binary black hole (BBH) systems. It is very handy for generating precessing and eccentric banks.
-The repository is still work-in-progress!
+`mbank` is a code for fast Gravitational Waves template bank generation. It creates a bank of binary black hole (BBH) systems. It is very handy for generating precessing and eccentric banks.
 
 If you want more details, you can take a look at the [documentation](https://mbank.readthedocs.io/en/latest/).
 Otherwise, you can keep reading and learn the essentials below.
@@ -51,52 +50,58 @@ An example command to generate a simple precessing bank with precession placed o
 ```Bash
 mbank_run \
 	--run-name myFirstBank \
-	--variable-format Mq_s1xyz_s2z \
-	--grid-size 6,1,1,1,1,3 \
-	--MM 0.95 \
-	--psd L1-REFERENCE_ASD-1164556817-1187740818.dat --asd \
+	--variable-format Mq_s1z_s2z \
+	--grid-size 1,1,2,2 \
+	--mm 0.97 \
+	--tile-tolerance 0.5 \
+	--max-depth 10 \
+	--psd examples/aligo_O3actual_H1.txt --asd \
 	--f-min 15 --f-max 1024 \
-	--mtot-range 15 75 \
-	--q-range 2 5 \
-	--s1-range 0.2 0.9 \
-	--theta1-range 0 3.141592653 \
-	--phi1-range 0 6.283185307 \
-	--s2-range -0.9 0.9 \
+	--mtot-range 20 75 \
+	--q-range 1 5 \
+	--s1-range 0.0 0.99 \
+	--s2-range -0.99 0.99 \
 	--plot \
-	--placing-method geometric \
+	--placing-method random \
+	--livepoints 100 \
 	--approximant IMRPhenomPv2 \
-	--template-in-tile 40 \
 	--use-ray 
 ```
 To know more information about the available options type:
 ```Bash
 mbank_run --help
 ```
+This is how the output bank look like:
+
+![](docs/img/bank_README.png)
 
 You can also use the metric to estimate the fitting factor for a bunch of injections: 
 
 ```Bash
 mbank_injections \
-	--injs-per-tile 150\
+	--n-injs 10000 \
 	--N-neigh-templates 100 \
-	--variable-format Mq_s1xyz_s2z \
-	--psd L1-REFERENCE_ASD-1164556817-1187740818.dat --asd \
-	--tiling-file out_test_bank/tiling_test_bank.npy \
-	--bank-file out_test_bank/bank_test_bank.xml.gz \
+	--variable-format Mq_s1z_s2z \
+	--tiling-file out_myFirstBank/tiling_myFirstBank.npy \
+	--bank-file out_myFirstBank/bank_myFirstBank.xml.gz \
+	--psd examples/aligo_O3actual_H1.txt --asd \
 	--approximant IMRPhenomPv2 \
-	--f-min 15 --f-high 1024 \
-	--plot \
-	--full-match
+	--f-min 15 --f-max 1024 \
+	--plot
 ```
 
-If you specify the `--full-match` option, the match will be recomputed without a metric approximation: in this case, you want to speed things up with `--use-ray` and `--cache`.
+If you specify the `--full-match` option, the match will be recomputed without a metric approximation: in this case, you want to speed things up with something like `--use-ray` and `--cache` (if you have enough memory).
 You can also throw some injection chosen from a file: you just need to set an input xml injection file with the `--inj-file` option.
 
-If you don't feel like typing all the options every time, you can add them to a text file and pass all of them through the `--ini-file` option. You can find an example ini file in the repo. To run it:
+Here's the injection recovery:
+
+![](docs/img/injections_README.png)
+
+If you don't feel like typing all the options every time, you can add them to a text file `myFirstBank.ini` and pass it to the command: it will figure out by itself. You can find some example [ini files](https://github.com/stefanoschmidt1995/mbank/tree/master/examples) in the repo. To run them:
 
 ```Bash
-mbank_run test.ini
-mbank_injections test.ini
+mbank_run myFirstBank.ini
+mbank_injections myFirstBank.ini
 ```
 
 As you see, the same file can be used for different commands: each command will just ignore any option not relevant for it.

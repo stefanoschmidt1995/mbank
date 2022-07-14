@@ -5,7 +5,8 @@ mbank.metric
 	
 	The metric is a D dimensional square matrix that approximates the match between two waveforms. The metric M is defined such that:
 	
-	:math: `<h(theta) | h(theta + Deltatheta) > = 1 - M(theta)_{ij} Deltatheta_i Deltatheta_j`
+	.. math::
+		<h(\\theta) | h(\\theta + \Delta\\theta) > = 1 - M(\\theta)_{ij} \Delta\\theta_i \\Delta\\theta_j
 	
 	The metric is a useful local approximation of the match and it is the physical input for the bank generation.
 	The explicit expression for the metric is a complicated expression of the gradients of the waveform and it is a function of theta.
@@ -49,7 +50,9 @@ except:
 #add decorator @do_profile(follow=[]) before any function you need to track
 
 ####################################################################################################################
-#FIXME: you are not able to perform the FFT of the WFs... Learn how to do it and do it well!
+####################################################################################################################
+
+####################################################################################################################
 ####################################################################################################################
 
 class cbc_metric(object):
@@ -183,7 +186,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
@@ -194,7 +197,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		vol_element : np.ndarray
+		vol_element : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Volume element of the metric for the given input
 			
@@ -208,7 +211,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
@@ -219,7 +222,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		det : np.ndarray
+		det : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Determinant of the metric for the given input
 			
@@ -238,11 +241,11 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
-		boundaries: np.ndarray
+		boundaries: :class:`~numpy:numpy.ndarray`
 			shape: (2,D)
 			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
 			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
@@ -251,7 +254,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		log_pdf : np.ndarray
+		log_pdf : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Logarithm of the pdf, ready to use for sampling
 		"""
@@ -291,7 +294,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 	
@@ -308,7 +311,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		grad_h : np.ndarray
+		grad_h : :class:`~numpy:numpy.ndarray`
 			shape: (N, K, D) -
 			Complex array holding the gradient of the WFs evaluated on the default frequency/time grid
 		"""
@@ -423,7 +426,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (D, ) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
@@ -438,7 +441,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		hp, hc : np.ndarray
+		hp, hc : :class:`~numpy:numpy.ndarray`
 			shape: (N,K) -
 			lal frequency series holding the polarizations
 		"""
@@ -490,7 +493,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
@@ -504,7 +507,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		h : np.ndarray
+		h : :class:`~numpy:numpy.ndarray`
 			shape: (N,K) -
 			Complex array holding the WFs evaluated on the default frequency/time grid
 		"""
@@ -545,7 +548,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -562,7 +565,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric in the given parameters
 			
@@ -594,7 +597,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -615,7 +618,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric Hessian in the given parameters
 			
@@ -675,7 +678,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -699,14 +702,14 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric in the given parameters
 
 		parabolae : list
 			List of array being used to compute the eigenvalues along each dimension.
 		
-		original_metric : np.ndarray
+		original_metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			The metric being used to compute the new eigenvalues. 
 			
@@ -779,7 +782,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -797,7 +800,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric Hessian in the given parameters
 		"""
@@ -903,7 +906,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -921,7 +924,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric Fisher matrix according to the given parameters
 			
@@ -973,7 +976,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 		
@@ -991,7 +994,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		metric : np.ndarray
+		metric : :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D)/(D,D) -
 			Array containing the metric Hessian in the given parameters
 			
@@ -1075,7 +1078,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		sym_match : np.ndarray
+		sym_match : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Array containing the symphony match of the given WFs
 			
@@ -1129,11 +1132,11 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		h1: np.ndarray
+		h1: :class:`~numpy:numpy.ndarray`
 			shape: (N,K) -
 			First WF frequency series
 
-		h2: np.ndarray
+		h2: :class:`~numpy:numpy.ndarray`
 			shape: (N,K)/(K,) -
 			Second WF frequency series
 		
@@ -1144,7 +1147,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		match : np.ndarray (N,)
+		match : :class:`~numpy:numpy.ndarray` (N,)
 			Array containing the match of the given WFs
 			
 		"""
@@ -1197,11 +1200,11 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: np.ndarray
+		theta1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: np.ndarray
+		theta2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) /(D,) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 	
@@ -1215,7 +1218,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		match : np.ndarray
+		match : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Array containing the match of the given WFs
 			
@@ -1256,15 +1259,15 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: np.ndarray
+		theta1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: np.ndarray
+		theta2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 		
-		metric: np.ndarray
+		metric: :class:`~numpy:numpy.ndarray`
 			shape: (D,D) -
 			metric to use for the match (if None, it will be computed from scratch)
 		
@@ -1275,7 +1278,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		match : np.ndarray
+		match : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Array containing the metric approximated match of the given WFs
 			
@@ -1307,11 +1310,11 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		theta1: np.ndarray
+		theta1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
-		theta2: np.ndarray
+		theta2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Parameters of the second BBHs. The dimensionality depends on self.variable_format
 
@@ -1322,7 +1325,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		accuracy : np.ndarray
+		accuracy : :class:`~numpy:numpy.ndarray`
 			shape: (N,) -
 			Array the accuracy of the metric approximation
 		
@@ -1356,7 +1359,7 @@ class cbc_metric(object):
 		N_points: int
 			Number of random couples to be drawn
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (D,) -
 			Parameters of the central point. The dimensionality depends on ``self.variable_format``
 
@@ -1364,7 +1367,7 @@ class cbc_metric(object):
 			Match between the randomly drawn points and the central point ``theta``.
 			The metric distance between such points and the center is ``d = sqrt(1-M)``
 		
-		metric: np.ndarray
+		metric: :class:`~numpy:numpy.ndarray`
 			shape: (D,D) -
 			Metric to use for the match (if None, it will be computed from scratch)
 		
@@ -1375,11 +1378,11 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		points1: np.ndarray
+		points1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			N points close to the center. Each will have a constant metric distance from its counterpart in `points2`
 		
-		points2: np.ndarray
+		points2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			N points close to the center. Each will have a constant metric distance from its counterpart in `points1`
 			
@@ -1423,7 +1426,7 @@ class cbc_metric(object):
 		N_points: int
 			Number of random points to be drawn
 		
-		theta: np.ndarray
+		theta: :class:`~numpy:numpy.ndarray`
 			shape: (D,) -
 			Parameters of the central point the metric is evaluated at (i.e. the center of the ellipse).
 			The dimensionality depends on ``self.variable_format``
@@ -1432,7 +1435,7 @@ class cbc_metric(object):
 			Match between the randomly drawn points and the central point ``theta``.
 			The metric distance between such points and the center is ``d = sqrt(1-M)``
 		
-		metric: np.ndarray
+		metric: :class:`~numpy:numpy.ndarray`
 			shape: (D,D) -
 			Metric to use for the match (if None, it will be computed from scratch)
 		
@@ -1443,7 +1446,7 @@ class cbc_metric(object):
 		Returns
 		-------
 		
-		points : np.ndarray
+		points : :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			Points with distance dist from the center
 		"""

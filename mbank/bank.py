@@ -256,7 +256,7 @@ class cbc_bank():
 		
 		Returns
 		-------
-			BBH_components: np.ndarray
+			BBH_components: :class:`~numpy:numpy.ndarray`
 				shape: (N,12)
 				Array of BBH components of the templates in the bank. They have the same layout as `variable_handler.get_BBH_components`
 		"""
@@ -271,7 +271,7 @@ class cbc_bank():
 		Parameters
 		----------
 		
-		new_templates: np.ndarray
+		new_templates: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,)
 			New templates to add.
 			They need to be stored in an array of shape (N,D) or (D,), where D is the dimensionality of the bank
@@ -334,7 +334,7 @@ class cbc_bank():
 		Returns
 		-------
 					
-		new_templates: np.ndarray
+		new_templates: :class:`~numpy:numpy.ndarray`
 			The templates generated (already added to the bank)
 
 		"""
@@ -444,7 +444,7 @@ class cbc_bank():
 		avg_match: float
 			Average match between templates
 		
-		boundaries: np.ndarray
+		boundaries: :class:`~numpy:numpy.ndarray`
 			shape: (2,D) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		
@@ -524,7 +524,7 @@ class cbc_bank():
 		Parameters
 		----------
 
-		boundaries: np.ndarray
+		boundaries: :class:`~numpy:numpy.ndarray`
 			shape: (2,4)/(2,2) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		"""	
@@ -569,7 +569,7 @@ class cbc_bank():
 		N_templates: int
 			Number of new templates to sample from the PDF
 		
-		boundaries: np.ndarray
+		boundaries: :class:`~numpy:numpy.ndarray`
 			shape: (2,D) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 

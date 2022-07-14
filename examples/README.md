@@ -22,10 +22,19 @@ mbank_place_templates my_first_eccentric_bank.ini
 
 The same applies for the precessing bank (injections and bank generation options are kept in separate files).
 
-To know more about the commands, you can check the [documentation](link) or get help with:
+To know more about the executables, you can check the [documentation](https://mbank.readthedocs.io/en/latest/usage/overview.html) or get help with:
 
 ```Bash
 mbank_place_templates --help
 ```
 
 or similarly for other commands.
+
+You can also use the file `validation.ini` as an example for running `mbank_validate_metric`. It can give useful insight on the performance of the metric approximation:
+
+```Bash
+mbank_validate_metric validation.ini
+```
+
+See the [docs](https://mbank.readthedocs.io/en/latest/usage/metric.html#validating-the-metric) for more details on metric validation.
+

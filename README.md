@@ -5,7 +5,19 @@ If you want more details, you can take a look at the [documentation](https://mba
 Otherwise, you can keep reading and learn the essentials below.
 
 ## How it works
-Write something...
+In order to search for a Binary Black Hole (BBH) signal, one needs to come up with a set of templates (a.k.a. bank), signals that will be searched in the noisy data from the interferometers.
+Generating a [bank](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.80.104014) is a tedious work, requiring to place huge number of templates so that their mutual distance is as constant as possible. Unfortunately the computation of such distance is highly expensive and, if we want to expand the parameter space covered by the searches, we are **very** interested to get a reliable bank covering an high dimensional space at a decent cost.
+
+This is exactly the purpose of `mbank`: thanks to a cheap approximation to the distance between templates, it provides a very fast bank generation method, which can be successfully employed for high dimensional bank generation. The approximation consist in replacing the complicated distance with a _metric_ distance (i.e. a bilinear form).
+
+The bank generation algorithm works in 4 steps:
+
+1. Defining a metric approximation
+2. Computing the metric on a small set of points all around the space (a.k.a. tiling the space)
+3. Placing the templates according to the tiling
+4. Validate the bank by means of injections
+
+`mbank` is the code that does all of this for you!
 
 ## How to install
 
@@ -30,8 +42,6 @@ python setup.py sdist
 pip install dist/mbank-0.0.1.tar.gz
 ```
 This will install the source code as well as some executables that makes the bank generation easier (plus the dependencies).
-
-P.s. Make sure you installed the required packages `pip install -r ./requirements.txt`. In a future version, this will be made a bit more simple and the dependencies will be tracked authomatically by `pip`.
 
 ## How to use
 

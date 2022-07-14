@@ -77,7 +77,6 @@ class cbc_metric(object):
 			PSD for computing the scalar product.
 			It is a tuple with a frequency grid array and a PSD array (both one dimensional and with the same size).
 			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies (starting from f0 =0 Hz).
-			If None, the PSD is assumed to be flat
 
 		approx: string
 			Which approximant to use. It can be any lal approx.
@@ -287,7 +286,7 @@ class cbc_metric(object):
 	def log_pdf_gauss(self, theta, boundaries = None):
 		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
 	
-	def get_WF_grads(self, theta, approx, order = None, epsilon = 1e-6):
+	def get_WF_grads(self, theta, approx = None, order = None, epsilon = 1e-6):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -300,6 +299,7 @@ class cbc_metric(object):
 	
 		approx: string
 			Which approximant to use. It can be any lal FD approximant
+			If None, the default approximant will be used
 		
 		order: int
 			Order of the finite difference scheme for the gradient computation.
@@ -1185,7 +1185,7 @@ class cbc_metric(object):
 	#@do_profile(follow=[])
 	def match(self, theta1, theta2, symphony = False, overlap = False):
 		"""
-		Computes the match line by line between elements in theta1 and elements in theta2
+		Computes the elementwise match between waveforms defined by theta1 and theta2
 		
 		If symphony is False, the match is the standard non-precessing one 
 		.. math::
@@ -1302,38 +1302,6 @@ class cbc_metric(object):
 		
 		return match
 		
-	def metric_accuracy(self, theta1, theta2, overlap = False):
-		"""
-		Computes the metric accuracy at the given points of the parameter space.
-		The accuracy is the absolute value of the difference between true and metric mismatch (as computed by match and metric_match)
-		
-		Parameters
-		----------
-		
-		theta1: :class:`~numpy:numpy.ndarray`
-			shape: (N,D) -
-			Parameters of the first BBHs. The dimensionality depends on self.variable_format
-
-		theta2: :class:`~numpy:numpy.ndarray`
-			shape: (N,D) -
-			Parameters of the second BBHs. The dimensionality depends on self.variable_format
-
-		overlap: bool
-			Whether to compute the overlap between WFs (rather than the match)
-			In this case, the time maximization is not performed
-
-		Returns
-		-------
-		
-		accuracy : :class:`~numpy:numpy.ndarray`
-			shape: (N,) -
-			Array the accuracy of the metric approximation
-		
-		"""
-		accuracy = self.metric_match(theta1, theta2, overlap = overlap) - self.match(theta1, theta2, overlap = overlap) #(N,)
-		return np.abs(accuracy)
-		
-	
 	def get_points_at_match(self, N_points, theta, match, metric = None, overlap = False):
 		"""
 		Given a central theta point, it computes ``N_points`` couples of random points with constant metric match. The metric is evaluated at `theta`, hence the couple of points returned will be symmetric w.r.t. to theta and their distance from theta will be `dist/2`.

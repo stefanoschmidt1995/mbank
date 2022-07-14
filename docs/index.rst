@@ -19,7 +19,7 @@ Welcome to ``mbank``'s documentation!
    usage/flow.md
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Package reference
    :name: package_reference
    

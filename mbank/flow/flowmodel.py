@@ -1,6 +1,7 @@
 """
 mbank.flow.flowmodel
 ====================
+
 		This module implements the basic normalizing flow model, useful for sampling from the Binary Black Hole parameter space.
 		It requires `torch` and `nflows`, which are not among the `mbank` dependencies.
 """

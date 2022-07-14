@@ -128,7 +128,7 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
-	"--approximant", default = None,
+	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the metric computation")
 parser.add_argument(
 	"--epsilon",  default = 1e-6, type=float,
@@ -159,8 +159,8 @@ for f in filenames:
 	######
 	#	Interpreting the parser and initializing variables
 	######
-if (args.center is None) or (args.variable_format is None):
-	raise ValueError("The arguments center and variable_format must be set!")
+if (args.center is None) or (args.variable_format is None) or (args.psd is None):
+	raise ValueError("The arguments center, variable_format and psd must be set!")
 
 if args.save_dir is not None:
 	if not args.save_dir.endswith('/'): args.save_dir = args.save_dir+'/'
@@ -259,10 +259,8 @@ hist_kwargs = {'bins': 20, 'histtype':'step', 'color':'orange'}
 plt.hist(matches, label = 'mbank', **hist_kwargs)
 plt.axvline(args.match, c = 'r')
 plt.legend()
-if args.save_dir is not None: plt.savefig(args.save_dir+"hist.png")
+if args.save_dir is not None: plt.savefig(args.save_dir+"validation_hist.png")
 
-plt.show() #DEBUG
-quit() #DEBUG
 	
 	######
 	# Epsilon validation (plots and computation)

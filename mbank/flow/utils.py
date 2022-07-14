@@ -1,6 +1,7 @@
 """
 mbank.flow.utils
 ================
+
 		Plotting & validation utilities for the `mbank.flow`
 """
 

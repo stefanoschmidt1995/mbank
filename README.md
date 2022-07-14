@@ -38,7 +38,7 @@ P.s. Make sure you installed the required packages `pip install -r ./requirement
 To generate a bank you can use the executable `mbank_run`. Make sure you have a PSD file (either in csv file either in ligo xml format).
 You will need to choose:
 - The BBH variables that you want to vary within the bank (`--variable_format` parameter)
-- The minimum match (`--MM`), that controls the average distance between templates
+- The minimum match (`--mm`), that controls the average spacing between templates
 - The range of physical parameters you want to include in the bank (note that the spins are _always_ expressed in spherical coordinates)
 - Low and high frequency for the match/metric computation (`--f-min` and `--f-max`)
 - The WF FD approximant (it must be lal)

@@ -17,7 +17,7 @@ with open("README.md", "r") as fh:
 	long_description = fh.read()
 
 setuptools.setup(
-	name="mbank",
+	name="gw-mbank",
 	version="0.0.0",
 	author="Stefano Schmidt",
 	author_email="stefanoschmidt1995@gmail.com",

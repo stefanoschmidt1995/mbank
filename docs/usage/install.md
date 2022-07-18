@@ -10,35 +10,30 @@ You can get the latest distributed version from the [PyPI](https://pypi.org/proj
 To do this, you just need to type:
 
 ```
-pip install mbank
+pip install gw-mbank
 ```
 
 This will install the package and its dependencies in your current working python environment.
+Unfortunately the name `mbank` wasn't available for the PyPI distribution: this is why the distribution is called `gw-mbank`. I hope this does not confuses you too much, but don't worry: this has no implications for your user experience!
 
 ## From source
 
 You can install the package from source. This is useful for development.
-To do this you need to clone the git [repository](https://github.com/stefanoschmidt1995/mbank) and to build and install the code manually. A handy makefile will help you to do that.
-
-These are the steps:
-
-
+To do things in one shot:
 ```Bash
-git clone git@github.com:stefanoschmidt1995/mbank.git
-cd mbank
-make install
+pip install git+https://github.com/stefanoschmidt1995/mbank
 ```
+This will clone the repo and install the latest (dev) version of `mbank`.
 
+If you want to do things slower, you can clone the git [repository](https://github.com/stefanoschmidt1995/mbank) and build and install the code manually.
 This will build the package and will install it: `pip` will keep track of the dependencies.
-
-If you want to do things by hands, or to keep track of the dependencies on your own, you can type:
+These are the steps:
 
 ```Bash
 git clone git@github.com:stefanoschmidt1995/mbank.git
 cd mbank
 python setup.py sdist
-pip install -r requirements.txt
-pip install dist/mbank-0.0.1.tar.gz
+pip install dist/gw-mbank-*.tar.gz
 ```
 
 ## Build the docs

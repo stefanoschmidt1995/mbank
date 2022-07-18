@@ -21,10 +21,10 @@ The bank generation algorithm works in 4 steps:
 
 ## How to install
 
-To install the latest [released](https://pypi.org/project/mbank/) verion (no release has been done yet):
+To install the latest [released](https://pypi.org/project/gw-mbank/) verion (no release has been done yet):
 
 ```Bash
-pip install mbank
+pip install gw-mbank
 ```
 
 To intall the latest version in the github repository, you can type:

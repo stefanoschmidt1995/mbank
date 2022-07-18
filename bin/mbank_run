@@ -203,7 +203,8 @@ elif format_info['mass_format'] == 'mceta':
 	var2_min, var2_max = eta_min, eta_max
 
 	#setting spin boundaries
-boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
+boundaries = get_boundaries_from_ranges(args.variable_format,
+	(var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
 	s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max), theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
 	iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
 	e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
@@ -244,7 +245,7 @@ bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); t
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
+	plot_tiles_templates(bank.templates, args.variable_format, t_obj, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
 
 

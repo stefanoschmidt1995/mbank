@@ -60,8 +60,7 @@ def get_scaling_data(m_obj, variable_format_list, MM_list, m_range, q_range, s_r
 			}
 	
 	for variable_format in variable_format_list:
-		info_dict = variable_handler().format_info[variable_format]
-		boundaries = get_boundaries_from_ranges(info_dict, m_range, q_range, s_range, s_range, e_range = e_range)
+		boundaries = get_boundaries_from_ranges(variable_format, m_range, q_range, s_range, s_range, e_range = e_range)
 		m_obj.set_variable_format(variable_format)
 
 		out_list = get_scaling_relation(variable_format, boundaries, MM_list, m_obj,

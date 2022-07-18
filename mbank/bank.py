@@ -73,7 +73,7 @@ class cbc_bank():
 		Parameters
 		----------
 		variable_format: str
-			How to handle the spin variables.
+			How to handle the variables.
 			See class variable_handler for more details
 			
 		filename: str
@@ -294,14 +294,14 @@ class cbc_bank():
 		
 		return
 		
-	def place_templates(self, t_obj, avg_match, placing_method, livepoints = 50, empty_iterations = 100, verbose = True):
+	def place_templates(self, tiling, avg_match, placing_method, livepoints = 50, empty_iterations = 100, verbose = True):
 		"""
 		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
 		Parameters
 		----------
 
-		t_obj: tiling_handler
+		tiling: tiling_handler
 			A tiling handler with a non-empty tiling
 		
 		avg_match: float
@@ -339,27 +339,27 @@ class cbc_bank():
 
 		"""
 		assert placing_method in self.placing_methods, ValueError("Wrong placing method '{}' selected. The methods available are: ".format(placing_method, self.placing_methods))
-		assert self.D == t_obj[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
+		assert self.D == tiling[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
 		
 			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
 		if placing_method in ['geometric', 'geo_stochastic', 'random', 'random_stochastic'] :
-			coarse_boundaries = np.stack([np.min([t_[0].mins for t_ in t_obj], axis = 0),
-					np.max([t_[0].maxes for t_ in t_obj], axis = 0)],
+			coarse_boundaries = np.stack([np.min([t_[0].mins for t_ in tiling], axis = 0),
+					np.max([t_[0].maxes for t_ in tiling], axis = 0)],
 					axis =0) #(2,D)
 		
 		dist = avg_dist(avg_match, self.D) #desired average distance between templates
-		if verbose: print("Approx number of templates {}".format(int(t_obj.compute_volume()[0] / np.power(dist, self.D))))
+		if verbose: print("Approx number of templates {}".format(int(tiling.compute_volume()[0] / np.power(dist, self.D))))
 			#total number of points according to volume placement
 		N_points = lambda t: livepoints*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
 		new_templates = []
 
 		if placing_method in ['stochastic', 'random', 'uniform', 'qmc', 'random_stochastic']: it = iter(())		
-		elif verbose: it = tqdm(range(len(t_obj)), desc = 'Placing the templates within each tile', leave = True)
-		else: it = range(len(t_obj))
+		elif verbose: it = tqdm(range(len(tiling)), desc = 'Placing the templates within each tile', leave = True)
+		else: it = range(len(tiling))
 
 		for i in it:
 			
-			t = t_obj[i] #current tile
+			t = tiling[i] #current tile
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
@@ -388,22 +388,22 @@ class cbc_bank():
 			new_templates.extend(new_templates_)
 
 		if placing_method in ['uniform', 'qmc']:
-			vol_tot, _ = t_obj.compute_volume()
+			vol_tot, _ = tiling.compute_volume()
 			N_templates = int( vol_tot/(dist**self.D) )+1
-			new_templates = t_obj.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
+			new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 			
 		if placing_method in ['random', 'random_stochastic']:
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
 			N_points_max = int(1e6)
-			N_points_tot = N_points(t_obj)
+			N_points_tot = N_points(tiling)
 
 			if N_points_tot >N_points_max:
 				thresholds = plawspace(coarse_boundaries[0,0], coarse_boundaries[1,0], -8./3., int(N_points_tot/N_points_max)+2)[1:-1]
-				partition = partition_tiling(thresholds, 0, t_obj)
+				partition = partition_tiling(thresholds, 0, tiling)
 				#print("\tThresholds: ",thresholds)
 				#print("\tN_points: ", [int(N_points(p)) for p in partition])
 			else:
-				partition = [t_obj]
+				partition = [tiling]
 
 			#print(N_points_tot, len(partition))
 			new_templates = []
@@ -416,7 +416,7 @@ class cbc_bank():
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
-			new_templates = place_stochastically(avg_match, t_obj,
+			new_templates = place_stochastically(avg_match, tiling,
 					empty_iterations = empty_iterations,
 					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random

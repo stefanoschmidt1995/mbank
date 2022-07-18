@@ -186,7 +186,8 @@ elif format_info['mass_format'] == 'mceta':
 	var2_min, var2_max = eta_min, eta_max
 
 	#setting spin boundaries
-boundaries = get_boundaries_from_ranges(format_info, (var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
+boundaries = get_boundaries_from_ranges(args.variable_format,
+	(var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
 	s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max), theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
 	iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
 	e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
@@ -229,7 +230,8 @@ if args.plot:
 	t_obj = tiling_handler()
 	t_obj.extend([tile(Rectangle(boundaries[0,:], boundaries[1,:]),
 			m.get_metric(np.mean(boundaries, axis =0)))])
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler, dist_ellipse = None, save_folder = plot_folder, show = args.show)
+	plot_tiles_templates(bank.templates, args.variable_format,
+		tiling = None, dist_ellipse = None, save_folder = plot_folder, show = args.show)
 
 
 

@@ -131,12 +131,13 @@ for f in filenames:
 	#	Interpreting the parser and initializing variables
 	######
 
+var_handler = variable_handler()
 if args.N_neigh_templates_full is None: args.N_neigh_templates_full = args.N_neigh_templates
 
 if (args.bank_file is None) or (args.tiling_file is None) or (args.variable_format is None):
 	raise ValueError("The arguments bank-file, tiling-file and variable_format must be set!")
 
-assert args.variable_format in variable_handler().valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
 
 	#FIXME: understand whether you want the default --run-dir to be './'
 if args.run_dir is None: args.run_dir = args.bank_file.replace(os.path.basename(args.bank_file), '')
@@ -172,7 +173,6 @@ if args.full_match or args.full_match_symphony: #in this case we need to load th
 	######
 bank = cbc_bank(args.variable_format, args.bank_file)
 print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
-var_handler = variable_handler()
 
 t_obj = tiling_handler(args.tiling_file)
 
@@ -312,7 +312,7 @@ if args.plot:
 		###
 		# Colored plots
 		###
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, var_handler,
+	plot_tiles_templates(bank.templates, args.variable_format, t_obj,
 				injections = projected_injs[ids_to_plot,:], inj_cmap =plotted_matches[ids_to_plot] ,
 				dist_ellipse = None, save_folder = args.run_dir, show = False)
 	if args.show: plt.show()

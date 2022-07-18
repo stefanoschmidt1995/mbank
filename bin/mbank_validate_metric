@@ -237,14 +237,14 @@ if args.save_dir is not None: plt.savefig(args.save_dir+"parabolae.png")
 t_obj = tiling_handler()
 var_handler = variable_handler()
 var2_ranges = (1,10) if var_handler.format_info[args.variable_format]['mass_format'].find('q')>-1 else (0.,0.25)
-boundaries = get_boundaries_from_ranges(var_handler.format_info[args.variable_format], (1, 100), var2_ranges)
+boundaries = get_boundaries_from_ranges(args.variable_format, (1, 100), var2_ranges)
 boundaries = np.stack([center-1e-4, center+1e-4], axis = 0)
 #t_obj.extend([tile(Rectangle(center-1e-6, center+1e-6), metric)]) #mbank metric
 t_obj.extend([tile(Rectangle(*boundaries), metric)]) #mbank metric
 
 with warnings.catch_warnings():
 	warnings.simplefilter("ignore")
-	plot_tiles_templates(t_obj, center[None,:] , args.variable_format, var_handler,
+	plot_tiles_templates(center[None,:] , args.variable_format, t_obj,
 		injections = points, inj_cmap = matches,
 		dist_ellipse = np.sqrt(1-args.match),
 		save_folder = None, show = False) 

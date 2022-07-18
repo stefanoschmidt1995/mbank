@@ -1,11 +1,8 @@
 """
 mbank.utils
 ===========
-	Some utilities for ``mbank``.
-	It keeps function for plotting, for template placing and for match computation.
-
-	#FIXME: this may be split in two parts as some functions need to import the tiling handler
-	#They are `plot_tiles_templates` and `get_boundaries_from_ranges`
+	Some utilities for ``mbank``, where you find lots of useful stuff for some boring operations on the templates.
+	It keeps functions for plotting, for template placing, injection recovery computation and other useful operations useful around the package.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,7 +31,7 @@ from scipy.spatial import Rectangle
 from tqdm import tqdm
 import ray
 
-#from .handlers import variable_handler
+from .handlers import variable_handler
 
 from scipy.spatial import ConvexHull, Rectangle
 
@@ -195,7 +192,7 @@ def avg_dist(avg_match, D):
 
 ####################################################################################################################
 
-def get_boundaries_from_ranges(format_info, M_range, q_range,
+def get_boundaries_from_ranges(variable_format, M_range, q_range,
 	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), chi_range = (-0.99,0.99), theta_range = (0, np.pi), phi_range = (-np.pi, np.pi),
 	iota_range = (0, np.pi), ref_phase_range = (-np.pi, np.pi), e_range = (0., 0.5), meanano_range = (0.1, 1.)):
 	"""
@@ -204,9 +201,9 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 	
 	Parameters
 	----------
-		format_info: dict
-			Dict holding the format information
-			It can be generated with: `variable_handler().format_info[variable_format]`
+		variable_format: str
+			A string to specify the variable format.
+			See `mbank.handler.variable_format` for more information
 		
 		M_range, q_range, s1_range, s2_range, chi_range, theta_range, phi_range, iota_range, ref_phase_range, e_range, meanano_range: tuple
 			Ranges for each physical quantity. They will be used whenever required by the `variable_format`
@@ -219,6 +216,8 @@ def get_boundaries_from_ranges(format_info, M_range, q_range,
 			shape (2,D) -
 			An array with the boundaries.
 	"""
+	format_info = variable_handler().format_info[variable_format]
+	
 	######
 	#	Setting boundaries: shape (2,D)
 	######
@@ -576,6 +575,9 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 		
 		bank: cbc_bank
 			A ``cbc_bank`` object
+		
+		tiling: tiling_handler
+			A tiling object to compute the metric match between templates and injections
 
 		N_neigh_templates: int
 			Number of nearest neigbour to report in the output
@@ -636,7 +638,7 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
 		
 		metric = tiling[out_dict['id_tile'][i]].metric
-		#metric = tiling[out_dict['id_tile'][i]].projected_metric()
+		#metric = get_projected_metric(tiling[out_dict['id_tile'][i]])
 		
 		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
 		
@@ -700,22 +702,21 @@ def get_ellipse(metric, center, dist, **kwargs):
 	return ellipse	
 
 
-def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False):
+def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False):
 	"""
 	Make some plots of the templates and the tiling.
 		
 	Parameters
 	----------
-		t_obj: tiling_handler
-			Tiling handler that tiles the parameter space. If `None`, no tiling will be plotted
-			```#TODO: move this to the back of the args list```
-		
 		templates: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			The templates to plot, as stored in ``cbc_bank.templates``
 		
 		variable_format: str
-			How to handle the BBH variables.	
+			How to handle the BBH variables.
+		
+		tiling: tiling_handler
+			Tiling handler that tiles the parameter space. If `None`, no tiling will be plotted	
 			
 		var_handler: variable_handler
 			A variable handler object to handle the labels. Can be instantiated with `mbank.handlers.variable_handler()`
@@ -731,6 +732,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 		
 		dist_ellipse: float
 			The distance for the match countour ellipse to draw. If `None`, no contour will be drawn.
+			Requires a tiling object.
 		
 		fs: int
 			Font size for the labels and axis
@@ -743,7 +745,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 			Wheter to show the plots
 
 	"""
-	#var_handler = variable_handler() #old
+	var_handler = variable_handler()
 		###
 		#Plotting templates
 		###
@@ -751,8 +753,9 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 		if not save_folder.endswith('/'): save_folder = save_folder+'/'
 	
 	if isinstance(dist_ellipse, float): #computing a tile for each template
+		if tiling is None: raise ValueError("If ellipses are to be plotted, a tiling object is required but None is given")
 		dist_template = []
-		for t in t_obj:
+		for t in tiling:
 			dist_template.append( t[0].min_distance_point(templates) ) #(N_templates,)
 		dist_template = np.stack(dist_template, axis = 1) #(N_templates, N_tiles)
 		id_tile_templates = np.argmin(dist_template, axis = 1) #(N_templates,)
@@ -793,14 +796,14 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 	if isinstance(save_folder, str): plt.savefig(save_folder+'bank.png', transparent = False)
 
 		#Plot the tiling
-	if isinstance(t_obj,list):
-		centers = t_obj.get_centers()
+	if isinstance(tiling,list):
+		centers = tiling.get_centers()
 		plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 		for ax_ in combinations(range(templates.shape[1]), 2):
 			currentAxis = axes[ax_[1]-1, ax_[0]]
 			ax_ = list(ax_)
 			currentAxis.scatter(*centers[:,ax_].T, s = 30, marker = 'x', c= 'r', alpha = 1)
-			for t in t_obj:
+			for t in tiling:
 				d = t[0].maxes- t[0].mins
 				currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 
@@ -828,7 +831,7 @@ def plot_tiles_templates(t_obj, templates, variable_format, var_handler, injecti
 			currentAxis = axes[ax_[1]-1, ax_[0]]
 			ax_ = list(ax_)
 			for i, templ in enumerate(templates):
-				metric_projected = project_metric(t_obj[id_tile_templates[i]][1], ax_)
+				metric_projected = project_metric(tiling[id_tile_templates[i]][1], ax_)
 				currentAxis.add_patch(get_ellipse(metric_projected, templ[ax_], dist_ellipse))
 			#if ax_[0]!=0: currentAxis.set_xlim([-10,10]) #DEBUG
 			#currentAxis.set_ylim([-10,10]) #DEBUG
@@ -1107,7 +1110,7 @@ def place_stochastically_in_tile(minimum_match, tile):
 	return new_templates
 
 #@do_profile(follow=[])
-def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank = None, verbose = True):
+def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_bank = None, verbose = True):
 	"""
 	Place templates with a stochastic placing algorithm
 	It iteratively proposes a new template to add to the bank. The proposal is accepted if the match of the proposal with the previously placed templates is smaller than ``minimum_match``. The iteration goes on until no template is found to have a distance smaller than the given threshold ``minimum_match``.
@@ -1122,7 +1125,7 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 		minimum_match: float
 			Minimum match between templates.
 		
-		t_obj: tiling_handler
+		tiling: tiling_handler
 			A tiling object to compute the match with
 		
 		empty_iterations: int
@@ -1152,19 +1155,19 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 	MM = minimum_match
 
 	if seed_bank is None:
-		ran_id_ = np.random.choice(len(t_obj))
-		new_templates = np.random.uniform(t_obj[ran_id_][0].mins, t_obj[ran_id_][0].maxes, (1, len(t_obj[ran_id_][0].maxes)))
+		ran_id_ = np.random.choice(len(tiling))
+		new_templates = np.random.uniform(tiling[ran_id_][0].mins, tiling[ran_id_][0].maxes, (1, len(tiling[ran_id_][0].maxes)))
 	else:
 		new_templates = np.asarray(seed_bank)
 
-	nothing_new = np.zeros((len(t_obj),), dtype = int)
-	tiles_to_use = np.array([i for i in range(len(t_obj))], dtype = int)
+	nothing_new = np.zeros((len(tiling),), dtype = int)
+	tiles_to_use = np.array([i for i in range(len(tiling))], dtype = int)
 	
 	#TODO: this should sample from the tiling. Might be more efficient...
 	#You could make a local copy of the tiling and then remove elements from the list: memory expensive but nice, since the sampling would be done with the nice PDF and removing elements from list is fast
 	#The random extraction must be done in batches though (unconvenient)
 	
-	#proposal_list, tile_id_vector = t_obj.sample_from_tiling(100000, seed = 0, tile_id = True, p_equal = True) #DEBUG
+	#proposal_list, tile_id_vector = tiling.sample_from_tiling(100000, seed = 0, tile_id = True, p_equal = True) #DEBUG
 	#ids_ = np.random.permutation(len(proposal_list))
 	#proposal_list, tile_id_vector = proposal_list[ids_,:], tile_id_vector[ids_]
 	
@@ -1177,25 +1180,25 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 				tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
 				nothing_new = np.delete(nothing_new, np.where(where_to_remove))
 
-			if verbose and i%2000==0:t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(t_obj)-len(tiles_to_use), len(t_obj)))
+			if verbose and i%2000==0:t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(tiling)-len(tiles_to_use), len(tiling)))
 			if len(tiles_to_use) == 0: break
 			
 			id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
 			tile_id = tiles_to_use[id_tiles_to_use] #id of the tile in the tiling list
 			
-			rect = t_obj[tile_id].rectangle
-			proposal = np.random.uniform(rect.mins, rect.maxes, (1, t_obj[tile_id].D))
+			rect = tiling[tile_id].rectangle
+			proposal = np.random.uniform(rect.mins, rect.maxes, (1, tiling[tile_id].D))
 
 			diff = new_templates - proposal #(N_templates, D)
 			
-			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, t_obj[tile_id].metric)), axis = -1))
+			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, tiling[tile_id].metric)), axis = -1))
 			
 				#faster alternative with cholesky (but works only for non-degenerate metric)
-			#L_t = np.linalg.cholesky(t_obj[tile_id][1]) #(D,D)
+			#L_t = np.linalg.cholesky(tiling[tile_id][1]) #(D,D)
 			#max_match = np.max(1- np.sum(np.square(np.matmul(diff, L_t)), axis =1))
 			
 				#slower alternative with eisum
-			#max_match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, t_obj[tile_id].metric, diff)) #()
+			#max_match = np.max(1 - np.einsum('ij, jk, ik -> i', diff, tiling[tile_id].metric, diff)) #()
 
 			if (max_match < MM):
 				new_templates = np.concatenate([new_templates, proposal], axis =0)
@@ -1209,7 +1212,7 @@ def place_stochastically(minimum_match, t_obj, empty_iterations = 200, seed_bank
 	return new_templates
 
 
-def partition_tiling(thresholds, d, t_obj):
+def partition_tiling(thresholds, d, tiling):
 	"""
 	Given a tiling, it partitions the tiling given a list of thresholds. The splitting is performed along axis `d`.
 	
@@ -1221,7 +1224,7 @@ def partition_tiling(thresholds, d, t_obj):
 		d: int
 			Axis to split the tiling along.
 		
-		t_obj: tiling_handler
+		tiling: tiling_handler
 			Tiling to partion
 	
 	Returns
@@ -1234,7 +1237,7 @@ def partition_tiling(thresholds, d, t_obj):
 	
 	partitions = []
 	
-	t_obj_ = t_obj
+	t_obj_ = tiling
 	
 	for threshold in thresholds:
 		temp_t_obj, t_obj_ = t_obj_.split_tiling(d, threshold)
@@ -1280,7 +1283,7 @@ def place_iterative(match, t):
 	return new_templates
 
 #@do_profile(follow=[])
-def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = True):
+def place_random(minimum_match, tiling, N_points, tolerance = 0.01, verbose = True):
 	"""
 	Given a tiling object, it covers the volume with points and covers them with templates.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -1291,7 +1294,7 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 		minimum_match: float
 			Minimum match between templates.
 		
-		t_obj: tiling_handler
+		tiling: tiling_handler
 			Tiling handler that tiles the parameter space
 		
 		N_points: int
@@ -1318,13 +1321,13 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 	MM = minimum_match
 	dtype = np.float32 #better to downcast to single precision! There is a mild speedup there
 	
-	livepoints, id_tile_livepoints = t_obj.sample_from_tiling(N_points,
+	livepoints, id_tile_livepoints = tiling.sample_from_tiling(N_points,
 				dtype = dtype, tile_id = True, p_equal = False) #(N_points, D)
 	
 	if False:
 		#sorting livepoint by their metric determinant...
-		_, vols = t_obj.compute_volume()
-		v_list_livepoints = [np.linalg.det(t_obj[i].metric) for i in id_tile_livepoints]
+		_, vols = tiling.compute_volume()
+		v_list_livepoints = [np.linalg.det(tiling[i].metric) for i in id_tile_livepoints]
 		id_sort = np.argsort(v_list_livepoints)[::-1]
 	else:
 		#random shuffling
@@ -1332,12 +1335,12 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 
 	livepoints = livepoints[id_sort, :]
 	id_tile_livepoints = id_tile_livepoints[id_sort]
-	det_list = [t_.det for t_ in t_obj]
+	det_list = [t_.det for t_ in tiling]
 	det_livepoints = np.array([det_list[id_] for id_ in id_tile_livepoints])
 	del det_list
 	
 		#ordering the tile by volume in ascending order...
-	_, vols = t_obj.compute_volume()
+	_, vols = tiling.compute_volume()
 	
 	def dummy_iterator():
 		while True:
@@ -1355,7 +1358,7 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 		#id_point = np.random.randint(len(livepoints))
 		point = livepoints[id_point,:]
 		id_ = id_tile_livepoints[id_point]
-		metric = t_obj[id_].metric
+		metric = tiling[id_].metric
 		
 		diff = livepoints - point #(N,D)
 		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric!!
@@ -1374,13 +1377,13 @@ def place_random(minimum_match, t_obj, N_points, tolerance = 0.01, verbose = Tru
 			plt.hist(np.log10(scaled_dist[1:]), bins = 50, histtype = 'step', label = 'scaled')
 			plt.hist(np.log10(dist[1:]), bins = 50, histtype = 'step', label = 'normal')
 			plt.axvline(np.log10(1-MM))
-			#plt.hist(np.power(det_livepoints/np.linalg.det(metric), 1/t_obj[0].D), bins = 100)
+			#plt.hist(np.power(det_livepoints/np.linalg.det(metric), 1/tiling[0].D), bins = 100)
 			plt.legend()
 			plt.show()
 	
 		#ids_kill = np.where(dist < 1- MM)[0]
 			#This variant is pointless!! The way to go (probably) is to use normalizing flows to interpolate the metric
-		scaled_dist = dist * np.power(det_livepoints/np.linalg.det(metric), 1/t_obj[0].D)		
+		scaled_dist = dist * np.power(det_livepoints/np.linalg.det(metric), 1/tiling[0].D)		
 		ids_kill = np.where(np.logical_and(dist < 1- MM, scaled_dist < 1- MM) )[0]
 
 			#This operation is very slow! But maybe there is nothing else to do...

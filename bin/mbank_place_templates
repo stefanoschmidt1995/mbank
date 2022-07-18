@@ -113,7 +113,8 @@ bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name))
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	plot_tiles_templates(t_obj, bank.templates, args.variable_format, variable_handler(), dist_ellipse = dist, save_folder = plot_folder, show = args.show)
+	plot_tiles_templates(bank.templates, args.variable_format, t_obj,
+			dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
 
 

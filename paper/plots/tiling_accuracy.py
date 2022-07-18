@@ -7,7 +7,7 @@ plt.style.use(['science','ieee', 'bright'])
 from tqdm import tqdm
 
 from mbank.metric import cbc_metric
-from mbank.utils import load_PSD, get_boundaries_from_ranges
+from mbank.utils import load_PSD
 from mbank.handlers import tiling_handler, variable_handler
 
 import pickle

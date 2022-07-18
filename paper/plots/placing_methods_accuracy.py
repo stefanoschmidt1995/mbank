@@ -180,7 +180,7 @@ if __name__ == '__main__':
 	q_range = (1,5)
 	s_range = (-0.99, 0.99)
 	e_range = (0., 0.5)
-	boundaries = get_boundaries_from_ranges(variable_handler().format_info[variable_format], M_range, q_range, s_range, s_range, e_range = e_range)
+	boundaries = get_boundaries_from_ranges(variable_format, M_range, q_range, s_range, s_range, e_range = e_range)
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.

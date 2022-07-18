@@ -34,7 +34,7 @@ def get_tiling_accuracy_data(metric_obj, variable_format_list, epsilon_list, M_r
 	
 	
 	for var_format in variable_format_list:
-		boundaries = get_boundaries_from_ranges(variable_handler().format_info[var_format], M_range, q_range, s_range, s_range, e_range = e_range)		
+		boundaries = get_boundaries_from_ranges(var_format, M_range, q_range, s_range, s_range, e_range = e_range)		
 		metric_obj.set_variable_format(var_format)
 		vol_list, t_vols_list = get_volume_list(metric_obj, epsilon_list, var_format, boundaries)
 		out_dict[var_format] = vol_list

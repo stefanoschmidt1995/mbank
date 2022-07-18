@@ -35,8 +35,6 @@ import scipy.stats
 import scipy.integrate
 import scipy.spatial
 
-from .utils import get_projected_metric
-
 ####################################################################################################################
 
 ###
@@ -918,10 +916,6 @@ class tile(tuple):
 	@property
 	def det(self):
 		return np.abs(np.linalg.det(self[1]))
-	
-	def projected_metric(self, min_eig = 1e-3):
-		#return self.metric 
-		return get_projected_metric(self.metric, min_eig)
 	
 	@property
 	def center(self):

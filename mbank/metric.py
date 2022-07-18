@@ -70,7 +70,7 @@ class cbc_metric(object):
 		----------
 			
 		variable_format: string
-			How to handle the spin variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
+			How to handle the variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
 			Variable format can be changed with ``set_variable_format()`` and can be accessed under name ``cbc_metric.variable_format``. See ``mbank.handlers.variable_handler`` for more details.
 
 		PSD: tuple
@@ -157,7 +157,7 @@ class cbc_metric(object):
 		----------
 		
 		variable_format: string
-			An string to specify the variable format
+			A string to specify the variable format
 		"""
 		assert variable_format in self.var_handler.valid_formats, "Wrong variable format '{}'. Available formats are: ".format(variable_format)+str(self.var_handler.valid_formats)
 		

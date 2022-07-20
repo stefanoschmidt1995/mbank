@@ -18,7 +18,7 @@ import re
 import warnings
 warnings.simplefilter('ignore', UserWarning)
 
-from build_flow import Std2DTransform, Std3DTransform, Test5DTransform
+from build_flow import Std2DTransform, Std3DTransform, Test5DTransform, GW_SimpleRealNVP
 import pickle
 
 import argparse
@@ -53,13 +53,11 @@ if __name__ == '__main__':
 		#Loading data
 	data = np.loadtxt(datafile)
 	#data = np.delete(data, np.where(data[:,1]<1.5), axis =0) #This is just for 2D metric... :D
-	data = np.delete(data, np.where(data[:,1]>6,), axis =0) #This is just for 5D metric...
-	data = np.delete(data, np.where(data[:,2]>0.7,), axis =0) #This is just for 5D metric...
 	
 	data[:,0] = np.log10(data[:,0])
 	N, D = data.shape
 
-	N_epochs = 8000
+	N_epochs = 2000
 	train_factor = 0.85
 	train_data, validation_data = data[:int(train_factor*N),:], data[int(train_factor*N):,:]
 
@@ -75,15 +73,17 @@ if __name__ == '__main__':
 	print("Number of data (train|valid): ", train_data.shape[0], validation_data.shape[0])
 	print("Dimensionality of the data: ", train_data.shape[1])
 	print("Variable format: ", variable_format)
+	print("Boundaries of the training set: min|max\n\t{}\n\t{}".format(np.min(data, axis =0), np.max(data, axis =0)))
 	
 		#####
 		# Training the model
 	flow = GW_Flow(transform=transform, distribution=base_dist)
-	optimizer = optim.Adam(flow.parameters(), lr=0.0001)
+	#flow = GW_SimpleRealNVP(D, hidden_features = 4, num_layers = 2, num_blocks_per_layer = 2)
+	optimizer = optim.Adam(flow.parameters(), lr=0.001)
 
 		#training the flow
 	if train:
-		history = flow.train_flow(N_epochs=N_epochs, train_data=train_data, validation_data=validation_data,
+		history = flow.train_flow_forward_KL(N_epochs=N_epochs, train_data=train_data, validation_data=validation_data,
 			batch_size = None,
 			optimizer=optimizer,
 			#callback = (my_callback, 50), 

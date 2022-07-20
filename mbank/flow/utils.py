@@ -17,11 +17,12 @@ import numpy as np
 import os
 import re
 import imageio.v2 as iio
+import torch
 
 ########################################################################
 
 class ks_metric():
-	"Class to compute the validation metric"
+	"Class to compute the validation metric using the Kolmogorov-Smirnov test"
 	
 	def __init__(self, data, flow, N_estimation = 1000):
 		
@@ -181,3 +182,79 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 	plt.close('all')
 	
 	return
+
+def integrate_flow(theta1, theta2, flow, N_steps = 100, d = 1):
+	"""
+	It performs the following integral:
+	
+	.. math::
+		\int_{0}^{1} \\text{d}t \, \left(\\frac{|M_{\\text{flow}}(\\theta(t))|}{|M_{\\text{flow}}(\\theta_1)|} \\right)^d
+	
+	where
+	
+	.. math::
+		\\theta(t) = \\theta_1 + (\\theta_2 -\\theta_1) t
+		
+	and where :math:`|M_{\\text{flow}}(\\theta)|` is estimated by the flow.
+	
+	It is useful to weigth the metric distance obtained by assuming a constant metric (i.e. the standard way).
+	
+	Parameters
+	----------
+		theta1: torch.tensor
+			shape (D,)/(N,D) -
+			Starting point of the line integral
+		
+		theta2: torch.tensor
+			shape (D,)/(N,D) -
+			Ending point of the line integral
+		
+		flow: GW_Flow
+			Flow model to be used for estimating the factor
+		
+		N_steps: int
+			The number of points to be used for integral estimation
+		
+		d: float
+			Exponent appearing in the integral
+	
+	Returns
+	-------
+		integral: torch.tensor
+			shape (1,)/(N,) -
+			The result of the integral
+	"""
+	#TODO: should this be a member of GW_flow? It would make sense...
+
+
+	theta1, theta2 = torch.atleast_2d(theta1), torch.atleast_2d(theta2)
+	steps = theta1 + torch.einsum("ij,k->kij", theta2-theta1, torch.linspace(0, 1, N_steps))
+	#steps = theta1 + torch.outer(theta2-theta1, torch.linspace(0, 1, N_steps))
+
+	old_shape = steps.shape
+	steps = torch.flatten(steps, 0, 1) #(N*N_steps, 3)
+	
+	log_pdfs = flow.log_prob(steps) #(N*N_steps, )
+	log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
+	log_pdfs = log_pdfs - log_pdfs[0,:] #(N_steps, N, )
+
+	det_M = torch.pow(torch.exp(log_pdfs), 2*d) #(N*N_steps, )
+	
+	integral = torch.trapezoid(det_M, dx =1/N_steps, axis =0)
+	
+	return integral
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

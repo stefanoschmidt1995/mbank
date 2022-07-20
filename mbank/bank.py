@@ -677,16 +677,15 @@ class cbc_bank():
 			except KeyboardInterrupt:
 				pass
 	
-			#FIXME: understand whether you want to change the thin factor... it is likely it is underestimated during the burn-in phase
+			#FIXME: understand whether you want to change the thin factor... it is likely underestimated during the burn-in phase
 			#On the other hand, it makes difficult to predict how many steps you will need
 			#updating thin factor
 			#FIXME: this needs to be taken into account!
-		if thin_factor is None and True:
+		if thin_factor is None and False:
 			tau = sampler.get_autocorr_time(tol = 0)
 			thin = max(int(0.5 * np.min(tau)),1)
 			if verbose: print('Updated -- Thin factor: {} | burn-in: {} '.format( thin, burnin_steps(tau)))
 
-		print(sampler.chain.shape)
 		chain = sampler.get_chain(discard = burnin_steps(tau), thin = thin, flat=True)[-N_templates:,:]
 		
 		if isinstance(save_chain, str) and (state is not None):

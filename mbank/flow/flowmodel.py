@@ -85,9 +85,9 @@ class GW_Flow(Flow):
 		"""
 		super().__init__(transform=transform, distribution=distribution)
 		
-	def train_flow(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, verbose = False):
+	def train_flow_forward_KL(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, verbose = False):
 		"""
-		Trains the flow.
+		Trains the flow with forward KL: see eq. (13) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
 		
 		Parameters
 		----------
@@ -96,11 +96,15 @@ class GW_Flow(Flow):
 		
 		Returns
 		-------
-			
+			history: dict
+				A dictionary keeping the historical values of training & validation loss function + KS metric.
+				It has the following entries:
+					- validation_step: number of epochs between two consecutive evaluation of the validation metrics
+					- train_loss: values of the loss function
 		
 		"""
 		if isinstance(callback, tuple): callback, callback_step = callback
-		else: callback_step = 1
+		else: callback_step = 10
 		
 			#Are you sure you want float32?
 		train_data = torch.tensor(train_data, dtype=torch.float32)
@@ -125,7 +129,6 @@ class GW_Flow(Flow):
 				else:
 					ids_ = range(N_train)
 
-
 				optimizer.zero_grad()
 				loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
 				loss.backward()
@@ -142,7 +145,7 @@ class GW_Flow(Flow):
 					metric.append(metric_computer.get_metric())
 					
 				if callable(callback) and not (i%callback_step): callback(self, i)
-				if not (i%int(N_train//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
+				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
 		except KeyboardInterrupt:
 			print("KeyboardInterrupt: quitting the training loop")
 
@@ -155,6 +158,91 @@ class GW_Flow(Flow):
 		}
 
 		return history
+
+	def train_flow_reverse_KL(self, N_epochs, target_logpdf, optimizer, batch_size = 1000, validation_data =None, validation_step = 10, callback = None, out_dir=None, verbose = False):
+		"""
+		Trains the flow with reverse KL: see eq. (17) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
+		
+		Parameters
+		----------
+			N_epochs: int
+				Number of training epochs
+		
+		Returns
+		-------
+			history: dict
+				A dictionary keeping the historical values of training & validation loss function + KS metric.
+				It has the following entries:
+					- validation_step: number of epochs between two consecutive evaluation of the validation metrics
+					- train_loss: values of the loss function
+		"""
+		
+		msg = "Fitting with reverse KL is not feasible as it requires the evaluation of the GRADIENT of the true PDF!\n"
+		msg += "Can you express the gradients of the metric determinant in terms of the first derivatives only of the WFs? I really doubt that, as the grad|M| tells something about curvature, which depends on the second derivative (at least in GR).\n"
+		msg += "Moreover, also with a simple gaussian, there seems to be a huuuge problem of overflow: the flow is not able to identify the interesting region.\n"
+		msg += "Take home message: use always the forward KL!"
+		
+		raise NotImplementedError(msg)
+		
+		if isinstance(callback, tuple): callback, callback_step = callback
+		else: callback_step = 10
+
+		if isinstance(validation_data, np.ndarray) or isinstance(validation_data, torch.tensor):
+			validation_data = torch.tensor(validation_data, dtype=torch.float32)
+			metric_computer = ks_metric(validation_data, self, 1000)
+			val_loss=[]
+			metric = [] #Kolmogorov–Smirnov metric (kind of)
+			do_validation = True
+		else:
+			do_validation = False
+
+		train_loss=[]
+				
+		desc_str = 'Training loop - loss: {:5f}|{:5f}'
+		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf if do_validation else ''))
+		else: it = range(N_epochs)
+		
+		try:
+			for i in it:
+			
+				samples, log_prob_flow = self.sample_and_log_prob(batch_size)
+				log_prob_true = target_logpdf(samples)
+
+				loss = -(log_prob_flow - log_prob_true).mean()
+				optimizer.zero_grad()
+				loss.backward()
+				optimizer.step()
+
+				train_loss.append(loss.item())
+
+
+				if do_validation and not (i%validation_step):
+					with torch.no_grad():			
+						loss = -self.log_prob(inputs=validation_data).mean()
+					val_loss.append(loss)
+					
+					metric.append(metric_computer.get_metric())
+					
+				if callable(callback) and not (i%callback_step): callback(self, i)
+				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
+		except KeyboardInterrupt:
+			print("KeyboardInterrupt: quitting the training loop")
+
+		history = {'validation_step': validation_step,
+			'train_loss': np.array(train_loss),
+			'validation_loss': np.array(val_loss),
+			'log_pvalue': np.array(metric),
+			'log_pvalue_mean': metric_computer.metric_mean,
+			'log_pvalue_std': metric_computer.metric_std
+		}
+
+		return history
+
+
+
+
+
+
 
 
 

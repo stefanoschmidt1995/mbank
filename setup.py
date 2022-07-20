@@ -1,13 +1,12 @@
 import setuptools
-import warnings
 import sys
 
 try:
 	from sphinx.setup_command import BuildDoc
 	cmdclass = {'build_sphinx': BuildDoc} #to build with sphinx
 except ImportError:
-	if sys.argv[1] == 'build_sphinx': warnings.warn("sphinx module not found: impossibile to build the documents")
-	quit()
+	if sys.argv[1] == 'build_sphinx':
+		raise ImportErorr("sphinx modules not found: impossibile to build the documents.\nTry: pip install -r docs/requirements.txt")
 
 required_packages =['scipy', 'numpy', 'matplotlib',
 	'python-ligo-lw==1.7.1', 'lalsuite>=6.70', 'tqdm', 'ray'] #the dependencies are fucked up, for some reason

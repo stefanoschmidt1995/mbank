@@ -21,47 +21,55 @@ import torch
 
 ########################################################################
 
-class ks_metric():
-	"Class to compute the validation metric using the Kolmogorov-Smirnov test"
-	
+class validation_metric():
+	"Base class for validation metric: the method get_dist should be implemented by subclasses"
 	def __init__(self, data, flow, N_estimation = 1000):
 		
 		self.data = data
 		self.flow = flow
 		self.N_samples = len(data)
 		
-		pval_list = []
+		dist_list = []
 		for n in range(N_estimation):
-			true_noise_1 = flow._distribution.sample(self.N_samples).detach().numpy()
-			true_noise_2 = flow._distribution.sample(self.N_samples).detach().numpy()
-			pval_list.append(self._ks_test(true_noise_1, true_noise_2))
-		pval_list = np.array(pval_list)
+			true_noise = flow._distribution.sample(self.N_samples).detach().numpy()
+			dist_list.append(self.get_dist(true_noise))
+		dist_list = np.array(dist_list)
 		
-		self.pval_mean = np.mean(pval_list)
-		self.metric_mean = np.mean(np.log(pval_list))
-		self.metric_std = np.std(np.log(pval_list))
+		self.metric_mean = np.mean(dist_list)
+		self.metric_std = np.std(dist_list)
+		self.metric_std_of_mean = np.std(dist_list)/np.sqrt(N_estimation)
 		
 		return
 
-	def _ks_test(self, data_1, data_2):
-		pval = 1.
-		for d in range(data_1.shape[1]):
-			_, pvalue = scipy.stats.kstest(data_1[:,d], data_2[:,d])
-			pval *= pvalue
+	def get_dist(self, data):
+		"Measures the distance between data and the noise distribution (a standard normal)"
+		raise NotImplementedError("The distance between two dataset must be implemented by sub-classes!")
 
-		return pval
-
-	def get_metric(self):
+	def get_validation_metric(self):
 		"Check if the data transformed into noise are consistent with the random normal distribution"
 		
 		noise_data = self.flow.transform_to_noise(self.data).detach().numpy()
+		dist = self.get_dist(noise_data)
+		
+		return dist	
+
+class ks_metric(validation_metric):
+	"Class to compute the validation metric using the Kolmogorov-Smirnov test"
+	def get_dist(self, data):
 		true_noise = self.flow._distribution.sample(self.N_samples).detach().numpy()
-		
-		pval = self._ks_test(true_noise, noise_data)
-		
-		metric = np.log(pval+1e-300)
-		
-		return metric
+		pval = 1.
+		for d in range(data.shape[1]):
+			_, pvalue = scipy.stats.kstest(data[:,d], true_noise[:,d])
+			pval *= pvalue
+
+		return np.log10(pval+1e-300)
+
+class cross_entropy_metric(validation_metric):
+	"Class to compute the validation metric using the Cross Entropy distance"
+	def get_dist(self, data):
+		return self.flow._distribution.log_prob(data).mean()
+	
+########################################################################
 	
 def plot_loss_functions(history, savefolder = None):
 	"Makes some basic plots of the validation"
@@ -133,7 +141,7 @@ def plotting_callback(model, epoch, dirname, data_to_plot, variable_format, base
 	compare_probability_distribution(data_flow, data_true = data_to_plot, variable_format = variable_format, title = 'epoch = {}'.format(epoch), savefile = savefile )
 	return
 
-def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, savefile = None):
+def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, hue_labels = ['flow', 'train'], savefile = None, show = False):
 	"""
 	Make a nice contour plot for visualizing the 2D slices of a multidimensional PDF.
 		
@@ -144,17 +152,18 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 	"""
 	var_handler = variable_handler()
 	labels = var_handler.labels(variable_format, latex = False) if isinstance(variable_format, str) else None
+	hue_labels = list(hue_labels)
 	
 	plot_data = pd.DataFrame(data_flow, columns = labels)
 	if data_true is not None:
 		temp_plot_data = pd.DataFrame(data_true, columns = labels)
 		plot_data = pd.concat([plot_data, temp_plot_data], axis=0, ignore_index = True)
 		
-	plot_data['distribution'] = 'flow'
+	plot_data['distribution'] = hue_labels[0]
 	if data_true is not None:
 		with warnings.catch_warnings():
 			warnings.simplefilter("ignore")
-			plot_data['distribution'][len(data_true):] = 'train'
+			plot_data['distribution'][len(data_true):] = hue_labels[1]
 	
 	bins_dat = 40
 	if False:
@@ -169,7 +178,7 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 			levels=8
 		)
 
-	g = sns.PairGrid(plot_data, hue="distribution", hue_order = [ 'train','flow'])
+	g = sns.PairGrid(plot_data, hue="distribution", hue_order = hue_labels[::-1] if data_true is not None else hue_labels[:1])
 	g.map_upper(sns.scatterplot, s = 1)
 	g.map_lower(sns.kdeplot, levels=8)
 	#g.map_diag(sns.kdeplot, lw=2, legend=False)
@@ -178,71 +187,11 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 
 	if isinstance(title, str): plt.suptitle(title)
 	if isinstance(savefile, str):plt.savefig(savefile)
+	if show: plt.show()
 
 	plt.close('all')
 	
 	return
-
-def integrate_flow(theta1, theta2, flow, N_steps = 100, d = 1):
-	"""
-	It performs the following integral:
-	
-	.. math::
-		\int_{0}^{1} \\text{d}t \, \left(\\frac{|M_{\\text{flow}}(\\theta(t))|}{|M_{\\text{flow}}(\\theta_1)|} \\right)^d
-	
-	where
-	
-	.. math::
-		\\theta(t) = \\theta_1 + (\\theta_2 -\\theta_1) t
-		
-	and where :math:`|M_{\\text{flow}}(\\theta)|` is estimated by the flow.
-	
-	It is useful to weigth the metric distance obtained by assuming a constant metric (i.e. the standard way).
-	
-	Parameters
-	----------
-		theta1: torch.tensor
-			shape (D,)/(N,D) -
-			Starting point of the line integral
-		
-		theta2: torch.tensor
-			shape (D,)/(N,D) -
-			Ending point of the line integral
-		
-		flow: GW_Flow
-			Flow model to be used for estimating the factor
-		
-		N_steps: int
-			The number of points to be used for integral estimation
-		
-		d: float
-			Exponent appearing in the integral
-	
-	Returns
-	-------
-		integral: torch.tensor
-			shape (1,)/(N,) -
-			The result of the integral
-	"""
-	#TODO: should this be a member of GW_flow? It would make sense...
-
-
-	theta1, theta2 = torch.atleast_2d(theta1), torch.atleast_2d(theta2)
-	steps = theta1 + torch.einsum("ij,k->kij", theta2-theta1, torch.linspace(0, 1, N_steps))
-	#steps = theta1 + torch.outer(theta2-theta1, torch.linspace(0, 1, N_steps))
-
-	old_shape = steps.shape
-	steps = torch.flatten(steps, 0, 1) #(N*N_steps, 3)
-	
-	log_pdfs = flow.log_prob(steps) #(N*N_steps, )
-	log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
-	log_pdfs = log_pdfs - log_pdfs[0,:] #(N_steps, N, )
-
-	det_M = torch.pow(torch.exp(log_pdfs), 2*d) #(N*N_steps, )
-	
-	integral = torch.trapezoid(det_M, dx =1/N_steps, axis =0)
-	
-	return integral
 
 
 

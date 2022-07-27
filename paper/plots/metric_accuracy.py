@@ -40,6 +40,19 @@ class psd_pycbc():
 def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap = False):
 	"Given a metric object and some boundaries, it draws random points and for each point it draws a random point at constant metric distance. The metric distance will be then compared with the actual distance. The output is stored on a dict"
 	
+	if False:
+		from mbank.flow.flowmodel import GW_Flow
+		from nflows.distributions.normal import StandardNormal
+		from nflows.transforms.base import InputOutsideDomain
+		import torch
+		import sys
+		sys.path.insert(0,'../../flow_stuff') #super ugly!!
+		from build_flow import Std3DTransform
+		
+		flow = GW_Flow(transform=Std3DTransform(), distribution=StandardNormal(shape=[3]))
+		flow.load_state_dict(torch.load('../../flow_stuff/standard_flow_3D/weights'))
+	
+	
 	pycbc_match_obj = psd_pycbc(metric_obj)
 	
 	#TODO: store the metric or the eigenvalues
@@ -47,7 +60,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 	out_dict = {'center': np.zeros((N_points,metric_obj.D)),
 				'theta': np.zeros((N_points,metric_obj.D, len(MM_list))),
 				'metric': np.zeros((N_points,metric_obj.D, metric_obj.D)), #this can be pretty heavy?
-				'metric_type': 'parabolic_fit_hessian',
+				'metric_type': 'hessian',
 				'MM_list': MM_list,
 				'overlap': overlap,
 				'variable_format': metric_obj.variable_format,
@@ -57,6 +70,7 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 				}
 	for MM in MM_list:
 		out_dict[MM] = np.zeros((N_points,))
+		if False: out_dict['{}_flow'.format(MM)] = np.zeros((N_points,))
 	
 	for i in tqdm(range(N_points), desc='Drawing points'):
 		center = np.random.uniform(*boundaries)
@@ -92,10 +106,23 @@ def get_metric_accuracy_data(metric_obj, MM_list, boundaries, N_points, overlap 
 					#storing to out_dict
 				out_dict['theta'][i,:,j] = theta
 				out_dict[MM][i] = metric_obj.WF_match(WF_center, WF_theta, overlap=overlap) #mbank
+
+				if False:
+					try:
+						print(center, theta)
+						print(MM, out_dict[MM][i], metric_obj.metric_match(center, theta, metric = metric, overlap=overlap)[0])
+						match_flow = 1-flow.get_distance(center, theta, center, metric)
+
+						out_dict['{}_flow'.format(MM)][i] = match_flow
+						#print(center, MM, out_dict[MM][i], match_flow)
+					except InputOutsideDomain:
+						out_dict['{}_flow'.format(MM)][i] = np.nan
+						#print("theta {} outside domain".format(theta))
 				
 			else:
 				out_dict['theta'][i,:,j] = np.nan
 				out_dict[MM][i] = np.nan
+				if False: out_dict['{}_flow'.format(MM)] = np.nan
 				#print('nan!!! ', center)
 			
 			#print(center, MM, out_dict[MM][i])
@@ -114,6 +141,7 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 		bins = np.logspace(np.log10(np.nanpercentile(out_dict[MM], .5)), 0, 50)
 		plt.hist(out_dict[MM], bins = bins, histtype='step')
 		plt.axvline(MM, c = 'k', ls = '-')
+		
 	plt.xscale('log')
 	plt.xlabel('$1-MM$')
 
@@ -124,6 +152,39 @@ def plot_metric_accuracy_data(out_dict, savefile = None):
 
 	if savefile is not None: plt.savefig(savefile)	
 	plt.show()
+
+def compare_metric_accuracy(out_dict, savefile = None):
+	"Plot the discrepancy between true an metric approx"
+	
+	MM = 0.97
+	
+	flow_hist = out_dict['{}_flow'.format(MM)]
+	flow_hist = np.exp(flow_hist-1)
+	
+	print(len(flow_hist))
+	
+	plt.figure()
+	plt.hist((MM- out_dict[MM])/out_dict[MM], bins = 10, histtype='step', label = 'metric', density = True)
+	plt.hist((flow_hist - out_dict[MM])/out_dict[MM], bins = 10, histtype='step', label = 'flow' , density = True)
+	plt.legend()
+
+	plt.figure()
+	plt.hist(flow_hist, bins = 10, histtype='step', label = 'metric', density = True)
+	plt.axvline(MM, label = 'metric_match', c= 'r')
+	plt.hist(out_dict[MM], bins = 10, histtype='step', label = 'true match' , density = True)
+	plt.legend()
+
+	plt.figure()
+	plt.scatter(out_dict[MM], flow_hist, s = 1)
+	plt.xlabel('true match')
+	plt.ylabel('flow match')
+	
+	#plt.yscale('log')
+	#plt.xscale('log')
+
+	plt.show()
+	
+	
 
 def plot_hist(out_dict):
 	MM = 0.97
@@ -221,14 +282,15 @@ def plot_ellipse(center, MM, metric_obj, boundaries = None):
 if __name__ == '__main__':
 
 		#definition
-	N_points = 15000
+	N_points = 5000
 	#psd = 'H1L1-REFERENCE_PSD-1164556817-1187740818.xml.gz'
 	psd = 'aligo_O3actual_H1.txt'
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
 	if len(sys.argv)>1: run_name = sys.argv[1]
 	else: run_name = 'test'
-	load = False
+
+	load = True
 	overlap = (run_name.find('overlap')>-1)
 	print('overlap: ', overlap)
 	
@@ -238,6 +300,8 @@ if __name__ == '__main__':
 	#boundaries = np.array([[20, 1., -0.99],[50., 5., 0.99]]) ; variable_format = 'Mq_chi'; approximant = 'IMRPhenomD'
 	#boundaries = np.array([[20, 1., 0.1, 0.03, 0.],[50, 5., 0.99, np.pi, np.pi]]); variable_format = 'Mq_s1xz_iota'; approximant = 'IMRPhenomPv2'
 	#boundaries = np.array([[20, 1., -0.99, 0.],[50, 5., 0.99, np.pi]]); variable_format = 'Mq_chi_iota'; approximant = 'IMRPhenomXPHM'
+
+	boundaries = np.array([[np.log10(10), 1., -0.9],[np.log10(40.), 7., 0.9]]) ; variable_format = 'logMq_chi'; approximant = 'IMRPhenomD'
 
 	filename = 'metric_accuracy/{}_{}.pkl'.format(run_name, variable_format)
 	print("Working with file {}".format(filename))
@@ -260,11 +324,12 @@ if __name__ == '__main__':
 		with open(filename, 'rb') as filehandler:
 			out_dict = pickle.load(filehandler)
 	
-	plot_hist(out_dict)
-	quit()
+	#plot_hist(out_dict)
+	#quit()
 	
 	savefile = None #'../tex/img/metric_accuracy_{}.pdf'.format(variable_format)
-	plot_metric_accuracy_data(out_dict, savefile)
+	#plot_metric_accuracy_data(out_dict, savefile)
+	compare_metric_accuracy(out_dict, savefile)
 	
 	
 	

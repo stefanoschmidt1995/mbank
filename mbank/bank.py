@@ -20,7 +20,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries, place_iterative
+from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, place_random_flow, read_xml, partition_tiling, split_boundaries, place_iterative
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -412,7 +412,10 @@ class cbc_bank():
 			for p in it:
 				#TODO: make this a ray function? Too much memory expensive, probably...
 					#The template volume for random is sqrt(1-MM) (not dist)
+				
 				new_templates_ = place_random(avg_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
+				#new_templates_ = place_random_flow(avg_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose) #DEBUG
+				
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:

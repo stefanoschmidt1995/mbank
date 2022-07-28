@@ -12,4 +12,4 @@ mbank.flow
 	
 	`IMPROVE THE DOCSTRINGS BETTER FOR THE FLOW!`
 """
-from .flowmodel import TanhTransform, GW_Flow
+from .flowmodel import TanhTransform, GW_Flow, STD_GW_Flow

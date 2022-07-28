@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0,'..')
 import os
 
-from mbank.flow import GW_Flow, TanhTransform
+from mbank.flow import GW_Flow, TanhTransform, STD_GW_Flow
 from mbank.flow.utils import plot_loss_functions, create_gif, plotting_callback
 
 import numpy as np
@@ -65,10 +65,10 @@ if __name__ == '__main__':
 
 	if args.n_dim ==2:
 		datafile = 'data/samples_mcmc_2D.dat'; variable_format = 'logMq_nonspinning' ; dirname = 'standard_flow_2D/'
-		transform = Std2DTransform()
+		n_layers, hidden_features = 10, 2
 	elif args.n_dim ==3:
 		datafile = 'data/samples_mcmc_3D.dat'; variable_format = 'logMq_chi' ; dirname = 'standard_flow_3D/'
-		transform = Std3DTransform()
+		n_layers, hidden_features = 10, 3
 	elif args.n_dim ==4:
 		datafile = 'data/samples_mcmc_4D.dat'; variable_format = 'logMq_s1xz' ; dirname = 'standard_flow_4D/'
 		transform = None
@@ -101,8 +101,6 @@ if __name__ == '__main__':
 	train_factor = 0.9
 	train_data, validation_data = data[:int(train_factor*N),:], data[int(train_factor*N):,:]
 
-	base_dist = StandardNormal(shape=[D])
-	
 		#####
 		## Summary
 	print("Saving stuff to folder: ", dirname)
@@ -114,7 +112,9 @@ if __name__ == '__main__':
 	
 		#####
 		# Training the model
-	flow = GW_Flow(transform=transform, distribution=base_dist)
+	#base_dist = StandardNormal(shape=[D])
+	#flow = GW_Flow(transform=transform, distribution=base_dist)
+	flow = STD_GW_Flow(D, n_layers, hidden_features)
 	#flow = GW_SimpleRealNVP(D, hidden_features = 4, num_layers = 2, num_blocks_per_layer = 2)
 	optimizer = optim.Adam(flow.parameters(), lr=0.001)
 

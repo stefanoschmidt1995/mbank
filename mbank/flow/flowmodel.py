@@ -18,11 +18,13 @@ try:
 
 	from nflows.flows.base import Flow
 	from nflows.distributions.base import Distribution
-	from nflows.distributions.uniform import BoxUniform
+	from nflows.distributions.normal import StandardNormal
 	from nflows.utils import torchutils
 	from nflows.transforms.base import InputOutsideDomain
+	from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
+	from nflows.transforms.linear import NaiveLinear
 
-	from nflows.transforms.base import Transform
+	from nflows.transforms.base import Transform, CompositeTransform
 except:
 	raise ImportError("Unable to find packages `torch` and/or `nflows`: try installing them with `pip install torch nflows`.")
 
@@ -69,6 +71,9 @@ class TanhTransform(Transform):
 		logabsdet = -torch.log(1 - inputs ** 2)
 		logabsdet = torchutils.sum_except_batch(logabsdet, num_batch_dims=1)
 		return outputs, logabsdet
+
+############################################################################################################
+############################################################################################################
 
 class GW_Flow(Flow):
 	
@@ -360,7 +365,29 @@ class GW_Flow(Flow):
 		return history
 
 
+############################################################################################################
+############################################################################################################
 
+class STD_GW_Flow(GW_Flow):
+	"""
+	An implementation of the standard flow: the flow is composed by one TanhTransform layer and a stack of layers made by NaiveLinear+MaskedAffineAutoregressiveTransform
+	"""
+	def __init__(self, D, n_layers, hidden_features = 2):
+		"""
+		Initialization of the flow
+		"""
+		base_dist = StandardNormal(shape=[D])
+		
+		transform_list = [TanhTransform(D)]
+
+		for _ in range(n_layers):
+			transform_list.append(NaiveLinear(features=D))
+				#FIXME: are you sure you want D hidden features?
+			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=hidden_features))
+		transform_list = CompositeTransform(transform_list)
+		
+		super().__init__(transform=transform_list, distribution=base_dist)
+		return
 
 
 

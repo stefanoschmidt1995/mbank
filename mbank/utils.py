@@ -718,9 +718,6 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		tiling: tiling_handler
 			Tiling handler that tiles the parameter space. If `None`, no tiling will be plotted	
 			
-		var_handler: variable_handler
-			A variable handler object to handle the labels. Can be instantiated with `mbank.handlers.variable_handler()`
-		
 		injections: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
 			An extra set of injections to plot. If `None`, no extra points will be plotted.
@@ -742,7 +739,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 			If `None`, no plots will be saved
 		
 		show: bool
-			Wheter to show the plots
+			Whether to show the plots
 
 	"""
 	var_handler = variable_handler()

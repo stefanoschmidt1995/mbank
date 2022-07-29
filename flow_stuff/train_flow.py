@@ -135,7 +135,8 @@ if __name__ == '__main__':
 	else:
 		with open(dirname+'history.pkl', 'rb') as f:
 			history = pickle.load(f)
-		flow.load_state_dict(torch.load(dirname+'weights'))
+		#flow.load_state_dict(torch.load(dirname+'weights'))
+		flow.load(dirname+'weights')
 
 	create_gif(dirname+'img', dirname+'/training_history.gif', fps = 1)
 	

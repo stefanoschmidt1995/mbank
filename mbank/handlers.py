@@ -3,8 +3,8 @@ mbank.handlers
 ==============
 	Two two important handlers class for ``mbank``:
 	
-	- ``spin_handler``: takes care of the BBH parametrization
-	- ``tiling_handlers``: takes care of the tiling of the space
+	- ``variable_handler``: takes care of the BBH parametrization
+	- ``tiling_handler``: takes care of the tiling of the space
 	
 	The handlers are used extensively throughout the package
 """
@@ -34,6 +34,9 @@ import ray
 import scipy.stats
 import scipy.integrate
 import scipy.spatial
+
+from .flow.flowmodel import STD_GW_Flow
+import torch
 
 ####################################################################################################################
 
@@ -1018,6 +1021,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		list.__init__(self)
 		self.lookup_table = None
+		self.flow = None
 
 		if ini is None: return
 		if isinstance(ini, tuple): ini = [ini]
@@ -1035,7 +1039,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		item = list.__getitem__(self, key)
 		if isinstance(item, tuple): return item
 		else: return tiling_handler(item)
-	
+		
 	def get_centers(self):
 		"""
 		Returns an array with the centers of the tiling
@@ -1058,7 +1062,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		self.lookup_table = scipy.spatial.KDTree(self.get_centers())
 		return
 
-	def get_tile(self, points):
+	def get_tile(self, points, kdtree = True):
 		"""
 		Given a set points, it computes the tile each point is closest to.
 		
@@ -1067,6 +1071,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			points: :class:`~numpy:numpy.ndarray`
 				shape (N,D)/(D,) - 
 				A set of points
+			
+			kdtree: bool
+				Whether to use a kdtree method to compute the tile. This method is much faster but it may be less accurate as it relies on euclidean distance rather than on the rectangles of the tiling.
 		
 		Returns
 		-------
@@ -1076,16 +1083,19 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		#TODO: Understand whether the look-up table is fine. It is FASTER, but maybe this is unwanted...
 		points = np.atleast_2d(np.asarray(points))
 
-		if self.lookup_table is None: self.update_KDTree()
-		_, id_tiles = self.lookup_table.query(points, k=1)
-		return id_tiles
 
-		distance_points = []
-		for R, _ in self.__iter__():
-			distance_points.append( R.min_distance_point(points) ) #(N_points,)
-		distance_points = np.stack(distance_points, axis = 1) #(N_points, N_tiles)
-		id_tiles = np.argmin(distance_points, axis = 1) #(N_points,)
-		del distance_points
+		if kdtree:
+			if self.lookup_table is None: self.update_KDTree()
+			_, id_tiles = self.lookup_table.query(points, k=1)
+			return id_tiles
+
+		else:
+			distance_points = []
+			for R, _ in self.__iter__():
+				distance_points.append( R.min_distance_point(points) ) #(N_points,)
+			distance_points = np.stack(distance_points, axis = 1) #(N_points, N_tiles)
+			id_tiles = np.argmin(distance_points, axis = 1) #(N_points,)
+			del distance_points
 		
 		return id_tiles
 
@@ -1379,6 +1389,27 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		volume = sum(tiles_volume)
 		return volume, tiles_volume
 	
+	def sample_from_flow(self, N_samples):
+		"""
+		Samples random points from the normalizing flow model defined on the tiling.
+		The flow must be trained in advance using `tiling_handler.train_flow`.
+		
+		Parameters
+		----------
+			N_samples: int
+				Number of samples to draw from the normalizing flow
+		
+		Returns
+		-------
+			samples: :class:`~numpy:numpy.ndarray`
+				shape: (N_samples, D) - 
+				`N_samples` samples drawn from the normalizing flow inside the tiling
+		"""
+		if self.flow is None: raise ValueError("You must train the flow before sampling from it!")
+		
+		return self.flow.sample(N_samples).detach().numpy()
+		
+		
 	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False, p_equal = False):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
@@ -1417,7 +1448,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		vols = np.array(vols)/tot_vols #normalizing volumes
 		
 		
-		tiles_rand_id = gen.choice(len(vols), N_samples, replace = True, p = vols)
+		tiles_rand_id = gen.choice(len(vols), N_samples, replace = True, p = None if p_equal else vols )
 		tiles_rand_id, counts = np.unique(tiles_rand_id, return_counts = True)
 		
 		if qmc:
@@ -1469,7 +1500,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		return left, right
 
 	
-	def save(self, filename):
+	def save(self, filename, flowfilename = None):
 		"""
 		Save the tiling to a file in npy format
 		
@@ -1478,6 +1509,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		filename: str
 			File to save the tiling to (in npy format)
+		
+		flowfilename: str
+			File to save the flow to. If None, the flow will not be saved
 			
 		"""
 		#The tiling is saved as a np.array: (N, 2+D, D)
@@ -1487,6 +1521,11 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		out_array = np.stack(out_array, axis =0) #(N, D+2, D) [[min], [max], metric]
 
 		np.save(filename, out_array)
+		
+		if isinstance(flowfilename, str):
+			if self.flow is None: warnings.warn("The flow model is not trained: unable to save it")
+			else:
+				self.flow.save(flowfilename)
 		
 		return
 	
@@ -1512,6 +1551,149 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		self.update_KDTree()
 		
 		return
+	
+	def load_flow(self, filename, n_layers = 10, hidden_features = 3):
+		"""
+		Loads the flow from file. The architecture of the flow must be specified at input.
+		
+		Parameters
+		----------
+		
+		filename: str
+			File to load the tiling from (in npy format)
+		
+		n_layers: int
+			Number of layers of the flow
+			See `mbank.flow.STD_GW_flow` for more information
+
+		hidden_features: int
+			Number of hidden features for the masked autoregressive flow in use.
+			See `mbank.flow.STD_GW_flow` for more information
+		"""
+		D = self[0].D
+		self.flow = STD_GW_Flow(D, n_layers, hidden_features)
+		self.flow.load(filename)
+		return
+	
+
+	def train_flow(self, N_epochs = 1000, N_train_data = 30000, n_layers = 10, hidden_features = 3, lr = 0.001, verbose = False):
+		"""
+		Train a normalizing flow model on the space covered by the tiling, using points sampled from the tiling.
+		The flow can be useful for smooth sampling from the tiling and to interpolate the metric within each tiles.
+		
+		It uses the architecture defined in `mbank.flow.STD_GW_flow`.
+		
+		Parameters
+		----------
+			N_epochs: int
+				Number of training epochs
+			
+			N_train_data: int
+				Number of training samples from the tiling to be used for training. The validation will be performed with 10% of the training data
+			
+			n_layers: int
+				Number of layers of the flow
+				See `mbank.flow.STD_GW_flow` for more information
+
+			hidden_features: int
+				Number of hidden features for the masked autoregressive flow in use.
+				See `mbank.flow.STD_GW_flow` for more information
+			
+			lr: float
+				Learning rate for the training
+			
+			verbose: bool
+				Whether to print the training output
+
+		Returns
+		-------
+			history: dict
+				A dict with the training history.
+				See `mbank.flow.GW_flow.train_flow_forward_KL` for more information
+		"""
+		from torch import optim
+		
+		assert len(self)>0, "In order to train the flow, the tiling must not be empty"
+		D = self[0].D
+
+			#Computing max and mins so that the limits of the flow will be initialized accordingly
+		max_val = np.max([ R.maxes for R,_ in self.__iter__()], axis = 0)
+		min_val = np.min([ R.mins for R,_ in self.__iter__()], axis = 0)
+		
+		print(max_val, min_val)
+		
+		train_data = self.sample_from_tiling(N_train_data)
+		train_data[[0,1],:] = [max_val, min_val]
+		validation_data = self.sample_from_tiling(int(0.1*N_train_data))
+		
+		self.flow = STD_GW_Flow(D, n_layers, hidden_features)
+		
+		optimizer = optim.Adam(self.flow.parameters(), lr=0.001)
+		
+		history = self.flow.train_flow_forward_KL(N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, validation_metric = 'cross_entropy', verbose = verbose)
+	
+		return history
+
+	def get_metric(self, theta, flow = False):
+		"""
+		Computes the approximation to the metric evaluated at points theta, as provided by the tiling.
+		If `flow` is true, a normalizing flow model will be used to interpolate the metric.
+		
+		Givent the metric :math:`M_{\\text{T}}` in a given tile with center :math:`\\theta_{\\text{T}}`, the interpolated determinant is
+
+		.. math::
+			|M|(\\theta) = \\left( \\frac{p_{\\text{NF}}(\\theta)}{p_{\\text{NF}}(\\theta_{\\text{T}})} \\right)^2 |M_{\\text{T}}|  = f(\\theta; \\theta_{\\text{T}}) |M_{\\text{T}}| 
+		
+		where :math:`p_{\\text{NF}}(\\theta)` is the probability distribution function defined by the normalizing flow model. :math:`p_{\\text{NF}}` is proportional by construction to the square root of the metric determinant.
+		
+		The interpolated metric then becomes:
+		
+		.. math::
+			M_{ij}(\\theta) = f^{1/D}(\\theta; \\theta_{\\text{T}}) {M_{\\text{T}}}_{ij}
+		
+		
+		Parameters
+		----------
+			theta: :class:`~numpy:numpy.ndarray`
+				shape: (N, D)/(D,) - 
+				Points of the parameter space to evaluate the metric at.
+			
+			flow: bool
+				Whether to use the normalizing flow model. The flow model must be trained in advance using `tiling_handler.train_flow`.
+		
+		Returns
+		-------
+			metric: :class:`~numpy:numpy.ndarray`
+				shape: (N, D)/(D,) - 
+				The metric evaluated according to the tiling
+		"""
+		theta = np.asarray(theta)
+		if theta.ndim ==1: squeeze=True
+		else: squeeze=False
+		theta = np.atleast_2d(theta)
+		
+		id_tiles = self.get_tile(theta)
+		metric = np.stack([self[id_].metric for id_ in id_tiles], axis = 0)
+		
+		if flow:
+			if self.flow is None:
+				raise ValueError("Cannot evaluate the flow PDF, as the flow is not trained. You can do that with `tiling_handler.train_flow`")
+
+			#TODO: check this factor VERY carefully
+					
+			centers = np.stack([self[id_].center for id_ in id_tiles], axis = 0)
+			log_pdf_centers = self.flow.log_prob(centers.astype(np.float32)).detach().numpy()
+			log_pdf_theta = self.flow.log_prob(theta.astype(np.float32)).detach().numpy()
+			
+			D = self[0].D
+			factor = (2/D)*(log_pdf_theta-log_pdf_centers)
+			factor = np.exp(factor)
+			
+			metric = (metric.T*factor).T
+		
+		if squeeze: metric = metric[0]
+		return metric
+
 
 
 ####################################################################################################################

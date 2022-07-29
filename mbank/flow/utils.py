@@ -5,7 +5,6 @@ mbank.flow.utils
 		Plotting & validation utilities for the `mbank.flow`
 """
 
-from mbank.handlers import variable_handler
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -150,6 +149,8 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 		writeme
 
 	"""
+		#FIXME: very likely this will result in circular imports at some point. The best way to fix this is to separate variable_handlers and tiling_handlers in separate files (but takes time).
+	from mbank.handlers import variable_handler
 	var_handler = variable_handler()
 	labels = var_handler.labels(variable_format, latex = False) if isinstance(variable_format, str) else None
 	hue_labels = list(hue_labels)

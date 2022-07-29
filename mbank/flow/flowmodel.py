@@ -88,7 +88,43 @@ class GW_Flow(Flow):
 				The base distribution of the flow that generates the noise (in the `nflows` style)
 		"""
 		super().__init__(transform=transform, distribution=distribution)
+	
+	def save(self, filename):
+		"""
+		Saves the weigths to filename.
+		It is equivalent to:
+		::
 		
+			torch.save(self.state_dict(), filename)
+		Parameters
+		----------
+			filename: str
+				Name of the file to save the weights at
+		"""
+		torch.save(self.state_dict(), filename)
+
+	
+	def load(self, filename):
+		"""
+		Load the weights of the flow from file. The weights must match the architecture of the flow.
+		It is equivalent to
+		
+		::
+		
+			self.load_state_dict(torch.load(filename))
+		
+		Parameters
+		----------
+			filename: str
+				File to load the weights from
+		"""	
+		try:
+			self.load_state_dict(torch.load(filename))
+		except:
+			msg = "The given weigth file does not match the architecture of this flow model."
+			raise ValueError(msg)
+		return
+	
 	def train_flow_forward_KL(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, validation_metric = 'cross_entropy', verbose = False):
 		"""
 		Trains the flow with forward KL: see eq. (13) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
@@ -128,15 +164,17 @@ class GW_Flow(Flow):
 			high, _ = torch.max(train_data, axis = 0)
 				#the interval between low and high is made larger by a factor epsilon
 			epsilon_ = 0.02
-			low = low*(1-torch.sign(low)*epsilon_)
-			high = high*(1+torch.sign(high)*epsilon_)
+			diff = high-low
+			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
+			low = low - diff*epsilon_
+			high = high + diff*epsilon_
 
 			for param, val in zip(self._transform._transforms[0].parameters(), [low, high]):
 				param.data = val
-			#print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
-			#print("train low high ", [torch.min(train_data, axis = 0)[0],  torch.max(train_data, axis = 0)[0]])
-			#print("val low high ",[torch.min(validation_data, axis = 0)[0],
-			#			torch.max(validation_data, axis = 0)[0]])
+			print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
+			print("train low high ", [torch.min(train_data, axis = 0)[0],  torch.max(train_data, axis = 0)[0]])
+			print("val low high ",[torch.min(validation_data, axis = 0)[0],
+						torch.max(validation_data, axis = 0)[0]])
 
 		else:
 			msg = "The first layer is not of the kind 'TanhTransform': although this will not break anything, it is *really* recommended to have it as a first layer. It is much needed to transform bounded data into unbounded ones."
@@ -198,12 +236,14 @@ class GW_Flow(Flow):
 		Computes the squared distance between ```theta1``` and ```theta2``` using the metric evaluated at ```thetac``` and the flow.
 		"""
 		theta1, theta2 = np.atleast_2d(theta1), np.atleast_2d(theta2)
+		D = theta1.shape[-1]
 		weight_factor = self.integrate_flow(torch.tensor(theta1, dtype=torch.float32), 
 					torch.tensor(theta2, dtype=torch.float32),
 					torch.tensor(thetac, dtype=torch.float32),
-					N_steps = 100, d = 1).detach().numpy()
+					N_steps = 100, d = 1./D).detach().numpy()
 		diff = theta2-theta1
 		dist = np.einsum('ij,jk,ik->i', diff, metric, diff)
+		#FIXME: this weigth factor is messed up!!  think about it more carefully
 		print('\t',weight_factor, dist, dist*weight_factor)
 		dist = dist*weight_factor
 		print('\t', 1-(np.exp(dist)-1))
@@ -213,19 +253,20 @@ class GW_Flow(Flow):
 
 
 
-	def integrate_flow(self, theta1, theta2, thetac, N_steps = 100, d = 1):
+	def integrate_flow(self, theta1, theta2, thetac, N_steps = 100):
 		"""
 		It performs the following integral:
 		
 		.. math::
-			\int_{0}^{1} \\text{d}t \, \left(\\frac{|M_{\\text{flow}}(\\theta(t))|}{|M_{\\text{flow}}(\\theta_C)|} \\right)^d
+			\int_{0}^{1} \\text{d}t \, \left(\\frac{|M_{\\text{flow}}(\\theta(t))|}{|M_{\\text{flow}}(\\theta_C)|} \\right)^{2/D}
 		
-		where
+		where `D` is the dimensionality of the space and 
 		
 		.. math::
 			\\theta(t) = \\theta_1 + (\\theta_2 -\\theta_1) t
 			
 		and where :math:`|M_{\\text{flow}}(\\theta)|` is estimated by the flow.
+		
 		
 		It is useful to weigth the metric distance obtained by assuming a constant metric (i.e. the standard way).
 		
@@ -245,9 +286,6 @@ class GW_Flow(Flow):
 			
 			N_steps: int
 				The number of points to be used for integral estimation
-			
-			d: float
-				Exponent appearing in the integral
 		
 		Returns
 		-------
@@ -255,11 +293,12 @@ class GW_Flow(Flow):
 				shape (1,)/(N,) -
 				The result of the integral
 		"""
-		#TODO: should this be a member of GW_flow? It would make sense...
+		#FIXME: move this somewhere else! Maybe in the tiling??
 
 		assert (theta1.ndim >= thetac.ndim) or (theta2.ndim >= thetac.ndim), "The center should have a number of dimensions less or equal than the extrema"
 
 		theta1, theta2 = torch.atleast_2d(theta1), torch.atleast_2d(theta2)
+		D = theta1.shape[-1]
 		steps = theta1 + torch.einsum("ij,k->kij", theta2-theta1, torch.linspace(0, 1, N_steps))
 		#steps = theta1 + torch.outer(theta2-theta1, torch.linspace(0, 1, N_steps))
 
@@ -272,18 +311,11 @@ class GW_Flow(Flow):
 		log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
 		log_pdfs = log_pdfs - log_pdf_center #(N_steps, N, )
 
-		det_M = torch.pow(torch.exp(log_pdfs), 2*d) #(N*N_steps, )
+		factor = torch.pow(torch.exp(log_pdfs), 2./D) #(N*N_steps, )
 		
-		integral = torch.trapezoid(det_M, dx =1/N_steps, axis =0)
+		integral = torch.trapezoid(factor, dx =1/N_steps, axis =0)
 		
 		return integral
-
-
-
-
-
-
-
 
 	def train_flow_reverse_KL(self, N_epochs, target_logpdf, optimizer, batch_size = 1000, validation_data =None, validation_step = 10, callback = None, out_dir=None, verbose = False):
 		"""

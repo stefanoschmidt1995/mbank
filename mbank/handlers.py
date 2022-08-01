@@ -38,6 +38,27 @@ import scipy.spatial
 from .flow.flowmodel import STD_GW_Flow
 import torch
 
+#############DEBUG LINE PROFILING
+try:
+	from line_profiler import LineProfiler
+
+	def do_profile(follow=[]):
+		def inner(func):
+			def profiled_func(*args, **kwargs):
+				try:
+					profiler = LineProfiler()
+					profiler.add_function(func)
+					for f in follow:
+						profiler.add_function(f)
+					profiler.enable_by_count()
+					return func(*args, **kwargs)
+				finally:
+					profiler.print_stats()
+			return profiled_func
+		return inner
+except:
+	pass
+
 ####################################################################################################################
 
 ###
@@ -1066,8 +1087,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		Given a set points, it computes the tile each point is closest to.
 		
-		Parameter
-		---------
+		Parameters
+		----------
 			points: :class:`~numpy:numpy.ndarray`
 				shape (N,D)/(D,) - 
 				A set of points
@@ -1116,17 +1137,16 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			Each element of the list must be (max, min), where max, min are array with the upper and lower point of the hypercube.
 			Each element can also be a (2,D) `np.ndarray`.
 			If a single `np.ndarray` is given
-			
 
 		tolerance: float
-			Maximum tolerated relative change between the metric determinant of the child and the parent ``|M|``.
+			Maximum tolerated relative change between the metric determinant of the child and the parent :math:`|M|`.
 			This means that a tile will be split if
 			
-			::
+			.. math ::
 			
-				(|M_p|-|M_c|)/max(|M_p|,|M_c|) > tolerance
+				0.5 \\bigg\\rvert{\log_{10}\\frac{|M_{\\text{parent}}|}{|M_{\\text{child}}|}} \\bigg\\rvert > tolerance
 			
-			If tolerance is greater than 1, no further tiling will be performed
+			If tolerance is greater than 10, no further tiling will be performed
 			
 		metric_func: function
 			A function that accepts theta and returns the metric.
@@ -1346,7 +1366,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		If `metric_function` is a function, the volume will be computed by means of an integration.
 		It must returns a metric approximation given a point theta in D dimension.
 		
-		The volume is computed as the integral of ``sqrt{|M(theta)|}`` over the D dimensional space of the tile.
+		The volume is computed as the integral of :math:`sqrt{|M(theta)|}` over the D dimensional space of the tile.
 		
 		Using a metric function for the integration, may be veeeery slow!
 		
@@ -1634,6 +1654,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 	
 		return history
 
+	#@do_profile(follow=[])
 	def get_metric(self, theta, flow = False):
 		"""
 		Computes the approximation to the metric evaluated at points theta, as provided by the tiling.
@@ -1664,7 +1685,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		Returns
 		-------
 			metric: :class:`~numpy:numpy.ndarray`
-				shape: (N, D)/(D,) - 
+				shape: (N, D, D)/(D, D) - 
 				The metric evaluated according to the tiling
 		"""
 		theta = np.asarray(theta)
@@ -1694,6 +1715,124 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		if squeeze: metric = metric[0]
 		return metric
 
+	def get_metric_distance(self, theta1, theta2, flow = False):
+		"""
+		Computes the squared *metric* distance between ```theta1``` and ```theta2```, using the metric provided by tiling.
+		The distance between to points is related to the match :math:`\mathcal{M}(\\theta_1, \\theta_2)` as follow:
+		
+		.. math::
+			d(\\theta_1, \\theta_2) = e^{M_{ij}\Delta\\theta_i \Delta\\theta_j} - 1 \simeq 1 - \mathcal{M}(\\theta_1, \\theta_2) 
+			
+		where :math:`M_{ij}\Delta\\theta_i \Delta\\theta_j` is the metric approximation to the distance.
+		The exponential is required to constrain the distance between 0 and 1.
+
+		If the option flow is True, the distance is computed with an integration of the flow PDF (this may be quite expensive).
+		
+		Parameters
+		----------
+			theta1: :class:`~numpy:numpy.ndarray`
+				shape: (N, D)/(D,) - 
+				First point
+
+			theta2: :class:`~numpy:numpy.ndarray`
+				shape: (N, D)/(D,) - 
+				Second point
+			
+			flow: bool
+				Whether to use the flow to compute the distance. Default is False
+		Returns
+		-------
+			dist: :class:`~numpy:numpy.ndarray`
+				shape: (N, )/(,) - 
+				Distance between ``theta1`` and ``theta2`` computed according to the tiling
+		"""
+		theta1, theta2 = np.asarray(theta1), np.asarray(theta2)
+		if theta1.ndim ==1: squeeze=True
+		else: squeeze=False
+		theta1, theta2 = np.atleast_2d(theta1), np.atleast_2d(theta2)
+		thetac = (theta1+theta2)/2.
+		metric = self.get_metric(thetac, flow)
+		diff = theta2-theta1
+		dist = np.einsum('ij,ijk,ik->i', diff, metric, diff)
+		
+		if flow:
+			if self.flow is None: raise ValueError("Cannot compute the distance using the flow integral as the flow is not trained. You can do so by calling `self.train_flow`.")
+			
+			D = theta1.shape[-1]
+			weight_factor = self.integrate_flow(torch.tensor(theta1, dtype=torch.float32), 
+					torch.tensor(theta2, dtype=torch.float32),
+					torch.tensor(thetac, dtype=torch.float32),
+					N_steps = 100).detach().numpy()
+			dist = dist*weight_factor
+
+		if squeeze: dist = dist[0]
+
+		#return dist
+		return np.exp(dist)-1 #better, as does not go crazy!
+
+	def integrate_flow(self, theta1, theta2, thetac, N_steps = 100):
+		"""
+		It performs the following integral:
+		
+		.. math::
+			\int_{0}^{1} \\text{d}t \, \left(\\frac{|M_{\\text{flow}}(\\theta(t))|}{|M_{\\text{flow}}(\\theta_C)|} \\right)^{2/D}
+		
+		where `D` is the dimensionality of the space and 
+		
+		.. math::
+			\\theta(t) = \\theta_1 + (\\theta_2 -\\theta_1) t
+			
+		and where :math:`|M_{\\text{flow}}(\\theta)|` is estimated by the flow.
+		
+		
+		It is useful to weigth the metric distance obtained by assuming a constant metric (i.e. the standard way).
+		
+		Parameters
+		----------
+			theta1: torch.tensor
+				shape (D,)/(N,D) -
+				Starting point of the line integral
+			
+			theta2: torch.tensor
+				shape (D,)/(N,D) -
+				Ending point of the line integral
+
+			thetac: torch.tensor
+				shape (D,)/(N,D) -
+				Center which the metric is compared at
+			
+			N_steps: int
+				The number of points to be used for integral estimation
+		
+		Returns
+		-------
+			integral: torch.tensor
+				shape (1,)/(N,) -
+				The result of the integral
+		"""
+		if self.flow is None: raise ValueError("You should train the flow before computing this integral")
+
+		assert (theta1.ndim >= thetac.ndim) or (theta2.ndim >= thetac.ndim), "The center should have a number of dimensions less or equal than the extrema"
+
+		theta1, theta2 = torch.atleast_2d(theta1), torch.atleast_2d(theta2)
+		D = theta1.shape[-1]
+		steps = theta1 + torch.einsum("ij,k->kij", theta2-theta1, torch.linspace(0, 1, N_steps))
+		#steps = theta1 + torch.outer(theta2-theta1, torch.linspace(0, 1, N_steps))
+
+		old_shape = steps.shape
+		steps = torch.flatten(steps, 0, 1) #(N*N_steps, 3)
+		
+		log_pdfs = self.flow.log_prob(steps) #(N*N_steps, )
+		log_pdf_center = self.flow.log_prob(torch.atleast_2d(thetac)) #(N, )/()
+		
+		log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
+		log_pdfs = log_pdfs - log_pdf_center #(N_steps, N, )
+
+		factor = torch.pow(torch.exp(log_pdfs), 2./D) #(N*N_steps, )
+		
+		integral = torch.trapezoid(factor, dx =1/N_steps, axis =0)
+		
+		return integral
 
 
 ####################################################################################################################

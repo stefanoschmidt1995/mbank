@@ -27,6 +27,7 @@ from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
 from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.flow.utils import compare_probability_distribution
 
 import argparse
 import os
@@ -99,6 +100,9 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
+parser.add_argument(
+	"--train-flow", action='store_true', default = False,
+	help="Whether to train a normalizing flow model for the tiling. It will be used for metric interpolation")
 	
 	#ranges for physical parameters
 parser.add_argument(
@@ -229,10 +233,14 @@ if format_info['mass_format'] == 'm1m2':
 
 else:
 	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, tolerance = args.tile_tolerance,
-		placing_method = args.placing_method, metric_type = args.metric_type, grid_list = args.grid_size,
-		livepoints = args.livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth, use_ray = args.use_ray)
+		placing_method = args.placing_method, metric_type = args.metric_type,
+		grid_list = args.grid_size, train_flow = args.train_flow,
+		livepoints = args.livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth,
+		use_ray = args.use_ray)
 	
-	t_obj.save(args.run_dir+'tiling_{}.npy'.format(args.run_name)) #storing the tiling in the out_folder
+	tiling_file = args.run_dir+'tiling_{}.npy'.format(args.run_name)
+	flowfile = args.run_dir+'flow_{}'.format(args.run_name) if args.train_flow else None
+	t_obj.save(tiling_file, flowfile) #saving also the flow
 
 if bank.templates is None:
 	print("No templates were added to the bank: the bank is not saved")
@@ -246,6 +254,14 @@ bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); t
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
 	plot_tiles_templates(bank.templates, args.variable_format, t_obj, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
+	
+	if t_obj.flow:
+		compare_probability_distribution(t_obj.flow.sample(5000).detach().numpy(), data_true = t_obj.sample_from_tiling(5000),
+			variable_format = args.variable_format,
+			title = None, hue_labels = ['flow', 'tiling'],
+			savefile = '{}/flow.png'.format(plot_folder), show = args.show)
+		
+	
 
 
 

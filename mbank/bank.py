@@ -428,8 +428,8 @@ class cbc_bank():
 		return new_templates
 
 	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance,
-			placing_method = 'random', metric_type = 'hessian',
-			grid_list = None, use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6):
+			placing_method = 'random', metric_type = 'hessian', grid_list = None, train_flow = False,
+			use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6):
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -459,6 +459,9 @@ class cbc_bank():
 		
 		metric_type: str
 			The method computation method to use. For more information, you can check ``metric.cbc_metric.get_metric``.
+		
+		train_flow: bool
+			Whether to train a normalizing flow model after the tiling is generated. It will be used for metric interpolation during the template placing
 		
 		grid_list: list
 			A list of ints, each representing the number of coarse division of the space.
@@ -508,6 +511,8 @@ class cbc_bank():
 									#metric_type = 'parabolic_fit_hessian', target_match = 0.9, N_epsilon_points = 10, log_epsilon_range = (-4, 1))
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
+		
+		if train_flow: t_obj.train_flow(N_epochs = 1000, verbose = True) #training the flow model (optional)
 		
 			##
 			#placing the templates

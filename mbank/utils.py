@@ -636,9 +636,10 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 			#these are the indices being checked
 		if N_argpartiton < bank.templates.shape[0]:
 			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
-		
-		metric = tiling[out_dict['id_tile'][i]].metric
-		#metric = get_projected_metric(tiling[out_dict['id_tile'][i]])
+
+			#using the flow to compute the true tiling metric (if available)
+		if tiling.flow: metric = tiling.get_metric(injs[i], flow = True)
+		else: metric = tiling[out_dict['id_tile'][i]].metric
 		
 		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
 		
@@ -1095,7 +1096,7 @@ def place_stochastically_in_tile(minimum_match, tile):
 	while nothing_new < 300:
 		proposal = np.random.uniform(tile.rectangle.mins, tile.rectangle.maxes, tile.D) #(D,)
 		diff = new_templates - proposal
-		
+
 		min_dist = np.min(np.sum(np.multiply(diff, np.matmul(diff, tile.metric)), axis = -1))
 
 		if min_dist > dist_sq:
@@ -1177,7 +1178,7 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 				tiles_to_use = np.delete(tiles_to_use, np.where(where_to_remove))
 				nothing_new = np.delete(nothing_new, np.where(where_to_remove))
 
-			if verbose and i%2000==0:t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(tiling)-len(tiles_to_use), len(tiling)))
+			if verbose and i%200==0:t_.set_description("Templates added {} ({}/{} tiles full)".format(new_templates.shape[0], len(tiling)-len(tiles_to_use), len(tiling)))
 			if len(tiles_to_use) == 0: break
 			
 			id_tiles_to_use = np.random.choice(len(tiles_to_use)) #id of the tile to use in the list tiles_to_use
@@ -1185,10 +1186,13 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 			
 			rect = tiling[tile_id].rectangle
 			proposal = np.random.uniform(rect.mins, rect.maxes, (1, tiling[tile_id].D))
+			
+			if tiling.flow: metric = tiling.get_metric(proposal, flow = True) #using the flow if it is trained
+			else: metric = tiling[tile_id].metric
 
 			diff = new_templates - proposal #(N_templates, D)
 			
-			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, tiling[tile_id].metric)), axis = -1))
+			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1))
 			
 				#faster alternative with cholesky (but works only for non-degenerate metric)
 			#L_t = np.linalg.cholesky(tiling[tile_id][1]) #(D,D)
@@ -1355,7 +1359,9 @@ def place_random(minimum_match, tiling, N_points, tolerance = 0.01, verbose = Tr
 		#id_point = np.random.randint(len(livepoints))
 		point = livepoints[id_point,:]
 		id_ = id_tile_livepoints[id_point]
-		metric = tiling[id_].metric
+		
+		if tiling.flow: metric = tiling.get_metric(point, flow = True) #using the flow if it is trained
+		else: metric = tiling[id_].metric
 		
 		diff = livepoints - point #(N,D)
 		#FIXME: you should insert here a distance cutoff (like 4 or 10 in coordinate distance...)? this should account for the very very large unphysical tails of the metric!!

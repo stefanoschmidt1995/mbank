@@ -1717,7 +1717,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 	def get_metric_distance(self, theta1, theta2, flow = False):
 		"""
-		Computes the squared *metric* distance between ```theta1``` and ```theta2```, using the metric provided by tiling.
+		Computes the squared *metric* distance between ``theta1`` and ``theta2``, using the metric provided by tiling.
 		The distance between to points is related to the match :math:`\mathcal{M}(\\theta_1, \\theta_2)` as follow:
 		
 		.. math::
@@ -1726,7 +1726,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		where :math:`M_{ij}\Delta\\theta_i \Delta\\theta_j` is the metric approximation to the distance.
 		The exponential is required to constrain the distance between 0 and 1.
 
-		If the option flow is True, the distance is computed with an integration of the flow PDF (this may be quite expensive).
+		If the option flow is True, the distance is computed with an integration of the flow PDF (this may be quite expensive). See :meth:`mbank.handlers.tiling_handler.compute_integral` for more details.
 		
 		Parameters
 		----------

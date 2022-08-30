@@ -93,9 +93,11 @@ class GW_Flow(Flow):
 		"""
 		Saves the weigths to filename.
 		It is equivalent to:
+		
 		::
 		
 			torch.save(self.state_dict(), filename)
+
 		Parameters
 		----------
 			filename: str
@@ -136,15 +138,14 @@ class GW_Flow(Flow):
 
 			validation_metric: str
 				Name for the validation metric to use: options are `cross_entropy` and `ks` (Kolmogorov-Smirnov). Default is cross entropy
-		
+
 		Returns
 		-------
 			history: dict
 				A dictionary keeping the historical values of training & validation loss function + KS metric.
 				It has the following entries:
-					- validation_step: number of epochs between two consecutive evaluation of the validation metrics
-					- train_loss: values of the loss function
-		
+				- validation_step: number of epochs between two consecutive evaluation of the validation metrics
+				- train_loss: values of the loss function
 		"""
 		#TODO: implement early stopping!!
 		#FIXME: there's something weird with cross entropy: why do you exceed the threshold even though the loss function still goes down?
@@ -239,14 +240,14 @@ class GW_Flow(Flow):
 		----------
 			N_epochs: int
 				Number of training epochs
-		
+
 		Returns
 		-------
 			history: dict
 				A dictionary keeping the historical values of training & validation loss function + KS metric.
 				It has the following entries:
-					- validation_step: number of epochs between two consecutive evaluation of the validation metrics
-					- train_loss: values of the loss function
+				- validation_step: number of epochs between two consecutive evaluation of the validation metrics
+				- train_loss: values of the loss function
 		"""
 		
 		msg = "Fitting with reverse KL is not feasible as it requires the evaluation of the GRADIENT of the true PDF!\n"

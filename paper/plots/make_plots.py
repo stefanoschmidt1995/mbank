@@ -419,8 +419,8 @@ if __name__ == '__main__':
 	metric_accuracy_parabolic_filenames = [m.replace('paper_hessian', 'paper_parabolic') for m in metric_accuracy_filenames]
 	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', None, np.inf)
 	#plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', None, np.inf)
-	plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.png')
-	plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
+	#plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.png')
+	#plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
 
 		###
 		#validation of placing methods
@@ -439,8 +439,8 @@ if __name__ == '__main__':
 		sbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_sbank.pkl'.format(ct))
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
-	title = ['Nonspinning', 'Aligned Spins', 'Aligned Spins low mass']#, 'Gstlal O3 bank']
-	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
+	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###

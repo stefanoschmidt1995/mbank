@@ -239,7 +239,7 @@ else:
 		use_ray = args.use_ray)
 	
 	tiling_file = args.run_dir+'tiling_{}.npy'.format(args.run_name)
-	flowfile = args.run_dir+'flow_{}'.format(args.run_name) if args.train_flow else None
+	flowfile = args.run_dir+'flow_{}.zip'.format(args.run_name) if args.train_flow else None
 	t_obj.save(tiling_file, flowfile) #saving also the flow
 
 if bank.templates is None:

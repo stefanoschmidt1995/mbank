@@ -20,7 +20,8 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries, place_iterative
+from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, place_stochastically_global_stop, place_iterative
+from .utils import DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -390,7 +391,8 @@ class cbc_bank():
 		if placing_method in ['uniform', 'qmc']:
 			vol_tot, _ = tiling.compute_volume()
 			N_templates = int( vol_tot/(dist**self.D) )+1
-			new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
+			if tiling.flow and placing_method == 'uniform': new_templates = tiling.sample_from_flow(N_templates)
+			else: new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 			
 		if placing_method in ['random', 'random_stochastic']:
 				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
@@ -418,7 +420,8 @@ class cbc_bank():
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
-			new_templates = place_stochastically(avg_match, tiling,
+			print("###### DOING GLOBAL STOP: THAT'S THE WAY TO GOOOOOO")
+			new_templates = place_stochastically_global_stop(avg_match, tiling,
 					empty_iterations = empty_iterations,
 					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random
@@ -512,7 +515,7 @@ class cbc_bank():
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
 		
-		if train_flow: t_obj.train_flow(N_epochs = 1000, verbose = True) #training the flow model (optional)
+		if train_flow: t_obj.train_flow(N_epochs = 1000, verbose = True) #training the flow with DEFAULTS args (optional)
 		
 			##
 			#placing the templates

@@ -204,7 +204,8 @@ else:
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
 		
 		injections_full = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
-				
+		args.n_injs = injections_full.shape[0]
+		
 	elif args.inj_file.endswith('json'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
 		

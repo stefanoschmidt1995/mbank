@@ -16,7 +16,7 @@ from nflows.distributions.normal import StandardNormal
 
 import re
 import warnings
-warnings.simplefilter('ignore', UserWarning)
+#warnings.simplefilter('ignore', UserWarning)
 
 from build_flow import Std2DTransform, Std3DTransform, Std6DTransform, Std5DTransform, Std8DTransform, GW_SimpleRealNVP
 import pickle
@@ -65,20 +65,21 @@ if __name__ == '__main__':
 
 	if args.n_dim ==2:
 		datafile = 'data/samples_mcmc_2D.dat'; variable_format = 'logMq_nonspinning' ; dirname = 'standard_flow_2D/'
-		n_layers, hidden_features = 10, 2
+		n_layers, hidden_features = 2, 4
 	elif args.n_dim ==3:
 		datafile = 'data/samples_mcmc_3D.dat'; variable_format = 'logMq_chi' ; dirname = 'standard_flow_3D/'
-		n_layers, hidden_features = 10, 3
+		#n_layers, hidden_features = 10, 3
+		n_layers, hidden_features = 2, 4
 	elif args.n_dim ==4:
 		datafile = 'data/samples_mcmc_4D.dat'; variable_format = 'logMq_s1xz' ; dirname = 'standard_flow_4D/'
 		transform = None
 		raise NotImplementedError("Please define a transformation here")
 	elif args.n_dim == 5:
 		datafile = 'data/samples_mcmc_5D_lowq.dat'; variable_format = 'logMq_s1xz_s2z' ; dirname = 'standard_flow_5D/'
-		transform = Std5DTransform()
+		n_layers, hidden_features = 2, 4
 	elif args.n_dim == 6:
 		datafile = 'data/samples_mcmc_6D.dat'; variable_format = 'logMq_s1xz_s2z_iota' ; dirname = 'standard_flow_6D/'
-		transform = Std6DTransform()
+		n_layers, hidden_features = 2, 4
 	elif args.n_dim == 8:
 		datafile = 'data/samples_mcmc_8D.dat'; variable_format = 'logMq_fullspins' ; dirname = 'standard_flow_8D/'
 		transform = Std8DTransform()

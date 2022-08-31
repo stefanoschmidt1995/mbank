@@ -149,6 +149,7 @@ class GW_Flow(Flow):
 		"""
 		#TODO: implement early stopping!!
 		#FIXME: there's something weird with cross entropy: why do you exceed the threshold even though the loss function still goes down?
+
 		if isinstance(callback, tuple): callback, callback_step = callback
 		else: callback_step = 10
 		
@@ -164,7 +165,7 @@ class GW_Flow(Flow):
 			low, _ = torch.min(train_data, axis = 0)
 			high, _ = torch.max(train_data, axis = 0)
 				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.02
+			epsilon_ = 0.001 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_

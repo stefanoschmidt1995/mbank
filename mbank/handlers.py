@@ -1572,7 +1572,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		return
 	
-	def load_flow(self, filename, n_layers = 10, hidden_features = 3):
+	def load_flow(self, filename, n_layers = 2, hidden_features = 4):
 		"""
 		Loads the flow from file. The architecture of the flow must be specified at input.
 		
@@ -1596,7 +1596,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		return
 	
 
-	def train_flow(self, N_epochs = 1000, N_train_data = 30000, n_layers = 10, hidden_features = 3, lr = 0.001, verbose = False):
+	def train_flow(self, N_epochs = 1000, N_train_data = 30000, n_layers = 2, hidden_features = 4, lr = 0.001, verbose = False):
 		"""
 		Train a normalizing flow model on the space covered by the tiling, using points sampled from the tiling.
 		The flow can be useful for smooth sampling from the tiling and to interpolate the metric within each tiles.
@@ -1693,7 +1693,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		else: squeeze=False
 		theta = np.atleast_2d(theta)
 		
-		id_tiles = self.get_tile(theta)
+		id_tiles = self.get_tile(theta, kdtree = False)
 		metric = np.stack([self[id_].metric for id_ in id_tiles], axis = 0)
 		
 		if flow:
@@ -1703,12 +1703,12 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			#TODO: check this factor VERY carefully
 					
 			centers = np.stack([self[id_].center for id_ in id_tiles], axis = 0)
-			log_pdf_centers = self.flow.log_prob(centers.astype(np.float32)).detach().numpy()
-			log_pdf_theta = self.flow.log_prob(theta.astype(np.float32)).detach().numpy()
+			log_pdf_centers = self.flow.log_prob(centers.astype(np.float32))
+			log_pdf_theta = self.flow.log_prob(theta.astype(np.float32))
 			
 			D = self[0].D
 			factor = (2/D)*(log_pdf_theta-log_pdf_centers)
-			factor = np.exp(factor)
+			factor = torch.exp(factor).detach().numpy()
 			
 			metric = (metric.T*factor).T
 		

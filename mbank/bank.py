@@ -20,8 +20,8 @@ import ray
 
 import scipy.spatial
 
-from .utils import plawspace, create_mesh, get_boundary_box, place_stochastically_in_tile, place_stochastically, place_stochastically_global_stop, place_iterative
-from .utils import DefaultSnglInspiralTable, avg_dist, place_random, read_xml, partition_tiling, split_boundaries
+from .utils import place_stochastically_in_tile, place_stochastically, place_iterative, place_random
+from .utils import DefaultSnglInspiralTable, avg_dist, read_xml, partition_tiling, split_boundaries, plawspace, create_mesh, get_boundary_box
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -420,8 +420,7 @@ class cbc_bank():
 				new_templates.extend(new_templates_)
 			
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
-			print("###### DOING GLOBAL STOP: THAT'S THE WAY TO GOOOOOO")
-			new_templates = place_stochastically_global_stop(avg_match, tiling,
+			new_templates = place_stochastically(avg_match, tiling,
 					empty_iterations = empty_iterations,
 					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
 		#TODO: find a nice way to set free parameters for placing methods stochastic and random

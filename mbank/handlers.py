@@ -1043,6 +1043,10 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		list.__init__(self)
 		self.lookup_table = None
 		self.flow = None
+		
+			#storing the volume and the volume of each tile, for fast retrival
+		self.volume = None
+		self.tiles_volume = []
 
 		if ini is None: return
 		if isinstance(ini, tuple): ini = [ini]
@@ -1202,6 +1206,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			t_obj = tiling_handler()
 			for t in t_ray_list: self.extend(t)
 		
+		self.compute_volume()
+		self.update_KDTree()
+		
 		return self
 
 
@@ -1356,6 +1363,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		self.extend( [t for t,_,_ in tiles_list] )
 		
 		self.update_KDTree()
+		self.compute_volume()
 		
 		return self
 	
@@ -1391,7 +1399,10 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		if metric_func is None:
 			#tiles_volume = [rect.volume()*np.sqrt(np.abs(np.linalg.det(metric))) for rect, metric in self.__iter__()]
-			tiles_volume = [t.volume for t in self.__iter__()]
+			if self.volume is None or len(self.tiles_volume) != len(self):
+				self.tiles_volume = [t.volume for t in self.__iter__()]
+				self.volume = sum(self.tiles_volume)
+			volume, tiles_volume = self.volume, self.tiles_volume
 		else:
 			tiles_volume = []
 
@@ -1406,7 +1417,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				tiles_volume.append(tile_volume)
 				#print(tile_volume)
 		
-		volume = sum(tiles_volume)
+			volume = sum(tiles_volume)
+			
 		return volume, tiles_volume
 	
 	def sample_from_flow(self, N_samples):
@@ -1429,7 +1441,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		return self.flow.sample(N_samples).detach().numpy()
 		
-		
+	#@do_profile(follow=[])
 	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False, p_equal = False):
 		"""
 		Samples random points from the tiling. It uses Gibb's sampling.
@@ -1478,7 +1490,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			samples = [	gen.uniform(self[t_id][0].mins, self[t_id][0].maxes, (c, D) )
 						for t_id, c in zip(tiles_rand_id, counts)]
 		samples = np.concatenate(samples, axis = 0, dtype = dtype)
-		
+
 		if tile_id:
 			tile_id_vector = np.concatenate([np.full(c, t_id) for t_id, c in zip(tiles_rand_id, counts)])
 			return samples, tile_id_vector

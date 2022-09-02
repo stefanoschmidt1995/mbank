@@ -30,19 +30,21 @@ import itertools
 ########################################################################################################
 
 def corner_plot(bank_file, variable_format, title = None, savefile = None):
-	import corner
+	#import corner
 	bank = cbc_bank(variable_format, bank_file)
 	vh = variable_handler()
 	bank_labels = vh.labels(variable_format, latex = True)
 	D = bank.D
+
+	print("Bank size: ", bank.templates.shape[0])
 
 	#figure = corner.corner(bank.templates, labels = bank_labels, quantiles = None, show_titles=False)
 	#plt.show()
 	#quit()
 	
 	size = plt.rcParams.get('figure.figsize')
-	size = (1.5**2*size[0]*bank.D/4., 1.5*size[1]*1.5/4*bank.D)
-	#size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
+	#size = (1.5**2*size[0]*bank.D/4., 1.5*size[1]*1.5/4*bank.D)
+	size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
 	fig, axes = plt.subplots(D,D, figsize = size)
 	if isinstance(title, str): plt.suptitle(title)
 	
@@ -440,7 +442,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###
@@ -456,13 +458,13 @@ if __name__ == '__main__':
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}.png'.format(t.replace(' ', '_'))
 		print(filename)
-		#corner_plot(b,f,t, savefile = filename)
+		corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
+	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

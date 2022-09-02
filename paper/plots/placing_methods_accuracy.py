@@ -167,14 +167,14 @@ if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
-	load_bank = True
+	load_bank = False
 	full_match = True
 
 	MM_list = [0.97]
 	
-	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+	epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
 	#epsilon_list = [10, 1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (30, 50)
-	epsilon_list = [10, 0.5, 0.355, 0.35, 0.3, 0.25, 0.2]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	#epsilon_list = [10, 0.5, 0.355, 0.35, 0.3, 0.25, 0.2]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
 	
 			#setting ranges
 	q_range = (1,5)

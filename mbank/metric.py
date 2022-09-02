@@ -1054,26 +1054,34 @@ class cbc_metric(object):
 
 		return metric
 	
-	def WF_symphony_match(self, h1, h2, overlap = False):
+	def WF_symphony_match(self, h1, h2, overlap = False, F_p = 1., F_c = 0.):
 		"""
 		Computes the symphony match line by line between two WFs. The WFs shall be evaluated on the custom grid 
 		No checks will be done on the input
 		The symphony match is defined in eq (13) of `1709.09181 <https://arxiv.org/abs/1709.09181>`_
 		
+		To be computed, the symphony match requires the specification of antenna pattern functions. They are typically a function of sky location and a (conventional) polarization angle.
+		
 		Parameters
 		----------
 		
 		h1: tuple
-			(np.ndarray,np.ndarray) (N,K) -
+			(:class:`~numpy:numpy.ndarray`, :class:`~numpy:numpy.ndarray`) (N,K) -
 			First WF: tuple (hp, hc)
 
 		h1: tuple
-			(np.ndarray,np.ndarray) (N,K) -
+			(:class:`~numpy:numpy.ndarray`, :class:`~numpy:numpy.ndarray`) (N,K) -
 			Second WF: tuple (hp, hc)
 		
 		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
+		
+		F_p: float
+			Value for the :math:`F_+` antenna pattern function. Used to build the signal at ifo
+
+		F_c: float
+			Value for the :math:`F_\\times` antenna pattern function. Used to build the signal at ifo			
 		
 		Returns
 		-------
@@ -1087,7 +1095,7 @@ class cbc_metric(object):
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
 		
 			#whithening and normalizing
-		s_WN = h2[0] + 0*h2[1] #TODO: set a proper linear combination coeff!!
+		s_WN = F_p*h2[0] + F_c*h2[1] #depends on the antenna pattern
 		h1p_WN = (h1[0]/np.sqrt(self.PSD)) #whithened WF
 		h1c_WN = (h1[1]/np.sqrt(self.PSD)) #whithened WF
 		s_WN = (s_WN/np.sqrt(self.PSD)) #whithened WF

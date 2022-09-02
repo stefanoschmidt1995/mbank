@@ -64,14 +64,11 @@ parser.add_argument(
 	help="An optional file with weigths for a normalizing flow model. If provided it will be used to interpolate the metric when computing the metric injection match.")
 	#If not given, it is understood that a file 'tiling_${RUN_NAME}.npy' is located in run dir
 parser.add_argument(
-	"--N-neigh-templates", type = int, default = 100,
+	"--n-neigh-templates", type = int, default = 100,
 	help="Number of neighbouring templates to be considered for the computation of the match with METRIC approximation")
 parser.add_argument(
-	"--N-neigh-templates-full", type = int, default = None,
+	"--n-neigh-templates-full", type = int, default = None,
 	help="Number of neighbouring templates to be considered for the computation of the match (no approx). If None, it is set to the value of N-neigh-templates")
-parser.add_argument(
-	"--N-neigh-tiles", type = int, default = 20,
-	help="Number of neighbouring tiles in which look for the best match. #### DEPRECATED")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
 	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
@@ -135,7 +132,7 @@ for f in filenames:
 	######
 
 var_handler = variable_handler()
-if args.N_neigh_templates_full is None: args.N_neigh_templates_full = args.N_neigh_templates
+if args.n_neigh_templates_full is None: args.n_neigh_templates_full = args.n_neigh_templates
 
 if (args.bank_file is None) or (args.tiling_file is None) or (args.variable_format is None):
 	raise ValueError("The arguments bank-file, tiling-file and variable_format must be set!")
@@ -232,7 +229,7 @@ else:
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_metric_injections_match(injections_full, bank,  t_obj, N_neigh_templates = args.N_neigh_templates)
+injection_stat_dict = compute_metric_injections_match(injections_full, bank,  t_obj, N_neigh_templates = args.n_neigh_templates)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
@@ -249,10 +246,10 @@ if args.full_match or args.full_match_symphony:
 
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
-				args.N_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
+				args.n_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
 	else:
 		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
-				args.N_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
+				args.n_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
 	metric.set_variable_format(args.variable_format)
 	
 	######

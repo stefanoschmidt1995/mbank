@@ -1753,7 +1753,7 @@ def read_xml(filename, table, N = None):
 	
 	return BBH_components
 		
-def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 20.):
+def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_distance = 100, f_min = 10., f_max = 1024.):
 		"""
 		Save the given injections to a ligo xml injection file (sim_inspiral table).
 		
@@ -1784,7 +1784,10 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 			If a tuple, it has the meaning max luminosity/min luminosity
 
 		f_min: float
-			Starting frequency (in Hz) for the injection
+			Starting frequency (in Hz) for the injections
+
+		f_max: float
+			End frequency (in Hz) for the injections
 		
 		multiple_template: bool
 			Whether to allow the same template to appear more than once in the injection set
@@ -1829,6 +1832,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 			row.simulation_id = i #int?
 			row.waveform = approx
 			row.f_lower = f_min
+			row.f_final = f_max
 			row.taper = "TAPER_START"
 			row.bandpass = 0
 
@@ -1837,7 +1841,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 			row.coa_phase = phi
 			row.polarization = np.random.uniform(0.0, 2.0 * np.pi)
 			row.longitude = np.random.uniform(0.0, 2.0 * np.pi)
-			row.latitude = np.arcsin(np.random.uniform(-1.0, 1.0))
+			row.latitude = np.arcsin(np.random.uniform(-1.0, 1.0)) #FIXME: check whether this is correct!
 			row.distance = np.random.uniform(*luminosity_distance)
 
 				#setting masses/spins and other related quantities
@@ -1850,8 +1854,6 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 			row.mchirp = ((row.mass1 * row.mass2)**3/row.mtotal)**0.2
 			row.chi = (row.mass1 *row.spin1z + row.mass2 *row.spin2z) / row.mtotal #is this the actual chi?
 			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
-			
-			row.f_final = 2500 /(row.mtotal) #are you sure this is fine??
 			
 				#dealing with geocentric time for the injections
 			tj = lal.LIGOTimeGPS(float(t_inj)) #do you want to jitter it?

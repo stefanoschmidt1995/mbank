@@ -60,7 +60,10 @@ parser.add_argument(
 	help="Distance in time between consecutive injections")
 parser.add_argument(
 	"--f-min",  default = 10., type=float,
-	help="Minium frequency for the injection")
+	help="Minium frequency (in Hz) for the injections")
+parser.add_argument(
+	"--f-max",  default = 1024., type=float,
+	help="Maximum frequency (in Hz) for the injections")
 parser.add_argument(
 	"--distance-range", default = [100., 1000.], type=float, nargs = 2,
 	help="Luminosity distance for all the injections (in Mpc)")
@@ -127,7 +130,7 @@ var_handler = variable_handler()
 injs = np.array(var_handler.get_BBH_components(injs, args.variable_format)).T
 
 save_injs(args.inj_out_file, injs, args.gps_start, args.gps_end, args.time_step, args.approximant,
-	luminosity_distance = (min_dist, max_dist), f_min = args.f_min)
+	luminosity_distance = (min_dist, max_dist), f_min = args.f_min, f_max = args.f_max)
 
 
 

@@ -102,7 +102,6 @@ class cbc_metric(object):
 
 		#####Tackling the PSD
 		#FIXME: do you really need to store the PSD and the frequency grid all the way to zero? It seems like an useless waste of memory/computational time
-		self.PSD = PSD[1]
 		self.f_grid = PSD[0]
 		self.delta_f = self.f_grid[1]-self.f_grid[0]
 			#checking that grid is equally spaced
@@ -111,11 +110,18 @@ class cbc_metric(object):
 		#####applying a high frequency cutoff to the PSD
 		if isinstance(f_max, (int, float)): #high frequency cutoff
 			self.f_max = f_max
-			self.f_grid = np.linspace(0., f_max, int(f_max/self.delta_f)+1)
-			self.PSD = np.interp(self.f_grid, PSD[0], PSD[1])
 		else:
 			self.f_max = self.f_grid[-1]
-		self.f_max = float(self.f_max) #Do we need this?
+		self.f_grid = np.linspace(0., self.f_max, int(self.f_max/self.delta_f)+1)
+		self.PSD = np.interp(self.f_grid, PSD[0], PSD[1])
+
+		if np.any(self.PSD ==0):
+			self.PSD[self.PSD ==0.] = np.inf
+			
+		self.f_max = float(self.f_max)
+			#To compute the sampling rate:
+			#https://electronics.stackexchange.com/questions/12407/what-is-the-relation-between-fft-length-and-frequency-resolution
+		self.srate = 2*(self.f_grid[1] - self.f_grid[0])*len(self.f_grid)
 		
 		return
 	

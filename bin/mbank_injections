@@ -68,7 +68,7 @@ parser.add_argument(
 	help="Number of neighbouring templates to be considered for the computation of the match with METRIC approximation")
 parser.add_argument(
 	"--n-neigh-templates-full", type = int, default = None,
-	help="Number of neighbouring templates to be considered for the computation of the match (no approx). If None, it is set to the value of N-neigh-templates")
+	help="Number of neighbouring templates to be considered for the computation of the match (no approx). If None, it is set to the value of n-neigh-templates")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
 	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")

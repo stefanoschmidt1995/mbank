@@ -380,7 +380,7 @@ def ray_compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templa
 	"""
 		###
 		# Split injections
-	n_injs_per_job = max(250, int(inj_dict['metric_match'].shape[0]/max_jobs)) 
+	n_injs_per_job = max(25, int(inj_dict['metric_match'].shape[0]/max_jobs)) 
 	
 		###
 		# Initializing ray and performing the computation

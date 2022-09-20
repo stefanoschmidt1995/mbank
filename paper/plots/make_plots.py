@@ -2,11 +2,16 @@
 Script to make all the plots for the paper. It loads several files around and plot the results
 """
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-plt.style.use(['science','ieee', 'bright']) #https://github.com/garrettj403/SciencePlots
+plt.style.use(["seaborn-colorblind",])
+#plt.style.use(['science','ieee', 'bright']) #https://github.com/garrettj403/SciencePlots
 #plt.rcParams['axes.spines.right'] = False
 #plt.rcParams['axes.spines.top'] = False
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['cornflowerblue', 'tomato', 'mediumseagreen', 'orchid',  'darkorange'])
+plt.rcParams['figure.figsize']=(3.29,2.8)
+plt.rcParams['figure.dpi']= 100
 plt.rcParams['xtick.top'] = False
 plt.rcParams['ytick.right'] = False
 
@@ -36,6 +41,9 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	bank_labels = vh.labels(variable_format, latex = True)
 	D = bank.D
 
+	#np.random.shuffle(bank.templates)
+	#bank.templates = bank.templates[:10000]
+
 	print("Bank size: ", bank.templates.shape[0])
 
 	#figure = corner.corner(bank.templates, labels = bank_labels, quantiles = None, show_titles=False)
@@ -44,7 +52,8 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	
 	size = plt.rcParams.get('figure.figsize')
 	#size = (1.5**2*size[0]*bank.D/4., 1.5*size[1]*1.5/4*bank.D)
-	size = (size[0]*bank.D/4., size[1]*1.5/4*bank.D)
+	ysize = size[0]*1.5/4*bank.D + 0.3#if bank.D>3 else size[1]*1.6/4*bank.D
+	size = (size[0]*bank.D/4 + 1.5, ysize)
 	fig, axes = plt.subplots(D,D, figsize = size)
 	if isinstance(title, str): plt.suptitle(title)
 	
@@ -52,12 +61,6 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 		ax = axes[i,j]
 		ax.xaxis.set_ticks_position('bottom')
 		ax.yaxis.set_ticks_position('left')
-		
-			#setting labels
-		if j==0 and i!=0:
-			ax.set_ylabel(bank_labels[i])
-		if i==D-1:
-			ax.set_xlabel(bank_labels[j])
 		
 			#above diagonal elements
 		if i<j: ax.axis('off')
@@ -76,9 +79,22 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 		
 		if i>j:
 			ax.scatter(bank.templates[:,j], bank.templates[:,i], s = .09, edgecolors='none', alpha = 0.7)
+				
+				#setting labels
+		if j==0 and i!=0:
+			ax.set_ylabel(bank_labels[i])
+		else:
+			empty_string_labels = ['' for item in ax.get_yticklabels()]
+			ax.set_yticklabels(empty_string_labels)
+		if i==D-1:
+			ax.set_xlabel(bank_labels[j])
+		else:
+			empty_string_labels = ['' for item in ax.get_xticklabels()]
+			ax.set_xticklabels(empty_string_labels)
 	
 	
-	plt.tight_layout()
+	
+	#plt.tight_layout()
 	if isinstance(savefile, str): plt.savefig(savefile)	
 	#plt.show()
 	#quit()
@@ -115,7 +131,8 @@ def plot_distance_vs_match(filenames, savefile = None):
 			dist_vector = np.linalg.norm(out_dict['theta1'][...,id_]-out_dict['theta2'][...,id_], axis = 1)
 		
 		ids_plot = np.where(dist_vector<np.nanpercentile(dist_vector, 99))[0]
-		
+	
+		next(ax._get_lines.prop_cycler)
 		ax.scatter(dist_vector[ids_plot], 1-out_dict[0.97][ids_plot], **arg_dict)
 	
 		ax.axhline(1-MM, ls ='--', c = 'k', alpha = 0.5, lw = 1)
@@ -142,7 +159,9 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 	"Plot the metric accuracy plots"
 		#creating the figures
 	nbins = 50
-	fig, axes = plt.subplots(len(filenames), 1, sharex = True)
+	size = plt.rcParams.get('figure.figsize')
+	size = (size[0], size[1]*1.3)
+	fig, axes = plt.subplots(len(filenames), 1, figsize = size,sharex = True)
 	if isinstance(title, str): plt.suptitle(title)
 	
 	for i, (ax, filename) in enumerate(zip(axes, filenames)):
@@ -193,9 +212,13 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 	axes[-1].set_xticks([min_MM_val+0.01*i for i in range(int((1-min_MM_val)*100))], labels = [], minor = True)
 	axes[-1].set_xlim([min_MM_val,1.02])
 
+	axes[-1].get_xticklabels()[0].set_horizontalalignment('left')
+	
+	plt.tight_layout()
+
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 
-def plot_MM_study(ax, out_dict, set_labels = 'both'):
+def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 	id_N_templates = np.where(np.array(out_dict['MM_list'])==out_dict['MM_inj'])[0]
 	#out_dict['N_templates'] = np.log10(out_dict['N_templates'])
 	max_N_templates, min_N_templates = np.max(out_dict['N_templates'][:,id_N_templates]), np.min(out_dict['N_templates'][:,id_N_templates])
@@ -231,7 +254,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 
 		ax.plot(np.repeat(N_t, 2), np.exp(MM_grid_transformed[[0,-1]])*N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
 		ax.plot(x_hist, np.exp(MM_grid_transformed)* N_templates,
-						c= 'b', label = 'Metric Match' if i==0 else None)
+						c= 'cornflowerblue', label = 'Metric Match' if i==0 else None)
 		ax.scatter(N_t, N_templates, marker ='x', c='k', s = 6) #data point
 		len_red_tick = np.abs(N_t - np.min(x_hist))/2.
 		ax.plot([N_t-len_red_tick,  N_t+len_red_tick], np.full(2, N_templates *np.exp( MM_grid_transformed[id_MM])), '-', c= 'r', lw =1) #MM ticks
@@ -242,16 +265,16 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
 			x_hist = N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0]))
 			ax.plot(x_hist, np.exp(MM_grid_transformed) * N_templates,
-						c= 'orange', label = 'Match' if i==0 else None)
+						c= 'darkorange', label = 'Match' if i==0 else None)
 		
 	ax.set_yscale('log')
 	#ax.set_ylim([min_y, max_y])
 	ax.set_xscale('log')
 	#ax.axhline(out_dict['MM_inj'], c = 'r')
-	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{\text{tiles}}$")
-	if set_labels in ['y', 'both']: ax.set_ylabel(r"$N_{\text{templates}}$")
+	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{tiles}$", fontsize = 12)
+	if set_labels in ['y', 'both']: ax.set_ylabel(r"$N_{templates}$", fontsize = 12)
 	#ax.set_ylim((0.94,1.001))
-	ax.legend(loc = 'lower right')
+	if set_legend: ax.legend(loc = 'lower right')
 	
 	#if out_dict['variable_format']=='Mq_nonspinning':
 	ax.set_ylim(np.array(ax.set_ylim())*[0.95, 1.5])
@@ -265,7 +288,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both'):
 def plot_placing_validation(format_files, placing_methods, savefile = None):
 
 	size = plt.rcParams.get('figure.figsize')
-	size = (size[0]*2, size[1]*len(placing_methods)/1.5)
+	size = (size[0]*2.2, size[1]*len(placing_methods)/1.5)
 	fig, axes = plt.subplots(len(placing_methods), len(format_files), sharex = False, figsize = size)
 	
 	for i, variable_format in enumerate(format_files):
@@ -279,7 +302,16 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 				continue
 			print(variable_format, method, out_dict['MM_metric'].shape)
 				#plot
-			plot_MM_study(axes[j,i], out_dict, 'x' if i==0 else 'both')
+			axes[j,i].yaxis.set_label_position("right")
+			axes[j,i].yaxis.tick_right()
+			if i == len(axes[0])-1:
+				label_position = 'y'
+				if j == len(axes)-1: label_position = 'both'
+			elif j == len(axes)-1:
+				label_position = 'x'
+			else:
+				label_position = None
+			plot_MM_study(axes[j,i], out_dict, label_position, False if (i,j)!=(2,1) else True)
 			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
 			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
 			text_dict['rotation'] = 'vertical'
@@ -297,7 +329,7 @@ def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_lis
 	key_A, key_B = keys
 	
 	size = plt.rcParams.get('figure.figsize')
-	size = (size[0], size[1]*len(list_A)*0.35)
+	size = (size[0], size[1]*len(list_A)*0.45)
 	fig, axes = plt.subplots(len(list_A), 1, sharex = True, figsize = size)
 	
 	c_A, c_B = {}, {}
@@ -320,18 +352,22 @@ def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_lis
 		kde_A = sts.gaussian_kde(A_inj[key_A])
 
 		print(t, len(B_inj[key_B]))
+		next(ax._get_lines.prop_cycler)
 
 		ax.plot(x, kde_B.pdf(x), lw=1, label=label_B, **c_A)
 		ax.plot(x, kde_A.pdf(x), lw=1, label=label_A, **c_B)
 		#ax.hist(B_inj[key_B], label = label_B, density = True, histtype = 'step', bins = 1000)
 		#ax.hist(A_inj[key_A], label = label_A, density = True, histtype = 'step', bins = 1000)
+
+		ax.tick_params(axis='both', which='major', labelsize=8)
+		ax.tick_params(axis='both', which='minor', labelsize=7)
 		
 		if isinstance(MM, float): ax.axvline(MM, c = 'k', ls = '--')
-		if isinstance(t, str): ax.set_title(t)
-	axes[-1].legend(loc = 'upper left')
+		if isinstance(t, str): ax.set_title(t, fontsize = 10)
+	axes[-1].legend(loc = 'upper left', fontsize = 8)
 	axes[-1].set_xlim([0.95,1.005])
 		
-	axes[-1].set_xlabel(r"$\mathcal{M}$")
+	axes[-1].set_xlabel(r"$\mathcal{M}$", fontsize = 10)
 	plt.tight_layout()	
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
@@ -357,7 +393,7 @@ def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
 		fig, axes = plt.subplots(1, N_colums, figsize = size, sharey = True)	
 		if isinstance(t,str): plt.suptitle(t)
 		
-		hist_kwargs = {'bins': min(50, int(len(templates)/50 +1)), 'histtype':'step', 'color':'orange'}
+		hist_kwargs = {'bins': min(50, int(len(templates)/50 +1)), 'histtype':'step', 'color':'darkorange'}
 		fs = 10
 		ticks_y = ticker.FuncFormatter(lambda x, pos: '{0:g}K'.format(int(x/1e3)) if x >2 else '') #formatter
 		
@@ -420,8 +456,9 @@ if __name__ == '__main__':
 				'metric_accuracy/paper_hessian_Mq_chi_iota.pkl']
 	metric_accuracy_parabolic_filenames = [m.replace('paper_hessian', 'paper_parabolic') for m in metric_accuracy_filenames]
 	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', None, np.inf)
+	#plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.pdf')
+		#old garbage
 	#plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', None, np.inf)
-	#plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.png')
 	#plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
 
 		###
@@ -442,7 +479,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###
@@ -457,14 +494,13 @@ if __name__ == '__main__':
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}.png'.format(t.replace(' ', '_'))
-		print(filename)
-		corner_plot(b,f,t, savefile = filename)
+		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('orange', 'b'), MM = 0.97, title = title_list, savefile = savefile)
+	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

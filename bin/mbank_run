@@ -87,7 +87,7 @@ parser.add_argument(
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
 	"--empty-iterations", default = 100, type = float,
-	help="Number of consecutive proposal inside a tile to be rejected before the tile is considered full for the `stochastic` placement method")
+	help="Number of consecutive rejected proposal after which the `stochastic` placing method stops.")
 parser.add_argument(
 	"--tile-tolerance", default = 0.1, type = float,
 	help="Maximum tolerated variation of the relative difference of the metric determinant between parent and child in the iterative splitting procedure")

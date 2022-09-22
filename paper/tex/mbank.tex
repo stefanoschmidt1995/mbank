@@ -60,14 +60,14 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	We introduce a novel method to generate a bank of templates of binary black hole (BBH) coalescences for matched-filter gravitational waves searches in LIGO and Virgo data. Unlike standard approach, our method relies on a metric approximation to the distance between templates, which makes the template placement order of magnitude faster than the existing techniques.
-	Our method works on a variety of different manifold of signals and is particularly suitable to cover high dimensional spaces.
-	We compare our method with the state-of-the-art code \texttt{sbank} and we find that our code slightly overcover the space, while achieving similar injection recovery. To demonstrate the capabilities of our code, we generate a precessing bank, an Intermediate Mass Black Hole bank with Higher Order Modes and an eccentric bank and show that they cover the space in a satisfactory way.
-	Our publicly released code \texttt{mbank}  will enable searches in exotic regions of BBH parameter space, hitherto unfeasible due to the prohibitive cost of bank generation.
+	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO and Virgo data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders of magnitude faster than with existing techniques.
+	Our method applies to a variety of different manifolds of signals and is particularly suitable for covering high dimensional spaces, such as those associated with precessing and/or eccentric waveforms.
+	We compare our method with the state-of-the-art stochastic placement code and we find that our code slightly overcovers the space, while achieving similar efficiency in recovering signals. To demonstrate the capabilities of our code, we generate a precessing bank, an intermediate mass black hole bank with higher-order modes, and an eccentric bank, and show that they cover the space in a satisfactory way.
+	Our publicly released code \texttt{mbank} will enable searches of ``exotic" regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
 \end{abstract}
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
-	\title{Metric template placement for high dimensional exotic regions of compact binary mergers in gravitational waves searches}
+	\title{Metric template placement for high dimensional exotic regions of compact binary mergers}
 	\author{Stefano \surname{Schmidt}}
 		\email{s.schmidt@uu.nl}
         \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
@@ -85,19 +85,19 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	\maketitle
 
-	\tableofcontents
+	%\tableofcontents
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH} and intermediate mass BHs \cite{IMBH_O2, IMBH_O3}. Moreover, there is a growing interests in searching for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302} and eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016}.
+As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH} and intermediate mass BHs \cite{IMBH_O2, IMBH_O3}. Moreover, there is a growing interest in searching for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302} and eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016}.
 All these searches need accurate templates banks that covers the parameter space of interests. The template bank generation can be highly non trivial and computationally expensive task but is crucial for the outcome of the searches.
 
 The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014} - consists in scattering templates around the parameter space with a rejection technique \cite{sbank}. A proposed template is included in the bank only if its mismatch with all the proposed templates in the bank is larger than the user defined threshold.
 While this method is proven to work in many cases, it is computationally demanding, hence very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
 With the ever growing parameter space hyper-volume for the BBH searches, the stochastic method may not be our best approach to the template bank generation moving forward.
 
-To optimize the stochastic method, there has been a recent growing interest on {\it metric template placing} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs}. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
+To optimize the stochastic method, there has been recently an increasing attention on {\it metric template placing} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, manifold_PSU}. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 Following the seminal work by Owen \cite{owen_metric}, a large number of approaches that use metric approximation (in some form) have been introduced.
 
 In this work, we develop a novel approach to template placing based on the metric approximation of the mismatch.
@@ -111,7 +111,7 @@ The package offers support for tiling the parameter space of interests and placi
 As a summary, \texttt{mbank} is implemented to be:
 \begin{itemize}
 	\item Extremely fast
-	\item Suitable for large banks and high dimensional {\it exotic} parameter space
+	\item Suitable to cover high dimensional {\it exotic} parameter space
 	\item Close to provide optimal coverage
 \end{itemize}
 
@@ -283,13 +283,15 @@ To simplify the geometry (and make the computation faster), we only consider hyp
 \end{equation}
 where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-cube (rectangle) with extrema $\theta_{min/max}$ and where $M$ is the metric evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
-To split a tile $\mathcal{T}$ we use the function \texttt{SplitTile} described in alg.~\ref{alg:tiling}, which returns 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
+Partially following \cite{manifold_PSU}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
 The three resulting tiles are further split if:
 \begin{equation}
 	0.5\left|\log_{\textrm{10}}\frac{\mathcal{T}_{right}}{\mathcal{T}_{left}}\right| > \epsilon,
 \end{equation}
 where the threshold $\epsilon$ can be freely chosen by the user and controls the total number of tiles being generated.
-The tiling generation algorithm iteratively splits the an initial tile $\mathcal{T}_{0}$ covering all the space of interest, until all the tiles satisfy the condition above.
+Function \texttt{SplitTile} is described in alg.~\ref{alg:tiling}.
+
+The tiling generation algorithm iteratively splits an initial tile $\mathcal{T}_{0}$ which covers the space of interest, until all the tiles satisfy the condition above.
 To prevent the algorithm from running indefinetely, we may also impose an (optional) threshold \texttt{max-depth} on the number of ``generations of tiles". If set, this limits the number of tiles to $3^{\texttt{max-depth}}$.
 
 As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. 

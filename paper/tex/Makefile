@@ -1,13 +1,20 @@
-all: mbank.pdf
+DOCNAME=mbank
 
-mbank.pdf: mbank.tex mbank.aux bib
-	pdflatex -synctex=1 -interaction=nonstopmode "mbank".tex
+all: $(DOCNAME).pdf
 
-mbank.aux: mbank.tex
-	pdflatex -synctex=1 -interaction=nonstopmode "mbank".tex
+$(DOCNAME).pdf: $(DOCNAME).tex biblio
+	-pdflatex -synctex=1 -interaction=nonstopmode $(DOCNAME).tex
+	-pdflatex -synctex=1 -interaction=nonstopmode $(DOCNAME).tex
 
-bib: mbank.aux biblio.bib
-	bibtex "mbank".aux
+biblio: biblio.bib
+	-pdflatex -synctex=1 -interaction=nonstopmode $(DOCNAME).tex
+	bibtex $(DOCNAME).aux
+	
+remove:
+	rm -f $(DOCNAME).bbl $(DOCNAME).out $(DOCNAME)Notes.bib $(DOCNAME).aux $(DOCNAME).log $(DOCNAME).blg $(DOCNAME).toc $(DOCNAME).synctex.gz
 
-clean:
-	rm -f mbank.bbl mbank.out mbankNotes.bib mbank.aux mbank.log mbank.blg mbank.toc mbank.synctex.gz mbank.pdf
+clean: remove
+	rm $(DOCNAME).pdf
+	
+
+#The command pdflatex may fail: we need to put a dash - in fron of the instruction, to make sure the makefile doesn't stop after failure

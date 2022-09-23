@@ -3,6 +3,7 @@ sys.path.insert(0,'..')
 import os
 
 from mbank.flow import GW_Flow, TanhTransform, STD_GW_Flow
+from mbank.flow.flowmodel import GW_Flow_Uniform
 from mbank.flow.utils import plot_loss_functions, create_gif, plotting_callback
 
 import numpy as np
@@ -16,7 +17,7 @@ from nflows.distributions.normal import StandardNormal
 
 import re
 import warnings
-#warnings.simplefilter('ignore', UserWarning)
+warnings.simplefilter('ignore', UserWarning)
 
 from build_flow import Std2DTransform, Std3DTransform, Std6DTransform, Std5DTransform, Std8DTransform, GW_SimpleRealNVP
 import pickle
@@ -26,7 +27,7 @@ import argparse
 #############
 
 def my_callback(model, epoch):
-	return plotting_callback(model, epoch, dirname+'img/', validation_data, variable_format)
+	return plotting_callback(model, epoch, dirname+'img/', validation_data[:500], variable_format)
 	
 #############
 
@@ -117,6 +118,8 @@ if __name__ == '__main__':
 	#flow = GW_Flow(transform=transform, distribution=base_dist)
 	flow = STD_GW_Flow(D, n_layers, hidden_features)
 	#flow = GW_SimpleRealNVP(D, hidden_features = 4, num_layers = 2, num_blocks_per_layer = 2)
+	#flow = GW_Flow_Uniform(D, n_layers, hidden_features)
+	
 	optimizer = optim.Adam(flow.parameters(), lr=0.001)
 
 		#training the flow

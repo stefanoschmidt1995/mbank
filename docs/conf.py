@@ -66,6 +66,8 @@ html_theme = "sphinx_rtd_theme"
 add_module_names = False
 
 master_doc = "index"
+autoclass_content = 'both'
+
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),

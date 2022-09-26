@@ -1,2 +1,2 @@
 .. automodule:: mbank.utils
-	:members:
+	:members: avg_dist, get_boundaries_from_ranges, load_PSD, compute_avg_metric_dist, ray_compute_injections_match, compute_injections_match, compute_metric_injections_match, project_metric, get_projector, plawspace, get_cube_corners, place_stochastically_in_tile, place_stochastically, partition_tiling, place_iterative, place_random, create_mesh, split_boundaries, read_xml, save_injs, plot_tiles_templates

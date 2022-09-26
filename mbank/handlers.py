@@ -893,9 +893,10 @@ class tile(tuple):
 	Class to represent a tile. A tile is a tuple
 	
 	::
+	
 		(Rectangle, Metric)
 	
-	where rectangle is represented by a `scipy.spatial.Rectangle` object and metric is a square matrix, stored as a `np.ndarray`.
+	where rectangle is represented by a :class:`~scipy.spatial.Rectangle` object and metric is a square matrix, stored as a :class:`~numpy:numpy.ndarray`.
 	
 	The rectangle and the metric can be accessed with `tile.rectangle` and `tile.metric`.
 	The volume and the center of the tile can be accessed with `tile.center` and `tile.volume` respectively.
@@ -906,7 +907,7 @@ class tile(tuple):
 		
 		Parameters
 		----------
-			rectangle: scipy.spatial.Rectangle/np.ndarray/tuple
+			rectangle: :class:`~scipy.spatial.Rectangle`/:class:`~numpy:numpy.ndarray`/tuple
 				A scipy rectangle.
 				If an `np.ndarray` is given, it must be of shape `(2,D)` and it is interpreted s.t. `rectangle[0,:]` is the minimum and `rectangle[1,:]` is the maximum.
 				If metric is None, it can be initialized with a tuple: in this case it is understood that the tuple is (Rect, metric) and it will be unwrapped authomatically
@@ -1019,7 +1020,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 	A tiling is a list of tiles that cover a larger space.
 	Each tile, consists in:
 	
-	- an hypercubes (``scipy.spatial.Rectangle`` object) that defines its boundaries
+	- an hypercubes (:class:`~scipy.spatial.Rectangle` object) that defines its boundaries
 	- a metric that it's used to compute distances between points of the tile. It is represented by a DxD matrix (``np.ndarray`` object), where D is the dimensionality of the space.
 	
 	Overall a tiling handler looks like:
@@ -1500,7 +1501,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 	def split_tiling(self, d, split):
 		"""
 		Produce two tilings by splitting the parameter space along dimension `d`. The splitting is done by the threshold `split`.
-		It is roughly the equivalent for a tiling to `scipy.spatial.Rectangle.split`.
+		It is roughly the equivalent for a tiling to the ``split`` method of :class:`~scipy.spatial.Rectangle`.
 		
 		Parameters
 		----------

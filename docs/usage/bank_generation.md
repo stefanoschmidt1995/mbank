@@ -37,7 +37,7 @@ run-dir: precessing_bank
 psd: ./aligo_O3actual_H1.txt
 ifo: H1
 asd: true
-placing-method: random
+placing-method: stochastic
 livepoints: 20
 empty-iterations: 100
 grid-size: 1,1,2,2
@@ -60,13 +60,15 @@ You can then create your first precessing bank by
 
 	mbank_run my_first_precessing_bank.ini
 
-If the `--plot` option is set, you will see in your `--run-dir` some plot describing your bank:
+If the `--plot` option is set, you will see in your `--run-dir` some plots describing your bank:
+
+![](../img/bank.png)
 
 ![](../img/tiling.png)
 
 ![](../img/hist.png)
 
-If you are happy with your tiling but you want to run again the template placing, you can change the ini file accordingly. Do not forget to specify the name of a tiling file!
+If you are happy with your tiling but you want to run again the template placing, you can run the command `mbank_place_templates`. Do not forget to specify the name of a tiling file!
 For instance, if you want to change the minimum match, you can simply run:
 	
 	mbank_place_templates --tiling-file tiling_my_first_precessing_bank.npy --mm 0.95 my_first_precessing_bank.ini
@@ -105,12 +107,13 @@ The boundaries of the banks are encoded as `(2,D)` numpy array where the rows ke
 ```Python
 boundaries = np.array([[20,1,-0.99],[40,5,0.99]])
 	#Another option using get_boundaries_from_ranges
-format_info = var_handler.format_info[variable_format]
-boundaries = get_boundaries_from_ranges(format_info,
-			(20, 40), (1, 5), chi_range = (-0.99, 0.99))
+boundaries = get_boundaries_from_ranges(variable_format,
+		(20, 40), (1, 5), chi_range = (-0.99, 0.99))
 ```
 
-The next step is to create a metric object. This will take care of generating the metric given a point in space and a PSD. For initialization, you need to specify also the approximant and the frequency range (in Hz) for the metric.
+The next step is to create a metric object. This will take care of generating the metric given a point in space and a PSD.
+Your favourite PSD is provided by the LIGO-Virgo collaboration and can be downloaded [here](https://dcc.ligo.org/LIGO-T2000012/public).
+For initialization, you need to specify also the approximant and the frequency range (in Hz) for the metric.
 
 ```Python
 metric = cbc_metric(variable_format,
@@ -131,6 +134,7 @@ t_obj = bank.generate_bank(metric, avg_match = 0.97, boundaries = boundaries,
 
 Running this may take a while...
 The function returns a `tiling_handler` object which gathers the tiling. The tiling is independent from the bank, hence coded in a different object.
+The template of the bank are saved like a `(N,3)` numpy array under the name `bank.templates`.
 
 You can save the tiling and the bank with:
 
@@ -159,7 +163,7 @@ bank.place_templates(t_obj, 0.97, placing_method = 'random',
 Finally, you can generate some nice plots of the bank + tiling by calling the function `plot_tiles_templates`:
 
 ```Python
-plot_tiles_templates(t_obj, bank.templates, variable_format, var_handler, show = True)
+plot_tiles_templates(bank.templates, variable_format, t_obj, show = True)
 ```
 
 

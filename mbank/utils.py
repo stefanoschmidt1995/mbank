@@ -591,9 +591,11 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 			
 			- ``theta_inj``: the parameters of the injections
 			- ``id_tile``: index of the tile the injections belongs to (in the tiling)
-			- ``match``: match of the closest template
-			- ``id_match``: index of the closest template
-			- ``match_neig``: match for the ``N_neigh_templates`` nearest neighbours
+			- ``match``: match of the closest template (filled by function `compute_injections_match`)
+			- ``id_match``: index of the closest template (filled by function `compute_injections_match`)
+			- ``metric_match``: metric match of the closest template
+			- ``id_metric_match``: metric index of the closest template
+			- ``match_neig``: match for the ``N_neigh_templates`` nearest neighbours (metric match if full match is not computed, match otherwise)
 			- ``id_match_neig``: index of the ``N_neigh_templates`` nearest neighbours
 		
 			each entry is ``np.ndarray`` where each row is an injection.

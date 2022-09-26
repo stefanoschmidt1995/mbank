@@ -27,7 +27,9 @@ try:
 
 	from nflows.transforms.base import Transform, CompositeTransform
 except:
-	raise ImportError("Unable to find packages `torch` and/or `nflows`: try installing them with `pip install torch nflows`.")
+	#raise ImportError("Unable to find packages `torch` and/or `nflows`: try installing them with `pip install torch nflows`.")
+	msg = "Unable to find packages `torch` and/or `nflows`: you will not be able to use the flow functionalities.\nIf you want to use them, try `pip install torch nflows`."
+	warnings.warn(msg)
 
 from .utils import ks_metric, cross_entropy_metric
 

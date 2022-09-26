@@ -7,7 +7,7 @@ All the relevant code is gathered in a single class ```mbank.metric.cbc_metric``
 As shown in previous tutorials, to instantiate a metric, the user must specify:
 
 - The variable format: this defines the manifold the metric is defined on and sets the dimensionality of the space (see the help of ```mbank.handlers.variable_handler```
-- The power spectral density (PSD): it characterizes the properties of the noise and affects the metric components
+- The power spectral density ([PSD](https://dcc.ligo.org/LIGO-T2000012/public)): it characterizes the properties of the noise and affects the metric components
 - The frequency window for the analysis: the minimum and the maximum frequency for the analysis
 - The approximant: the name of a frequency domain `lal` approximant to compute the waveforms with
 
@@ -23,9 +23,9 @@ metric = cbc_metric('Mq_chi',
 			f_min = 10, f_max = 1024)
 ```
 
-The object has an internal frequency grid ```metric.f_grid```, on which all the waveforms generated are evaluated as well as the PSD. The grid spacing is inferred from the given PSD whereas the limits are given by the frequency window.
+The object has an internal frequency grid `metric.f_grid`, on which all the waveforms generated are evaluated as well as the PSD (stored in `metric.PSD`). The grid spacing is inferred from the given PSD whereas the limits are given by the frequency window.
 
-To compute the metric at a given point, one can use the function ```get_metric()```. Returning the metric evaluted at a given point ```theta```. The function supports batch evaluation, as common in `numpy`.
+To compute the metric at a given point, one can use the function ```get_metric()```. Returning the metric evaluted at a given point ```theta```. The function supports batch evaluation, as custom in `numpy`.
 The argument `metric_type` allows the user to decide their preferred metric computation method. We _strongly_ recommend to use the default method `hessian`, which computes the metric as the hessian of the overlap, as stated in the [paper](linktoourpaper): any other metric computation method either provides an experimental feature either shows a poor numerical performance!
 
 A number of helpers allow to compute useful quantities derived from the metric:
@@ -89,6 +89,8 @@ show: true
 
 save-dir: out_validation
 ```
+
+Please, refer to `mbank_validate_metric --help` for more information on the arguments.
 
 The command will produce several plots:
 

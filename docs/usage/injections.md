@@ -57,6 +57,9 @@ The histogram of the fitting factor of each injection (i.e. best match of an inj
 and a scatter plot with the injections with fitting factor smaller that `mm`: 
 ![](../img/injections.png)
 
+Setting the option `full-match` to `True` will perform the true match computation (without metric approximation) and will provide a more realistic estimation of the bank performance. Since it takes time, you are encouraged to use `ray` package for that!
+If you don't plan to use such option, you may also leave out all the entries concering the PSD and the approximant, which are not relevant if you don't compute the full match.
+
 ## Injections by hands
 
 Again, we can also perform injections using a python script (although this is not advised).
@@ -74,8 +77,8 @@ import numpy as np
 you need to load the bank, the tiling and to instantiate a variable handler:
 
 ```Python
-bank = cbc_bank('Mq_chi', 'bank.dat')
-t_obj = tiling_handler('tiling.npy')
+bank = cbc_bank('Mq_s1xz', 'bank_my_first_precessing_bank.dat')
+t_obj = tiling_handler('tiling_my_first_precessing_bank.npy')
 var_handler = variable_handler()
 ```
 We then generate the injection sampling them from the tiling and compute the match with the bank:
@@ -105,7 +108,7 @@ We can then plot the injections performed on the tiling and we colour them by th
 
 ```Python
 best_matches = stat_dict['match'] if stat_dict['match'] is not None else stat_dict['metric_match']
-plot_tiles_templates(t_obj, bank.templates, bank.variable_format, var_handler,
+plot_tiles_templates(bank.templates, bank.variable_format, t_obj,
 			injections = injs_3D, show = True,
 			inj_cmap =  best_matches)
 ```

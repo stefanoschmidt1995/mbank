@@ -1,12 +1,11 @@
 Installation
 ============
 
-The recommended way to install the package and its dependencies is with `pip`.
-You have several options to install the package.
+Of course, you have several options to install the package: the recommended way to install the package and its dependencies is with `pip`.
 
 ## From the latest distributed version
 
-You can get the latest distributed version from the [PyPI](https://pypi.org/project/mbank/) archives.
+You can get the latest distributed version from the [PyPI](https://pypi.org/project/gw-mbank/) archives.
 To do this, you just need to type:
 
 ```
@@ -25,7 +24,7 @@ pip install git+https://github.com/stefanoschmidt1995/mbank
 ```
 This will clone the repo and install the latest (dev) version of `mbank`.
 
-If you want to do things slower, you can clone the git [repository](https://github.com/stefanoschmidt1995/mbank) and build and install the code manually.
+If you want to do things step by step, you can clone the git [repository](https://github.com/stefanoschmidt1995/mbank) and build and install the code manually.
 This will build the package and will install it: `pip` will keep track of the dependencies.
 These are the steps:
 

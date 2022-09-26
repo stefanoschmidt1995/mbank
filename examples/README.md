@@ -2,6 +2,12 @@
 
 This folder keeps some example `ini` files. They can be used to generate a precessing bank or an eccentric bank and to perform injections.
 
+First things first, download your PSD:
+
+```Bash
+wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt
+```
+
 To generate an eccentric bank:
 
 ```Bash
@@ -28,7 +34,7 @@ To know more about the executables, you can check the [documentation](https://mb
 mbank_place_templates --help
 ```
 
-or similarly for other commands.
+and similarly for other commands.
 
 You can also use the file `validation.ini` as an example for running `mbank_validate_metric`. It can give useful insight on the performance of the metric approximation:
 

@@ -56,11 +56,9 @@ class TanhTransform(Transform):
 		self.high = torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
 	
 	def inverse(self, inputs, context=None):
-		inputs = torch.tanh(inputs)
-		inputs = inputs.mul(self.high-self.low)
-		inputs = inputs.add(self.high+self.low)
-		outputs = inputs.div(2)
-		logabsdet = torch.log(1 - outputs ** 2)
+		th_inputs = torch.tanh(inputs)
+		outputs = (th_inputs*(self.high-self.low)+self.high+self.low)/2
+		logabsdet = torch.log((1 - th_inputs ** 2)*(self.high-self.low)*0.5)
 		logabsdet = torchutils.sum_except_batch(logabsdet, num_batch_dims=1)
 		return outputs, logabsdet
 
@@ -71,50 +69,9 @@ class TanhTransform(Transform):
 		if torch.min(inputs) <= -1 or torch.max(inputs) >= 1:
 			raise InputOutsideDomain()
 		outputs = 0.5 * torch.log((1 + inputs) / (1 - inputs))
-		logabsdet = -torch.log(1 - inputs ** 2)
+		logabsdet = -torch.log((1 - inputs ** 2)*0.5*(self.high-self.low))
 		logabsdet = torchutils.sum_except_batch(logabsdet, num_batch_dims=1)
 		return outputs, logabsdet
-
-class InverseTanhTransform(Transform):
-	"""
-	Implements the InverseTanh transformation. This maps the R^D in the Rectangle [0, 1]^D.
-	It is *very* recommended to use this as the last layer of every flow you will ever train on GW data.
-	"""
-	def __init__(self, D):
-		"""
-		Initialize the transformation.
-		
-		Parameters
-		----------
-			D: int
-				Dimensionality of the space
-		"""
-		super().__init__()
-			#Placeholders for the true values
-			#They will be fitted as a first thing in the training procedure
-		self.low = torch.zeros([D], dtype=torch.float32) #torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
-		self.high = torch.ones([D], dtype=torch.float32) #torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
-	
-	def forward(self, inputs, context=None):
-		inputs = torch.tanh(inputs)
-		inputs = inputs.mul(self.high-self.low)
-		inputs = inputs.add(self.high+self.low)
-		outputs = inputs.div(2)
-		logabsdet = torch.log(1 - outputs ** 2)
-		logabsdet = torchutils.sum_except_batch(logabsdet, num_batch_dims=1)
-		return outputs, logabsdet
-
-	def inverse(self, inputs, context=None):
-		inputs = inputs.mul(2)
-		inputs = inputs.add(-self.high-self.low)
-		inputs = inputs.div(self.high-self.low)
-		if torch.min(inputs) <= -1 or torch.max(inputs) >= 1:
-			raise InputOutsideDomain()
-		outputs = 0.5 * torch.log((1 + inputs) / (1 - inputs))
-		logabsdet = -torch.log(1 - inputs ** 2)
-		logabsdet = torchutils.sum_except_batch(logabsdet, num_batch_dims=1)
-		return outputs, logabsdet
-
 
 ############################################################################################################
 ############################################################################################################
@@ -280,7 +237,7 @@ class GW_Flow(Flow):
 	
 	def train_flow_metric(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, alpha = 100, callback = None, validation_metric = 'cross_entropy', verbose = False):
 		"Train the flow with PDF and metric"
-		raise NotImplementedError("Implement a nice and viable loss function :D")
+		#raise NotImplementedError("Implement a nice and viable loss function :D")
 		if isinstance(callback, tuple): callback, callback_step = callback
 		else: callback_step = 10
 		
@@ -340,28 +297,49 @@ class GW_Flow(Flow):
 				optimizer.zero_grad()
 
 					#computing the loss metric (tricky)
-				inverse_fun = lambda x: self._transform.inverse(torch.t(x))[0]
+				jac_fun = lambda x: self._transform.forward(torch.t(x))[0]
 				noise = self.transform_to_noise(train_samples[ids_,:])
+				p_u = torch.exp(self._distribution.log_prob(noise)) #(N,)
 				jac_list = []
-				for n in noise:
-					jac_ = jacobian(inverse_fun, n[:, None])[0,:,:,0]
+				for n in train_samples[ids_,:]:
+					jac_ = jacobian(jac_fun, n[:, None])[0,:,:,0]
 					jac_list.append(jac_)
-				jac_inv = torch.stack(jac_list, axis = 0)
-				M_transformed = torch.einsum('kij, kai, kjb -> kab', train_metric_data[ids_,...], jac_inv, jac_inv)
-				#p_u = torch.exp(self._distribution.log_prob(noise))
-				#I = torch.stack([torch.eye(D)]*len(ids_), axis = 0)
-				#expected_M_transformed = torch.einsum('i, ijk -> ijk', p_u, I)
-				
-				print("ratio sqrt(det): ", torch.sqrt(torch.linalg.det(M_transformed)/torch.linalg.det(expected_M_transformed))[:10])
-				A = torch.sqrt(torch.linalg.det(M_transformed)/torch.linalg.det(expected_M_transformed)).mean()
-				print(torch.pow(A, 2/D))
-				loss_metric = torch.linalg.norm(M_transformed - expected_M_transformed/torch.pow(A, 2/D) , ord = None, dim = [1,2])
+				jac = torch.stack(jac_list, axis = 0)
+				M_flow = torch.einsum('k, kia, kja -> kij', p_u, jac, jac)
+				M_flow = (M_flow.T/torch.pow(torch.linalg.det(M_flow), 1/D)).T
+				M_true = (train_metric_data[ids_,...].T/torch.pow(torch.linalg.det(train_metric_data[ids_,...]), 1/D)).T
+				print(M_true[0])
+				print(M_flow[0])
+				loss_metric = torch.log(torch.linalg.norm(M_true - M_flow, ord = None, dim = [1,2]))
+
+					#Stuff in the noise space
+				if False:
+					inverse_fun = lambda x: self._transform.inverse(torch.t(x))[0]
+					noise = self.transform_to_noise(train_samples[ids_,:])
+					jac_list = []
+					for n in noise:
+						jac_ = jacobian(inverse_fun, n[:, None])[0,:,:,0]
+						jac_list.append(jac_)
+					jac_inv = torch.stack(jac_list, axis = 0)
+					M_transformed = torch.einsum('kij, kai, kbj -> kab', train_metric_data[ids_,...], jac_inv, jac_inv)
+					p_u = torch.exp(self._distribution.log_prob(noise))
+					I = torch.stack([torch.eye(D)]*len(ids_), axis = 0)
+					expected_M_transformed = torch.einsum('i, ijk -> ijk', p_u, I)
+					
+					print(M_transformed[0], expected_M_transformed[0])
+					
+					print("ratio sqrt(det): ", torch.sqrt(torch.linalg.det(M_transformed)/torch.linalg.det(expected_M_transformed))[:10])
+					A = torch.sqrt(torch.linalg.det(M_transformed)/torch.linalg.det(expected_M_transformed)).mean()
+					print(torch.pow(A, 2/D))
+					loss_metric = torch.linalg.norm(M_transformed - expected_M_transformed/torch.pow(A, 2/D) , ord = None, dim = [1,2])
+
+
 
 					#standard NF loss & summing stuff together
 				gamma = torch.tensor(i/alpha)
 				#loss = -self.log_prob(inputs=train_samples[ids_,:]).mean() * torch.exp(-gamma)
-				loss = loss_metric.mean() *(1-torch.exp(-gamma))
-				print("Loss_NF, Loss_metric, e^{-gamma}: ", self.log_prob(inputs=train_samples[ids_,:]).mean(), loss_metric.mean(), torch.exp(-gamma))
+				loss = loss_metric.mean() #*(1-torch.exp(-gamma))
+				#print("Loss_NF, Loss_metric, e^{-gamma}: ", self.log_prob(inputs=train_samples[ids_,:]).mean(), loss_metric.mean(), torch.exp(-gamma))
 				loss.backward()
 				optimizer.step()
 				

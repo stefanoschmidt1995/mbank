@@ -1159,6 +1159,13 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 
 	nothing_new, i = 0, 0
 	
+		#optimized version of the above... (not really helpful)
+	if tiling.flow:
+		import torch
+		with torch.no_grad():
+			log_pdf_centers = tiling.flow.log_prob(tiling.get_centers().astype(np.float32)).numpy()
+		proposal_list, log_pdf_theta_list = [], []
+	
 	try:
 		for _ in t_:
 
@@ -1166,8 +1173,28 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 			if nothing_new >= empty_iterations: break
 			
 			if tiling.flow:
-				proposal = tiling.sample_from_flow(1)
-				metric = tiling.get_metric(proposal, flow = True) #using the flow if it is trained
+					#Unoptimized version - you need to make things in batches!
+				#proposal = tiling.sample_from_flow(1)
+				#metric = tiling.get_metric(proposal, flow = True) #using the flow if it is trained
+				
+					#optimized version of the above... (not really helpful)
+				with torch.no_grad():
+					if len(proposal_list)==0:
+						proposal_list, log_pdf_theta_list = tiling.flow.sample_and_log_prob(1000)
+						proposal_list, log_pdf_theta_list = list(proposal_list.numpy()), list(log_pdf_theta_list.numpy())
+
+					proposal, log_pdf_theta = proposal_list.pop(0)[None,:], log_pdf_theta_list.pop(0)
+
+					#proposal, log_pdf_theta = tiling.flow.sample_and_log_prob(1)
+					#proposal = proposal.numpy()
+					
+					id_ = tiling.get_tile(proposal, kdtree = True)[0]
+					metric = tiling[id_].metric
+					
+					factor = (2/metric.shape[0])*(log_pdf_theta-log_pdf_centers[id_])
+					factor = np.exp(factor)
+			
+					metric = (metric.T*factor).T
 			else:
 				proposal, tile_id = tiling.sample_from_tiling(1, tile_id = True)
 				metric = tiling[tile_id[0]].metric
@@ -1185,9 +1212,9 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 	except KeyboardInterrupt:
 		pass
 	
+	del proposal_list, log_pdf_theta_list
+	
 	return new_templates
-
-	return
 
 
 def partition_tiling(thresholds, d, tiling):

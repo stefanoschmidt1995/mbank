@@ -35,6 +35,8 @@ import scipy.stats
 import scipy.integrate
 import scipy.spatial
 
+#TODO: You should use a GMM with infinite dirichlet prior to interpolate the metric! It's gonna be much much faster (and effective) 
+#https://scikit-learn.org/stable/modules/generated/sklearn.mixture.BayesianGaussianMixture.html#sklearn.mixture.BayesianGaussianMixture
 from .flow.flowmodel import STD_GW_Flow
 import torch
 
@@ -1440,7 +1442,10 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		if self.flow is None: raise ValueError("You must train the flow before sampling from it!")
 		
-		return self.flow.sample(N_samples).detach().numpy()
+		with torch.no_grad():
+			samples = self.flow.sample(N_samples).detach().numpy()
+
+		return samples
 		
 	#@do_profile(follow=[])
 	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False, p_equal = False):
@@ -1716,12 +1721,14 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			#TODO: check this factor VERY carefully
 					
 			centers = np.stack([self[id_].center for id_ in id_tiles], axis = 0)
-			log_pdf_centers = self.flow.log_prob(centers.astype(np.float32))
-			log_pdf_theta = self.flow.log_prob(theta.astype(np.float32))
+	
+			with torch.no_grad():
+				log_pdf_centers = self.flow.log_prob(centers.astype(np.float32))
+				log_pdf_theta = self.flow.log_prob(theta.astype(np.float32))
 			
-			D = self[0].D
-			factor = (2/D)*(log_pdf_theta-log_pdf_centers)
-			factor = torch.exp(factor).detach().numpy()
+				D = self[0].D
+				factor = (2/D)*(log_pdf_theta-log_pdf_centers)
+				factor = torch.exp(factor).detach().numpy()
 			
 			metric = (metric.T*factor).T
 		
@@ -1835,15 +1842,16 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		old_shape = steps.shape
 		steps = torch.flatten(steps, 0, 1) #(N*N_steps, 3)
 		
-		log_pdfs = self.flow.log_prob(steps) #(N*N_steps, )
-		log_pdf_center = self.flow.log_prob(torch.atleast_2d(thetac)) #(N, )/()
+		with torch.no_grad():
+			log_pdfs = self.flow.log_prob(steps) #(N*N_steps, )
+			log_pdf_center = self.flow.log_prob(torch.atleast_2d(thetac)) #(N, )/()
 		
-		log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
-		log_pdfs = log_pdfs - log_pdf_center #(N_steps, N, )
+			log_pdfs = torch.reshape(log_pdfs, old_shape[:-1]) #(N_steps, N, )
+			log_pdfs = log_pdfs - log_pdf_center #(N_steps, N, )
 
-		factor = torch.pow(torch.exp(log_pdfs), 2./D) #(N*N_steps, )
-		
-		integral = torch.trapezoid(factor, dx =1/N_steps, axis =0)
+			factor = torch.pow(torch.exp(log_pdfs), 2./D) #(N*N_steps, )
+			
+			integral = torch.trapezoid(factor, dx =1/N_steps, axis =0)
 		
 		return integral
 

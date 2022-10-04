@@ -167,7 +167,7 @@ class GW_Flow(Flow):
 			low, _ = torch.min(train_data, axis = 0)
 			high, _ = torch.max(train_data, axis = 0)
 				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.001 #TODO: tune this number: previously it was 0.2
+			epsilon_ = 0.01 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_
@@ -308,8 +308,8 @@ class GW_Flow(Flow):
 				M_flow = torch.einsum('k, kia, kja -> kij', p_u, jac, jac)
 				M_flow = (M_flow.T/torch.pow(torch.linalg.det(M_flow), 1/D)).T
 				M_true = (train_metric_data[ids_,...].T/torch.pow(torch.linalg.det(train_metric_data[ids_,...]), 1/D)).T
-				print(M_true[0])
-				print(M_flow[0])
+				#print("True metric: ",M_true[0])
+				#print("Flow metric: ",M_flow[0])
 				loss_metric = torch.log(torch.linalg.norm(M_true - M_flow, ord = None, dim = [1,2]))
 
 					#Stuff in the noise space

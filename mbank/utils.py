@@ -516,7 +516,8 @@ def compute_injections_match(inj_dict, templates, metric_obj, N_neigh_templates 
 	
 	for i in tqdm(range(injs.shape[0]), desc = desc, leave = False):
 		#Take a look at https://pypi.org/project/anycache/
-		template_ = templates[inj_dict['id_match_neig'][i,:],:] #(N_neigh_templates, 10)
+		template_ = templates[inj_dict['id_match_neig'][i,:],:] #(N_neigh_templates, 12)
+		#template_ = templates[inj_dict['id_metric_match_list'],:] #(N_neigh_templates, 12)
 
 		if cache:
 				#dealing with cached WFs
@@ -628,6 +629,9 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 	if verbose: inj_iter = tqdm(range(injs.shape[0]), desc = 'Evaluating metric match for injections', leave = True)
 	else: inj_iter = range(injs.shape[0])
 	
+	if tiling.flow: metric_list = tiling.get_metric(injs, flow = True, kdtree = True)
+	#TODO: optimize injections with flow (now it's too slow in the metric computation approach)
+	
 	for i in inj_iter:
 
 		out_dict['id_tile'][i] = tiling.get_tile(injs[i])[0]
@@ -639,7 +643,8 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
 
 			#using the flow to compute the true tiling metric (if available)
-		if tiling.flow: metric = tiling.get_metric(injs[i], flow = True)
+		if tiling.flow: metric = metric_list[i]
+		#if tiling.flow: metric = tiling.get_metric(injs[i], flow = True, kdtree = False)
 		else: metric = tiling[out_dict['id_tile'][i]].metric
 		
 		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
@@ -666,6 +671,106 @@ def compute_metric_injections_match(injs, bank, tiling, N_neigh_templates = 100,
 	out_dict['match_neig'] = out_dict['match_neig'][:, int(template_dist):]
 		
 	return out_dict
+
+def compute_metric_injections_match_new(injs, bank, tiling, match_threshold = 0.9, verbose = True):
+	#FIXME: this is a shitty name: it should be compute_injections_metric_match
+	"""
+	Computes the match of the injection with the bank by using the metric approximation.
+	It makes use of a brute force approach where each injection is checked against each template of the bank. The metric used is the one of the tile each injection belongs to
+	
+	Parameters
+	----------
+		injs: :class:`~numpy:numpy.ndarray`
+			shape: (N,12)/(N,D) -
+			A set of injections.
+			If the shape is `(N,D)` they are assumed to be the lie in the bank manifold.
+			Otherwise, they are in the full format of the ``mbank.metric.cbc_metric.get_BBH_components()``.
+			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+		
+		bank: cbc_bank
+			A ``cbc_bank`` object
+		
+		tiling: tiling_handler
+			A tiling object to compute the metric match between templates and injections
+
+		match_threshold: float
+			For each injection, the templates with match above `match_threshold` will be stored
+		
+		verbose: bool
+			Whether to print the output
+		
+	Returns
+	-------
+		out_dict: dict
+			A dictionary with the output. It has the entries:
+			
+			- ``theta_inj``: the parameters of the injections
+			- ``id_tile``: index of the tile the injections belongs to (in the tiling)
+			- ``match_threshold``: the given value for `match_threshold`
+			- ``match``: match of the closest template (filled by function `compute_injections_match`)
+			- ``id_match``: index of the closest template (filled by function `compute_injections_match`)
+			- ``metric_match``: metric match of the closest template
+			- ``id_metric_match``: metric index of the closest template
+			- ``id_metric_match_list`: list of all the templates closer than match_threshold to each injection
+		
+			each entry is ``np.ndarray`` where each row is an injection.
+	
+	"""
+	#TODO: apply a cutoff on the distances... otherwise you could get crazy values!!
+	if N_neigh_templates > bank.templates.shape[0]:
+		N_neigh_templates = bank.templates.shape[0]
+
+		#storing injections in the full format (so that they can be generic)
+	out_dict = {'theta_inj': np.array(bank.var_handler.get_BBH_components(injs, bank.variable_format)).T if injs.shape[1] != 12 else injs ,
+				'id_tile': np.zeros((injs.shape[0],), int),
+				'match_threshold': match_threshold,
+				'match': None, 'id_match':  None,
+				'metric_match': np.zeros((injs.shape[0],)), 'id_metric_match':  np.empty((injs.shape[0],), dtype = int),
+				'id_metric_match_list': []
+				}
+	
+		#csating the injections to the metric type
+	if injs.shape[1] == 12:
+		injs = bank.var_handler.get_theta(injs, bank.variable_format)
+	if injs.shape[1] != bank.D:
+		raise ValueError("Wrong input size for the injections")
+	
+	template_dist = np.allclose(bank.templates, injs) if (bank.templates.shape == injs.shape) else False
+	N_argpartiton = 20000
+	id_diff_ok = np.arange(bank.templates.shape[0])
+	
+		#loops on the injections
+	if verbose: inj_iter = tqdm(range(injs.shape[0]), desc = 'Evaluating metric match for injections', leave = True)
+	else: inj_iter = range(injs.shape[0])
+	
+	if tiling.flow: metric_list = tiling.get_metric(injs, flow = True, kdtree = True)
+	#TODO: optimize injections with flow (now it's too slow in the metric computation approach)
+	
+	for i in inj_iter:
+
+		out_dict['id_tile'][i] = tiling.get_tile(injs[i])[0]
+
+		diff = bank.templates - injs[i] #(N_templates, D)
+		
+			#these are the indices being checked
+		if N_argpartiton < bank.templates.shape[0]:
+			id_diff_ok = np.argpartition(np.linalg.norm(diff, axis=1), N_argpartiton)[:N_argpartiton]
+
+			#using the flow to compute the true tiling metric (if available)
+		if tiling.flow: metric = metric_list[i]
+		#if tiling.flow: metric = tiling.get_metric(injs[i], flow = True, kdtree = False)
+		else: metric = tiling[out_dict['id_tile'][i]].metric
+		
+		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
+		
+			#id = 0 if not template dist, 1 if template dist
+		out_dict['id_metric_match'][i] = np.argmax(match_i)
+		out_dict['metric_match'][i] = match_i[out_dict['id_metric_match'][i]]
+
+		out_dict['id_metric_match_list'].append(list(np.where(match_i>match_threshold)[0]))
+		
+	return out_dict
+
 
 ####################################################################################################################
 def get_ellipse(metric, center, dist, **kwargs):
@@ -1115,8 +1220,6 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 	It iteratively proposes a new template to add to the bank. The proposal is accepted if the match of the proposal with the previously placed templates is smaller than ``minimum_match``. The iteration goes on until no template is found to have a distance smaller than the given threshold ``minimum_match``.
 	It can start from a given set of templates.
 
-	The match of the proposals is computed with `compute_metric_injections_match`.
-	
 	The match of a proposal is computed against all the templats that have been added.
 	
 	Parameters

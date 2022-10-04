@@ -1090,6 +1090,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		self.lookup_table = scipy.spatial.KDTree(self.get_centers())
 		return
 
+	@do_profile(follow=[])
 	def get_tile(self, points, kdtree = True):
 		"""
 		Given a set points, it computes the tile each point is closest to.
@@ -1115,9 +1116,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		if kdtree:
 			if self.lookup_table is None: self.update_KDTree()
 			_, id_tiles = self.lookup_table.query(points, k=1)
-			return id_tiles
 
 		else:
+			#FIXME: this is super super slow!!
 			distance_points = []
 			for R, _ in self.__iter__():
 				distance_points.append( R.min_distance_point(points) ) #(N_points,)
@@ -1673,7 +1674,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		return history
 
 	#@do_profile(follow=[])
-	def get_metric(self, theta, flow = False):
+	def get_metric(self, theta, flow = False, kdtree = False):
 		"""
 		Computes the approximation to the metric evaluated at points theta, as provided by the tiling.
 		If `flow` is true, a normalizing flow model will be used to interpolate the metric.
@@ -1688,7 +1689,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		The interpolated metric then becomes:
 		
 		.. math::
-			M_{ij}(\\theta) = f^{1/D}(\\theta; \\theta_{\\text{T}}) {M_{\\text{T}}}_{ij}
+			M_{ij}(\\theta) = f^{2/D}(\\theta; \\theta_{\\text{T}}) {M_{\\text{T}}}_{ij}
 		
 		
 		Parameters
@@ -1699,6 +1700,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			
 			flow: bool
 				Whether to use the normalizing flow model. The flow model must be trained in advance using `tiling_handler.train_flow`.
+		
+			kdtree: bool
+				Whether to use a kdtree method to compute the tile. This method is much faster but it may be less accurate as it relies on euclidean distance rather than on the rectangles of the tiling. Argument is passed to `get_tile`
 		
 		Returns
 		-------
@@ -1711,7 +1715,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		else: squeeze=False
 		theta = np.atleast_2d(theta)
 		
-		id_tiles = self.get_tile(theta, kdtree = False)
+		id_tiles = self.get_tile(theta, kdtree = kdtree)
 		metric = np.stack([self[id_].metric for id_ in id_tiles], axis = 0)
 		
 		if flow:

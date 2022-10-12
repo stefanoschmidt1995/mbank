@@ -31,6 +31,8 @@ from mbank.flow.utils import compare_probability_distribution
 import argparse
 import os
 
+#TODO: add f_max in save_bank
+
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
@@ -69,6 +71,9 @@ parser.add_argument(
 parser.add_argument(
 	"--show", action='store_true', default = False,
 	help="Whether to show the plots")
+parser.add_argument(
+	"--f-max",  default = 1024., type=float,
+	help="Final frequency for the templates stored in the bank (only for the xml format)")
 
 args, filenames = parser.parse_known_args()
 
@@ -119,7 +124,7 @@ bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, livep
 print("Generated bank with {} templates".format(len(bank.templates)))
 print("Saving bank to {}".format(args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
-bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name))
+bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.f_max)
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None

@@ -1090,7 +1090,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		self.lookup_table = scipy.spatial.KDTree(self.get_centers())
 		return
 
-	@do_profile(follow=[])
+	#@do_profile(follow=[])
 	def get_tile(self, points, kdtree = True):
 		"""
 		Given a set points, it computes the tile each point is closest to.

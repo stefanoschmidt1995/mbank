@@ -249,7 +249,7 @@ if bank.templates is None:
 print("Generated bank with {} templates and {} tiles".format(len(bank.templates), len(t_obj)))
 print("Saving bank to {}".format(args.run_dir))
 bank.save_bank(args.run_dir+'bank_{}.dat'.format(args.run_name))
-bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.ifo); title = ''
+bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.f_max, args.ifo); title = ''
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None

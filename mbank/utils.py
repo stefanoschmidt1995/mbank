@@ -1260,7 +1260,7 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 	else:
 		new_templates = np.asarray(seed_bank)
 
-	nothing_new, i = 0, 0
+	nothing_new, i, max_nothing_new = 0, 0, 0
 	
 		#optimized version of the above... (not really helpful)
 	if tiling.flow:
@@ -1272,7 +1272,7 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 	try:
 		for _ in t_:
 
-			if verbose and i%100==0:t_.set_description("Templates added {} ({}/{} empty iterations)".format(new_templates.shape[0], int(nothing_new), int(empty_iterations)))
+			if verbose and i%100==0:t_.set_description("Templates added {} ({}/{} empty iterations)".format(new_templates.shape[0], int(max_nothing_new), int(empty_iterations)))
 			if nothing_new >= empty_iterations: break
 			
 			if tiling.flow:
@@ -1311,6 +1311,8 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 				nothing_new = 0
 			else:
 				nothing_new += 1
+				max_nothing_new = max(max_nothing_new, nothing_new)
+	
 			i+=1
 	except KeyboardInterrupt:
 		pass

@@ -144,7 +144,7 @@ class cbc_bank():
 
 		return
 
-	def _save_xml(self, filename, ifo = 'L1'):
+	def _save_xml(self, filename, f_max = 1024., ifo = 'L1'):
 		"""
 		Save the bank to an xml file suitable for LVK applications
 
@@ -153,6 +153,9 @@ class cbc_bank():
 			
 		filename: str
 			Filename to save the bank at
+		
+		f_max: float
+			End frequency (in Hz) for the templates
 		
 		ifo: str
 			Name of the interferometer the bank refers to 
@@ -199,7 +202,7 @@ class cbc_bank():
 				#this is chi from https://git.ligo.org/lscsoft/gstlal/-/blob/master/gstlal-inspiral/python/_spawaveform.c#L896
 			#row.chi = (np.sqrt(row.spin1x**2+row.spin1y**2+row.spin1z**2)*m1 + np.sqrt(row.spin2x**2+row.spin2y**2+row.spin2z**2)*m2)/row.mtotal
 			
-			row.f_final = 2490 /(row.mtotal) #dirty trick (again) this is a very very very crude estimation of maximum frequency (in Hz)
+			row.f_final = f_max
 			row.ifo = ifo #setting the ifo chosen by the user
 			
 				#Setting additional parameters
@@ -219,7 +222,7 @@ class cbc_bank():
 		
 		return
 		
-	def save_bank(self, filename, ifo = 'L1'):
+	def save_bank(self, filename, f_max = 1024., ifo = 'L1'):
 		#TODO: change this name to `save`
 		"""
 		Save the bank to file
@@ -231,6 +234,9 @@ class cbc_bank():
 			
 		filename: str
 			Filename to save the bank at
+		
+		f_max: float
+			End frequency (in Hz) for the templates (applies only to xml format)
 		
 		ifo: str
 			Name of the interferometer the bank refers to (only applies to xml files)
@@ -244,7 +250,7 @@ class cbc_bank():
 		elif filename.endswith('.txt') or filename.endswith('.dat'):
 			templates_to_add = np.savetxt(filename, self.templates)
 		elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
-			self._save_xml(filename, ifo)
+			self._save_xml(filename, f_max, ifo)
 		else:
 			raise RuntimeError("Type of file not understood. The file can only end with 'npy', 'txt', 'data, 'xml', 'xml.gx'")
 		

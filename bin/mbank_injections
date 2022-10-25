@@ -317,7 +317,7 @@ if args.plot:
 		###
 		# Colored plots
 		###
-	plot_tiles_templates(bank.templates, args.variable_format, t_obj,
+	plot_tiles_templates(bank.templates, args.variable_format, #t_obj,
 				injections = projected_injs[ids_to_plot,:], inj_cmap =plotted_matches[ids_to_plot] ,
 				dist_ellipse = None, save_folder = args.run_dir, show = False)
 	if args.show: plt.show()

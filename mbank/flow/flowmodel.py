@@ -33,6 +33,8 @@ except:
 
 from .utils import ks_metric, cross_entropy_metric
 
+import re
+
 ########################################################################
 
 class TanhTransform(Transform):
@@ -90,7 +92,7 @@ class GW_Flow(Flow):
 		"""
 		super().__init__(transform=transform, distribution=distribution)
 	
-	def save(self, filename):
+	def save_weigths(self, filename):
 		"""
 		Saves the weigths to filename.
 		It is equivalent to:
@@ -104,12 +106,13 @@ class GW_Flow(Flow):
 			filename: str
 				Name of the file to save the weights at
 		"""
+		#TODO: this should be called save_weights
 		torch.save(self.state_dict(), filename)
 
 	
-	def load(self, filename):
+	def load_weigths(self, filename):
 		"""
-		Load the weights of the flow from file. The weights must match the architecture of the flow.
+		Load the weigths of the flow from file. The weights must match the architecture of the flow.
 		It is equivalent to
 		
 		::
@@ -120,7 +123,8 @@ class GW_Flow(Flow):
 		----------
 			filename: str
 				File to load the weights from
-		"""	
+		"""
+		#TODO: this should be called load_weights
 		try:
 			self.load_state_dict(torch.load(filename))
 		except:
@@ -472,6 +476,25 @@ class STD_GW_Flow(GW_Flow):
 		
 		super().__init__(transform=transform_list, distribution=base_dist)
 		return
+	
+	@classmethod
+	def load_flow(cls, weigth_file):
+		w = torch.load(weigth_file)
+		try:
+			D = w['_transform._transforms.0.low'].shape[0]
+			n_layers = re.findall(r'\d+', list(w.keys())[-1])
+			assert len(n_layers)==1
+			n_layers = int(n_layers[0])//2
+
+			hidden_features = '_transform._transforms.{}.autoregressive_net.final_layer.mask'.format(2*n_layers)
+			hidden_features = w[hidden_features].shape[1]
+		except:
+			raise ValueError("The given weight file does not match the architecture of a `STD_GW_Flow`")
+		new_flow = cls(D, n_layers, hidden_features)
+		new_flow.load_state_dict(w)
+		return new_flow
+		
+		
 
 class GW_Flow_Uniform(GW_Flow):
 	"""

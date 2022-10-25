@@ -100,9 +100,19 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the metric computation")
+
 parser.add_argument(
 	"--train-flow", action='store_true', default = False,
 	help="Whether to train a normalizing flow model for the tiling. It will be used for metric interpolation")
+parser.add_argument(
+	"--n-layers", default = 2, type = int,
+	help="Number of layers for the flow model to train (applicable only if --train-flow)")
+parser.add_argument(
+	"--hidden-features", default = 4, type = int,
+	help="Number of hidden features for the masked autoregressive flow to train. (applicable only if --train-flow)")
+parser.add_argument(
+	"--n-epochs", default = 1000, type = int,
+	help="Number of training epochs for the flow (applicable only if --train-flow)")
 	
 	#ranges for physical parameters
 parser.add_argument(
@@ -236,11 +246,11 @@ else:
 		placing_method = args.placing_method, metric_type = args.metric_type,
 		grid_list = args.grid_size, train_flow = args.train_flow,
 		livepoints = args.livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth,
-		use_ray = args.use_ray)
+		use_ray = args.use_ray, n_layers = args.n_layers, hidden_features = args.hidden_features, N_epochs = args.n_epochs)
 	
 	tiling_file = args.run_dir+'tiling_{}.npy'.format(args.run_name)
-	flowfile = args.run_dir+'flow_{}.zip'.format(args.run_name) if args.train_flow else None
-	t_obj.save(tiling_file, flowfile) #saving also the flow
+	flow_file = args.run_dir+'flow_{}.zip'.format(args.run_name) if args.train_flow else None
+	t_obj.save(tiling_file, flow_file) #saving also the flow
 
 if bank.templates is None:
 	print("No templates were added to the bank: the bank is not saved")
@@ -253,7 +263,8 @@ bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.f_max, 
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	plot_tiles_templates(bank.templates, args.variable_format, t_obj, dist_ellipse = dist, save_folder = plot_folder, show = args.show)
+	plot_tiles_templates(bank.templates, args.variable_format, #t_obj,
+		dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 	
 	if t_obj.flow:
 		compare_probability_distribution(t_obj.flow.sample(5000).detach().numpy(), data_true = t_obj.sample_from_tiling(5000),

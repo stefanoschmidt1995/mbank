@@ -1045,6 +1045,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		list.__init__(self)
 		self.lookup_table = None
+		self.boundaries = None
 		self.flow = None
 		
 			#storing the volume and the volume of each tile, for fast retrival
@@ -1061,6 +1062,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		else:
 			msg = "Type of ini argument not understood (expected list, tuple or str). The tiling_handler is initialized empty."
 			warnings.warn(msg)
+		self._set_boundaries()
 		return
 	
 	def __getitem__(self, key):
@@ -1081,6 +1083,20 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		"""
 		centers = np.stack( [t.center for t in self.__iter__()], axis =0)
 		return np.atleast_2d(centers)
+
+	def _set_boundaries(self):
+		"""
+		Sets the boundaries of the tiling, stored as a Rectangle
+		"""
+		boundaries = []
+		for R, _ in self.__iter__():
+			boundaries.append([R.mins, R.maxes])
+		if len(boundaries)>0:
+			boundaries = np.array(boundaries)
+			self.boundaries = scipy.spatial.Rectangle(np.min(boundaries[:,0,:], axis =0), np.max(boundaries[:,1,:], axis =0))
+		else:
+			self.boundaries = None
+		return
 
 	def update_KDTree(self):
 		"""
@@ -1127,6 +1143,40 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			del distance_points
 		
 		return id_tiles
+
+	def is_inside(self, points):
+		"""
+		Returns whether each point is inside the tiling.
+		
+		Parameters
+		----------
+			points: :class:`~numpy:numpy.ndarray`
+				shape (N,D)/(D,) - 
+				A set of points
+		
+		Returns
+		-------
+			is_inside: :class:`~numpy:numpy.ndarray`
+				shape (N,)/() - 
+				Bool array stating whether each of the input is inside the tiling
+			
+			ids_inside :class:`~numpy:numpy.ndarray`
+				shape (N',) - 
+				Indices of the points inside the tiling
+
+			ids_outside :class:`~numpy:numpy.ndarray`
+				shape (N',) - 
+				Indices of the points outside the tiling
+		"""
+		points = np.asarray(points)
+		if self.boundaries is None: self._set_boundaries()
+		if self.boundaries is None: raise ValueError("Tiling is empty: unable to check whether points are inside it")
+		
+		is_inside = self.boundaries.min_distance_point(points) == 0
+		ids_inside = np.where(is_inside)[0]
+		ids_outside = np.where(~is_inside)[0]
+		
+		return is_inside, ids_inside, ids_outside
 
 	def create_tiling_from_list(self, boundaries_list, tolerance, metric_func, max_depth = None, use_ray = False, verbose = True):
 		"""
@@ -1212,6 +1262,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		self.compute_volume()
 		self.update_KDTree()
+		self._set_boundaries()
 		
 		return self
 
@@ -1368,6 +1419,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		self.update_KDTree()
 		self.compute_volume()
+		self._set_boundaries()
 		
 		return self
 	
@@ -1427,7 +1479,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 	
 	def sample_from_flow(self, N_samples):
 		"""
-		Samples random points from the normalizing flow model defined on the tiling.
+		Samples random points from the normalizing flow model defined on the tiling. It makes sure that the sampled points are inside the tiling.
 		The flow must be trained in advance using `tiling_handler.train_flow`.
 		
 		Parameters
@@ -1445,8 +1497,14 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		with torch.no_grad():
 			samples = self.flow.sample(N_samples).detach().numpy()
+		
+			_, _, ids_outside = self.is_inside(samples)
+			while len(ids_outside)>0:
+				new_samples = self.flow.sample(len(ids_outside)).detach().numpy()
+				samples[ids_outside] = new_samples
+				ids_outside = ids_outside[self.is_inside(new_samples)[2]]
 
-		return samples
+		return np.array(samples)
 		
 	#@do_profile(follow=[])
 	def sample_from_tiling(self, N_samples, seed = None, qmc = False, dtype = np.float64, tile_id = False, p_equal = False):
@@ -1564,7 +1622,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		if isinstance(flowfilename, str):
 			if self.flow is None: warnings.warn("The flow model is not trained: unable to save it")
 			else:
-				self.flow.save(flowfilename)
+				self.flow.save_weigths(flowfilename)
 		
 		return
 	
@@ -1588,10 +1646,12 @@ class tiling_handler(list, collections.abc.MutableSequence):
 
 			#updating look_up table
 		self.update_KDTree()
+		self.compute_volume()
+		self._set_boundaries()
 		
 		return
 	
-	def load_flow(self, filename, n_layers = 2, hidden_features = 4):
+	def load_flow(self, filename):
 		"""
 		Loads the flow from file. The architecture of the flow must be specified at input.
 		
@@ -1609,13 +1669,11 @@ class tiling_handler(list, collections.abc.MutableSequence):
 			Number of hidden features for the masked autoregressive flow in use.
 			See `mbank.flow.STD_GW_flow` for more information
 		"""
-		D = self[0].D
-		self.flow = STD_GW_Flow(D, n_layers, hidden_features)
-		self.flow.load(filename)
+		self.flow = STD_GW_Flow.load_flow(filename)
 		return
 	
 
-	def train_flow(self, N_epochs = 1000, N_train_data = 30000, n_layers = 2, hidden_features = 4, lr = 0.001, verbose = False):
+	def train_flow(self, N_epochs = 1000, N_train_data = 50000, n_layers = 2, hidden_features = 4, lr = 0.001, verbose = False):
 		"""
 		Train a normalizing flow model on the space covered by the tiling, using points sampled from the tiling.
 		The flow can be useful for smooth sampling from the tiling and to interpolate the metric within each tiles.

@@ -437,7 +437,8 @@ class cbc_bank():
 
 	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance,
 			placing_method = 'random', metric_type = 'hessian', grid_list = None, train_flow = False,
-			use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6):
+			use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000):
+		#FIXME: here you should use kwargs, directing the user to the docs of other functions?
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
@@ -488,6 +489,17 @@ class cbc_bank():
 		max_depth: int
 			Maximum number of splitting before quitting the iteration. If None, the iteration will go on until the volume condition is not met
 		
+		n_layers: int
+			Number of layers of the flow
+			See `mbank.flow.STD_GW_flow` for more information
+
+		hidden_features: int
+			Number of hidden features for the masked autoregressive flow in use.
+			See `mbank.flow.STD_GW_flow` for more information
+		
+		N_epochs: int
+			Number of epochs for the training of the flow
+		
 		Returns
 		-------
 		
@@ -520,7 +532,7 @@ class cbc_bank():
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
 		
-		if train_flow: t_obj.train_flow(N_epochs = 1000, verbose = True) #training the flow with DEFAULTS args (optional)
+		if train_flow: t_obj.train_flow(N_epochs = N_epochs, n_layers = n_layers, hidden_features =  hidden_features, verbose = True)
 		
 			##
 			#placing the templates

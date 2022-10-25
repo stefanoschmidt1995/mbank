@@ -924,6 +924,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 				s = 20, marker = 's', c= inj_cmap)
 		if not isinstance(inj_cmap, str):
 			cbar_ax = fig.add_axes([0.95, 0.15, 0.015, 0.7])
+			cbar_ax.tick_params(labelsize=fs)
 			fig.colorbar(cbar_vals, cax=cbar_ax)
 		if isinstance(save_folder, str): plt.savefig(save_folder+'injections.png', transparent = False)
 
@@ -1287,10 +1288,13 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 						proposal_list, log_pdf_theta_list = list(proposal_list.numpy()), list(log_pdf_theta_list.numpy())
 
 					proposal, log_pdf_theta = proposal_list.pop(0)[None,:], log_pdf_theta_list.pop(0)
+						#checking if the proposal is inside the tiling
+					if not tiling.is_inside(proposal)[0]: continue
 
 					#proposal, log_pdf_theta = tiling.flow.sample_and_log_prob(1)
 					#proposal = proposal.numpy()
 					
+						#FIXME: this kdtree may mess things up
 					id_ = tiling.get_tile(proposal, kdtree = True)[0]
 					metric = tiling[id_].metric
 					
@@ -1317,7 +1321,7 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 	except KeyboardInterrupt:
 		pass
 	
-	del proposal_list, log_pdf_theta_list
+	if tiling.flow: del proposal_list, log_pdf_theta_list
 	
 	return new_templates
 
@@ -1431,6 +1435,7 @@ def place_random(minimum_match, tiling, N_points, tolerance = 0.01, verbose = Tr
 	MM = minimum_match
 	dtype = np.float32 #better to downcast to single precision! There is a mild speedup there
 	
+		#FIXME: add here the sampling from flow option!
 	livepoints, id_tile_livepoints = tiling.sample_from_tiling(N_points,
 				dtype = dtype, tile_id = True, p_equal = False) #(N_points, D)
 	

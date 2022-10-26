@@ -1303,10 +1303,12 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 			
 					metric = (metric.T*factor).T
 			else:
+				#FIXME: this thing is fucking slooooow! Maybe you should do a fancy buffer to parallelize this?
 				proposal, tile_id = tiling.sample_from_tiling(1, tile_id = True)
 				metric = tiling[tile_id[0]].metric
 
 			diff = new_templates - proposal #(N_templates, D)
+			
 			
 			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1))
 
@@ -1597,12 +1599,13 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 	axis_ok = [i for i in range(D) if i not in where_random]
 	ids_ok = np.logical_and(np.all(mesh[:,axis_ok] >= boundaries[0,axis_ok], axis =1), np.all(mesh[:,axis_ok] <= boundaries[1,axis_ok], axis = 1)) #(N,)
 	mesh = mesh[ids_ok,:]
+
 	
 		#Whenever there is a single point in the grid, the templates along that dimension will be placed at random
-	#for id_random in where_random:
-	#	mesh[:,id_random] =np.random.uniform(boundaries[0,id_random], boundaries[1,id_random], (mesh.shape[0], )) # center[id_random] #
-	warnings.warn('Random extraction for "non-important" dimensions disabled!')
-	
+	for id_random in where_random:
+		mesh[:,id_random] =np.random.uniform(boundaries[0,id_random], boundaries[1,id_random], (mesh.shape[0], )) # center[id_random] #
+	#warnings.warn('Random extraction for "non-important" dimensions disabled!')
+	return mesh
 		####
 		#adding the boundaries
 		####

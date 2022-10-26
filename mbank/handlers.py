@@ -1673,7 +1673,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		return
 	
 
-	def train_flow(self, N_epochs = 1000, N_train_data = 50000, n_layers = 2, hidden_features = 4, lr = 0.001, verbose = False):
+	def train_flow(self, N_epochs = 1000, N_train_data = 10000, n_layers = 2, hidden_features = 4, batch_size = None, lr = 0.001, verbose = False):
 		"""
 		Train a normalizing flow model on the space covered by the tiling, using points sampled from the tiling.
 		The flow can be useful for smooth sampling from the tiling and to interpolate the metric within each tiles.
@@ -1696,6 +1696,9 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				Number of hidden features for the masked autoregressive flow in use.
 				See `mbank.flow.STD_GW_flow` for more information
 			
+			batch_size: int
+				Amount of training data to be used for each iteration. If None, all the training data will be used.
+			
 			lr: float
 				Learning rate for the training
 			
@@ -1717,8 +1720,6 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		max_val = np.max([ R.maxes for R,_ in self.__iter__()], axis = 0)
 		min_val = np.min([ R.mins for R,_ in self.__iter__()], axis = 0)
 		
-		print(max_val, min_val)
-		
 		train_data = self.sample_from_tiling(N_train_data)
 		train_data[[0,1],:] = [max_val, min_val]
 		validation_data = self.sample_from_tiling(int(0.1*N_train_data))
@@ -1727,7 +1728,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		optimizer = optim.Adam(self.flow.parameters(), lr=0.001)
 		
-		history = self.flow.train_flow_forward_KL(N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, validation_metric = 'cross_entropy', verbose = verbose)
+		history = self.flow.train_flow_forward_KL(N_epochs, train_data, validation_data, optimizer, batch_size = batch_size, validation_step = 30, callback = None, validation_metric = 'cross_entropy', verbose = verbose)
 	
 		return history
 

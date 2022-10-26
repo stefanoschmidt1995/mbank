@@ -25,6 +25,9 @@ import warnings
 from .handlers import variable_handler
 from .utils import project_metric
 
+	#TODO: understand whether it's a good idea to use anycache
+#from anycache import anycache
+
 #############DEBUG LINE PROFILING
 try:
 	from line_profiler import LineProfiler
@@ -425,6 +428,7 @@ class cbc_metric(object):
 		if squeeze: grad_h = grad_h[0]
 		return grad_h
 	
+	#@anycache()
 	def get_WF_lal(self, theta, approx = None, df = None):
 		"""
 		Returns the lal WF with a given approximant with parameters theta. The WFs are in FD and are evaluated on the grid set by ``lal``

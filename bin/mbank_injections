@@ -33,7 +33,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_metric_injections_match, load_PSD, plot_tiles_templates
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates
 from mbank.utils import updates_args_from_ini, read_xml
 
 from itertools import combinations, permutations
@@ -64,11 +64,8 @@ parser.add_argument(
 	help="An optional file with weigths for a normalizing flow model. If provided it will be used to interpolate the metric when computing the metric injection match.")
 	#If not given, it is understood that a file 'tiling_${RUN_NAME}.npy' is located in run dir
 parser.add_argument(
-	"--n-neigh-templates", type = int, default = 100,
-	help="Number of neighbouring templates to be considered for the computation of the match with METRIC approximation")
-parser.add_argument(
-	"--n-neigh-templates-full", type = int, default = None,
-	help="Number of neighbouring templates to be considered for the computation of the match (no approx). If None, it is set to the value of n-neigh-templates")
+	"--match-threshold", type = float, default = 0.9,
+	help="Threshold for the match. For each injection, the templates with metric match higher than match-threshold will be stored and their full match with the injection will be computed (if --full-match is specified)")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
 	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
@@ -132,7 +129,6 @@ for f in filenames:
 	######
 
 var_handler = variable_handler()
-if args.n_neigh_templates_full is None: args.n_neigh_templates_full = args.n_neigh_templates
 
 if (args.bank_file is None) or (args.tiling_file is None) or (args.variable_format is None):
 	raise ValueError("The arguments bank-file, tiling-file and variable_format must be set!")
@@ -229,7 +225,7 @@ else:
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_metric_injections_match(injections_full, bank,  t_obj, N_neigh_templates = args.n_neigh_templates)
+injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, match_threshold = args.match_threshold, verbose = True)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
@@ -246,12 +242,12 @@ if args.full_match or args.full_match_symphony:
 
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
-				args.n_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
+				symphony_match = args.full_match_symphony, cache = args.cache)
 	else:
 		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
-				args.n_neigh_templates_full, symphony_match = args.full_match_symphony, cache = args.cache)
+				symphony_match = args.full_match_symphony, cache = args.cache)
 	metric.set_variable_format(args.variable_format)
-	
+
 	######
 	#	Writing to file
 	######
@@ -260,7 +256,7 @@ save_name = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dic
 with open(args.run_dir+save_name, 'wb') as filehandler:
 	pickle.dump(injection_stat_dict, filehandler)
 	
-	#to load... just in case
+	#to load... keeping the snippet just in case :D
 #with open(args.run_dir+save_name, 'rb') as filehandler:
 #	injection_stat_dict = pickle.load( filehandler)
 
@@ -290,7 +286,7 @@ if args.plot:
 		###
 	plt.figure(figsize = (15,15))
 	plt.title("Injection recovery for bank {}".format(os.path.basename(args.bank_file)), fontsize = fs+10)
-	N_bins = 30
+	N_bins = int(np.sqrt(len(matches_metric)))
 	plt.gca().tick_params(axis='x', labelsize=fs)
 	plt.gca().tick_params(axis='y', labelsize=fs)
 	logbins = np.logspace(np.log10(np.percentile(matches_metric, .5)),np.log10(max(matches_metric)), N_bins)
@@ -298,8 +294,8 @@ if args.plot:
 				color = 'blue',	label = 'metric match',
 				histtype = 'step' if full_match else 'bar')
 	if full_match:
-		logbins_metric = np.logspace(np.log10(np.percentile(matches, .5)),np.log10(max(matches)), N_bins)
-		plt.hist(matches, bins = logbins_metric, histtype='bar',
+		logbins = np.logspace(np.log10(np.percentile(matches, .5)),np.log10(max(matches)), N_bins)
+		plt.hist(matches, bins = logbins, histtype='bar',
 				density = True, color = 'orange', label = 'match')
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG

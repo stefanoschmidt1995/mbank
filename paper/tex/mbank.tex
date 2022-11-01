@@ -60,7 +60,7 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO and Virgo data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders of magnitude faster than with existing techniques.
+	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders of magnitude faster than with existing techniques.
 	Our method applies to a variety of different manifolds of signals and is particularly suitable for covering high dimensional spaces, such as those associated with precessing and/or eccentric waveforms.
 	We compare our method with the state-of-the-art stochastic placement code and we find that our code slightly overcovers the space, while achieving similar efficiency in recovering signals. To demonstrate the capabilities of our code, we generate a precessing bank, an intermediate mass black hole bank with higher-order modes, and an eccentric bank, and show that they cover the space in a satisfactory way.
 	Our publicly released code \texttt{mbank} will enable searches of ``exotic" regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
@@ -90,7 +90,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH} and intermediate mass BHs \cite{IMBH_O2, IMBH_O3}. Moreover, there is a growing interest in searching for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302} and eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016}.
+As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data by LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} Collaborations is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in searches for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky}.
 All these searches need accurate templates banks that covers the parameter space of interests. The template bank generation can be highly non trivial and computationally expensive task but is crucial for the outcome of the searches.
 
 The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014} - consists in scattering templates around the parameter space with a rejection technique \cite{sbank}. A proposed template is included in the bank only if its mismatch with all the proposed templates in the bank is larger than the user defined threshold.
@@ -570,7 +570,7 @@ As a finale note, we recommend to use, due to its speed and precision, the {\it 
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
-\texttt{sbank} \cite{sbank} is the standard tool used by the LIGO-Virgo collaboration to generate large template banks for analysis and, as such, it has been used sucessfully in the past three observing runs by several pipelines.
+\texttt{sbank} \cite{sbank} is the standard tool used by the LIGO Scientific, Virgo and Kagra Collaborations (LVK) to generate large template banks for analysis and, as such, it has been used sucessfully in the past three observing runs by several pipelines.
 For this reason, it is very important to compare the performance of our code against the benchmark set by \texttt{bank}. The comparison is based on the size, speed and effectualness of the banks generated.
 
 We generate three non-precessing template banks with both codes:
@@ -579,7 +579,7 @@ We generate three non-precessing template banks with both codes:
 	\item An {\it aligned spins} bank
 	\item An {\it aligned spins low mass} bank
 \end{itemize}
-The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole LIGO/Virgo second observing run (O2).
+The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole second observing run (O2).
 For the first two banks, templates are placed with the {\it random} method, whereas for the last the {\it stochastic} method was employed.
 In the same table, we report the size of the banks generated and their generation time. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
 
@@ -632,7 +632,7 @@ When considering the generation times, we see that \texttt{mbank} is {\it orders
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bank generation: three case studies} \label{sec:bank_generation}
 
-To demostrate the capabilities of our method, we use \texttt{mbank} to generate three large banks, covering interesting un-explored regions of the parameter space.
+To demostrate the capabilities of our method, we use \texttt{mbank} to generate three large banks, covering interesting \textit{exotic} regions of the parameter space.
 They are:
 	\begin{itemize}
 		\item A precessing bank
@@ -794,6 +794,11 @@ Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
 
 Such expressions, togheter with eq.~\eqref{eq:metric_expression} fully specify the metric computation.
 The gradients $\partial_i h$ of the waveform can be computed with an accurate finite difference scheme.
+
+%\begin{equation*}
+%	\mathcal{M}(\theta_1,\theta_2) =  \max_{t} \left\lvert \int\limits_{f_\text{min}}^{f_\text{max}} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert^2
+%\end{equation*}
+
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY
 	\bibliography{biblio.bib}

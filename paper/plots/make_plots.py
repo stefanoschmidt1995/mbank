@@ -467,7 +467,7 @@ if __name__ == '__main__':
 							'Mq_chi': 'placing_methods_accuracy/paper_Mq_chi/data_Mq_chi_{}.pkl',
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl'}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 
 		###
@@ -495,6 +495,20 @@ if __name__ == '__main__':
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}.png'.format(t.replace(' ', '_'))
 		#corner_plot(b,f,t, savefile = filename)
+		#plt.show()
+		
+		###
+		#Bank case studies flow
+	format_list = ['Mq_s1xz', 'logMq_chi_iota', 'Mq_nonspinning_e']
+	bank_list = [	'../../flow_banks/precessing_bank/bank_paper_precessing_flow.dat',
+					'../../flow_banks/HM_bank/bank_paper_HM_flow.dat',
+					'../../flow_banks/eccentric_bank/bank_paper_eccentric_flow.dat']
+	title_list = ['Precessing', 'IMBH HM', 'Nonspinning eccentric']
+
+		#plotting bank histograms
+	for b, f, t in zip(bank_list, format_list, title_list):
+		filename = img_folder+'bank_scatter_{}_flow.png'.format(t.replace(' ', '_'))
+		corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')

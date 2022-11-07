@@ -97,8 +97,8 @@ The most widely used approach to bank generation - the {\it stochastic} method \
 While this method is proven to work in many cases, it is computationally demanding, hence very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
 With the ever growing parameter space hyper-volume for the BBH searches, the stochastic method may not be our best approach to the template bank generation moving forward.
 
-To optimize the stochastic method, there has been recently an increasing attention on {\it metric template placing} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, manifold_PSU}. Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
-Following the seminal work by Owen \cite{owen_metric}, a large number of approaches that use metric approximation (in some form) have been introduced.
+Revitalizing a pionieering line of research in bank generation \cite{owen_metric, Messenger:2008ta}, there has been recently an increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}, aiming to speed up or optimized the stochastic method.
+Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 
 In this work, we develop a novel approach to template placing based on the metric approximation of the mismatch.
 Our method is specifically designed for dealing with high-dimensional (more than 4 dimensional) template banks of precessing signals. This makes it particularly suitable for investigating exotic regions for BBH parameter space, enabling generation of banks for precessing and eccentric signals.
@@ -106,7 +106,10 @@ Our method is specifically designed for dealing with high-dimensional (more than
 Our model constructs an internal representation of the parameter space of interests, computes the metric for distance computation and exploits this for fast template placing.
 %\sarah{This is nice. I think you will want to have maybe a diagram that gives an overview of the whole package. For instance, to show how the bank code and injection code can make a workflow that gives you a validated bank.} \stefano{Do you mean a map of all the executables that I can run an all the relations between them? Or maybe something more high level saying just the operations (tiling, template placing, injections)?}
 The approach is implemented in an open-source, production-ready, python package \texttt{mbank}, available on GitHub\footnote{
-It is available at the repository \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}.
+It is available at the repository \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}
+and on the PyPI repository\footnote{
+In the PyPI repository, the package is distributed under the name \texttt{\href{https://pypi.org/project/gw-mbank/}{gw-mbank}}.
+}.
 The package offers support for tiling the parameter space of interests and placing templates with an user defined minimal match. Moreover, it offers an injection helper that allows for a very fast validation of the bank.
 As a summary, \texttt{mbank} is implemented to be:
 \begin{itemize}
@@ -139,14 +142,16 @@ The intrisic parameters are needed to fully carachterize the source and they con
 The extrinsic parameters characterizes the position of the source with respect to the observer: they are the sky location (two angles), the luminosity distance $D$, a polarization angle $\Psi$ and the time of arrival of the signal.
 
 Luckily, depending on the scope of the search, it turns out that one is able to maximize $\Lambda(\theta)$ analytically over many of them. For the other quantities, a brute force approach is required: $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, usually gathered in a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee_2021}. 
-A GW search aims to filter the data with the signals gathered in a template bank and compute the detection statistics for each template as a function of time: this technique, called {\it matched filtering}, is implemented by several pipelines to sucessfully search for GW signals \cite{Usman:2015kfa,PhysRevD.95.042001,gstlal_paper2, Aubin:2020goo}.
+A GW search aims to filter the data with the signals gathered in a template bank and compute the detection statistics for each template as a function of time: this technique, called {\it matched filtering}, is implemented by several pipelines to sucessfully search for GW signals \cite{Usman:2015kfa,PhysRevD.95.042001,gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
 
-In the case of a a non-precessing BBH, where we neglect the Higher Order Modes (HM) of the waveforms, the paramters space to search by brute force has only 4 dimensions (the two masses and the two z components of the spins). In this situation, the maximized likelihood has the following expression:
-\begin{equation}\label{eq:LL_filtering}
-	\Lambda(\theta) = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta) \tilde{d}(f)}{S_n(f)}
-\end{equation}
-where $\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density of the gaussian noise $n(t)$.
-Moving on to more general searches, the dimensionality of the parameter space to be covered by the template bank increaseas and, at the same time, the analytical form of the maximized likelihood may change.
+In the case of a a non-precessing BBH, where we neglect the Higher Order Modes (HM) of the waveforms, the paramters space to search by brute force has only 4 dimensions (the two masses and the two z components of the spins).
+%In this situation, the maximized likelihood has the following expression:
+%\begin{equation}\label{eq:LL_filtering}
+%	\Lambda(\theta) \propto 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta) \tilde{d}(f)}{S_n(f)}
+%\end{equation}
+%where $\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density of the gaussian noise $n(t)$.
+Moving on to more general searches, the dimensionality of the parameter space to be covered by the template bank increaseas.
+% and, at the same time, the analytical form of the maximized likelihood may change.
 
 It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$ embedded in a large 12 dimensonal manifold $\mathcal{B}$: each point of the manifold corresponds to a GW signal. The number $D$ of dimensions depends on the BBH variables under consideration.
 As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful default value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the full manifold $\mathcal{B}$.
@@ -168,7 +173,7 @@ This work develops a novel approach to template placing. It is focused on the ge
 The bank generation (i.e. the placing of templates) is articulated in three logical steps:
 
 \begin{enumerate}
-	\item Construction of a metric approximation of the match between templates. This makes $\mathcal{B}_D$ and euclidean manifold.
+	\item Construction of a metric approximation of the match between templates. This makes $\mathcal{B}_D$ a Riemannian manifold.
 	\item Creation of a tiling (cover) for the manifold. In each tile the metric is assumed to be constant.
 	\item Placing the templates according to the tiling
 \end{enumerate}
@@ -180,17 +185,17 @@ We will devote the rest of this section to go through all the details of the ste
 
 In this section we define a metric distance on the manifold of templates $\mathcal{B}_D$. Such metric approximates the {\it mis-match} between templates and can be used a fast-to-compute surrogate. We will also derive an explicit expression for the metric in terms of the waveform and its gradients.
 
-Motivated by the search likelihood eq.~\eqref{eq:LL_filtering}, we can introduce a complex \textit{scalar product}\footnote{
+Under the assumption of gaussian noise \cite{Creighton_book}, it is natural to introduce a complex \textit{scalar product}\footnote{
 Technically, this is a scalar product on the $L^2$ space of the waveforms $h$.
+Moreover, the search likelihood eq.~\eqref{eq:LL} will depend only $\scalar{h}{h}$ and $\scalar{s}{h}$.
 } between two \textit{waveforms} $h$ as:
 
 \begin{equation} \label{eq:scalar_product}
-	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}_+^*(f;\theta_1) \tilde{h}_+(f;\theta_2)}{S_n(f)}
+	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{h}_+^*(f;\theta_1) \tilde{h}_+(f;\theta_2)}{S_n(f)}
 \end{equation}
 
 where $h_+(\cdot; \theta)$ denotes the plus polarization of the waveform evaluated at the point $\theta$ of the manifold.
 It is important to note that the parameters $\theta$ may not fully specify the BBH parameter space: in this case, the expression $h(\theta)$ assumes that the waveform is generated at some default constant paramters for the quantities not constrained by $\theta$.
-We also define $\rescalar{h_1}{h_2} = \Re\scalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2} = \Im\scalar{h_1}{h_2}$.
 Eq.~\eqref{eq:scalar_product} is a measure of the detection statistics $\Lambda(\theta_1)$ that is measured when a signal $h(t; \theta_2)$ is present in the data.
 
 A waveform $h(\theta)$ can be normalized using the scalar product above:
@@ -201,16 +206,16 @@ A waveform $h(\theta)$ can be normalized using the scalar product above:
 We can use the scalar product to define the sought for distance between signals.
 For each parameter $t$, we define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized WFs as:
 \begin{align}\label{eq:overlap}
-	\mathcal{O}(\theta_1,\theta_2, t) &= \left\| \int\limits_{-\infty}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\| \nonumber\\
-	&= \left\| \scalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}} \right\| 
+	\mathcal{O}(\theta_1,\theta_2, t) &= \left\lvert \int\limits_{0}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert \nonumber\\
+	&= \lvert \scalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}} \rvert
 \end{align}
-where, with a slight abuse of notation, we defined $\hat{h}(\theta)e^{i 2\pi ft}$ to be the waveform $\hat{h}(\theta)$ traslated by a constant time $t$.
+where, with a slight abuse of notation, we defined $\hat{h}(\theta)e^{i 2\pi ft}$ to be the waveform $\hat{h}(\theta)$ traslated by a constant time $t$ and $\lvert \cdot \rvert$ denotes the absolute value of a complex number.
 
 Based on the overlap, we can eventually define the {\it match} as:
-\begin{align}\label{eq:match}
+\begin{equation}\label{eq:match}
 	\mathcal{M}&(\theta_1,\theta_2) = \max_t \mathcal{O}(\theta_1,\theta_2, t) \\
-	&= \max_t \sqrt{ \rescalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}}^2 + \imscalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i2\pi ft}}^2 }  \nonumber 
-\end{align}
+	%&= \max_t \sqrt{ \rescalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}}^2 + \imscalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i2\pi ft}}^2 }  \nonumber 
+\end{equation}
 
 The match takes values in the range $[0,1]$ and trivially $\mathcal{M}(\theta,\theta) = 1$.
 
@@ -225,41 +230,46 @@ The quantity $1-\mathcal{M}$ above is also called {\it mismatch}.
 We are interested to construct the metric approximation of the distance. This amounts to replace the distance with a bilinear form in the neighbourhood of any given point $\theta$. Such bilinear form is represented by a $D\times D$ matrix $M(\theta)$ such that\footnote{
 In this expression and everywhere else, we assume Einstein summation convention for vector product.}:
 \begin{align}\label{eq:metric_definition}
-	d^2(\theta_1,\theta_2) = 1 - \mathcal{M}(\theta_1,\theta_2) \simeq M(\theta)_{ij} \Delta\theta_i \Delta\theta_j
+	d^2(\theta_1,\theta_2) = 1 - \mathcal{M}(\theta_1,\theta_2) \simeq M_{ij}(\theta) \Delta\theta_i \Delta\theta_j
 \end{align}
 where $\Delta\theta = \theta_1-\theta_2$ is a D-dimensional vector.
 The distance induced by the metric approximates the distance between two points of the manifold.
 It is worth noting that, like any expansion, eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit of small $||\Delta\theta||$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For $||\Delta\theta|| \gtrsim 1$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
 
-Of course, there is not a {\it correct} expression for the metric $M(\theta)$, but its exact value may depend on the application and on the range of applicability of the approximation.
-A fair guess of the metric can be done through through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}. We can write the metric as:
-
-\begin{equation} \label{eq:metric_optmization}
-	M(\theta) = \argmin_{M^\prime} \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_{target}\}} \hspace{-3.8em}
-		\dvol{\theta^\prime}{D}  \left[ d^2(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j
-		\right]^2
+Of course, there is not a {\it correct} expression for the matrix $M_{ij}(\theta)$, but its exact value may depend on the application and on the range of applicability of the approximation.
+A fair guess for the tensor field $M_{ij}(\theta)$ can be done through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}.
+The disagreement of the two distances around a point $\theta$ can be encoded into a {\it loss function}, which depends on a guess for the matrix elements $M^\prime_{ij}$:
+\begin{equation} \label{eq:loss_function}
+	\mathcal{L}_\theta(M^\prime_{ij}) &= \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_{target}\}} \hspace{-3.8em}
+		\dvol{\theta^\prime}{D}  \left[ d^2(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j \right]^2
 \end{equation}
-where the integration extends on a D-ball with radius $d_{target}$ centered around theta. The value $d_{target}$ controls the range of validity of the approximation.
+where the integration extends on a D-ball with radius $d_{target}$ centered around theta.
+The value $d_{target}$ is a tunable parameters which controls the range of validity of the approximation.
+
+At a given point $\theta$, the components $M_{ij}(\theta)$ of the metric are selected by minizing the above loss:
+\begin{equation} \label{eq:metric_optmization}
+	M_{ij}(\theta) = \argmin_{M^\prime_{ij}}  \mathcal{L}_\theta(M^\prime_{ij})
+\end{equation}
 Although the problem can be tackled using one standard optimization techniques of numerical optimizaton, it is unfeasible to use it as is\footnote{
 Future work may try to tacke this optimization problem finding a solution at an acceptable computational cost.},
 since it requires to compute many waveforms to evaluate $d(\theta,\theta^\prime)$ eq.~\eqref{eq:distance} and to sample from a ``complicate" set such as $\{d(\theta,\theta^\prime) < d_{target}\}$.
 
 To make the metric generation feasible, we should find faster {\it heuristic} solution to eq.~\eqref{eq:metric_optmization}: a good guess is to identify it with the bilinear term of the Taylor expansion of the match.
-It turns out that this depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression:
+It turns out that this depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression, first derived by Owen \cite{owen_metric}:
 \begin{equation}\label{eq:metric_expression}
-	M(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
+	M_{ij}(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
 \end{equation}
 where $H(\theta)$ is the Hessian of the overlap eq.~\eqref{eq:overlap} (a $D+1$ square matrix). Note that the metric is positive definite.
 The details of the computation of the Hessian in terms of the gradients of the waveform are presented in appendix \ref{app:metric}.
 The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 
-For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{PhysRevD.103.043020, ML_wf_model}, such gradients are available analytically (thus speeding up the computation).
+For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, such gradients are available analytically (thus speeding up the computation).
 
 %%%
 %%%%%%%%% THIS PART IS ABOUT THE PARABOLIC FIT HESSIAN: AS IT DOES NOT REALLY WORK. IT IS PROBLEMATIC TO MENTION IT IN THE PAPER.
 %Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}. The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$. A possible solution to this problem is to update the eigenvalues of the Hessian eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance. In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}. Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
 
-Equipped with the metric eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes an Euclidean manifold with line element:
+Equipped with the metric eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes a Riemannian manifold with line element:
 \begin{equation}\label{eq:line_element}
 	\d{s^2} = M_{ij}(\theta) \d{\theta_i} \d{\theta_j}
 \end{equation}
@@ -283,12 +293,13 @@ To simplify the geometry (and make the computation faster), we only consider hyp
 \end{equation}
 where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-cube (rectangle) with extrema $\theta_{min/max}$ and where $M$ is the metric evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
-Partially following \cite{manifold_PSU}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
-The three resulting tiles are further split if:
+Partially following \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
+The three resulting tiles are further split if the metric determinants $|M_{right}|, |M_{left}|$ of the left and right tile satisfy:
 \begin{equation}
-	0.5\left|\log_{\textrm{10}}\frac{\mathcal{T}_{right}}{\mathcal{T}_{left}}\right| > \epsilon,
+	0.5\left|\log_{\textrm{10}}\frac{|M_{right}|}{|M_{left}|}\right| > \epsilon,
 \end{equation}
 where the threshold $\epsilon$ can be freely chosen by the user and controls the total number of tiles being generated.
+This condition makes sure that the volume element $\sqrt{|M|}$ does not change too much between neighbouring tiles.
 Function \texttt{SplitTile} is described in alg.~\ref{alg:tiling}.
 
 The tiling generation algorithm iteratively splits an initial tile $\mathcal{T}_{0}$ which covers the space of interest, until all the tiles satisfy the condition above.
@@ -347,7 +358,7 @@ This is useful to set the total number of templates $N_{templates}$ as:
 	N_{templates} = \frac{\text{Vol}(\mathcal{B}_D)}{d(MM)^D}
 \end{equation}
 The method runs very fast but provides poor coverage and injection recovery. Nevertheless, due to its speed, it is useful to provide a rough estimation of the bank size and features.
-Moreover as argued in \cite{Allen_performance_templates}, for very high dimensional spaces, a uniform placing may not be too far from being optimal.
+Moreover as argued in \cite{Allen:2021yuy, Allen:2022lqr}, for very high dimensional spaces, a uniform placing may not be too far from being optimal.
 
 %A variant, called {\it qmc} allows to sample from each tile using a quasi-Montecarlo sampling, to ensure a more regular separation between points. However, we observe only a mild increase of performance.\stefano{Do we mention this?}
 \paragraph{Stochastic}\label{par:stochastic}
@@ -702,6 +713,12 @@ From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuiti
 %\end{itemize}
 %}
 
+\stefano{Main mbank innovations: 
+\begin{itemize}
+	\item The tiling: makes the probability distribution tractable (and fast)
+	\item Metric is used consistently everywhere: no need for the true match
+\end{itemize}
+}
 We presented a novel method to generate template banks to cover a high dimensional manifold of (possibly) precessing/HM/eccentric BBH signals.
 We rely on the metric approximation to the match eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling we are able to implement several strategies to place templates around the space with a given minimum match target.
 The code implementing our method is publicy available as a package \texttt{mbank} and it comes with a number of tools to make the bank generation and validation easy.
@@ -743,6 +760,7 @@ This will enable to optimally allocate resourches to search for signature of pre
 \section{Details of the metric computation}\label{app:metric}
 
 In this appendix we report the details of the derivation of the expression~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
+In what follows, we define $\rescalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2}$ to be respectively the real and imaginary part of $\scalar{h_1}{h_2}$.
 
 We begin by expanding the quantity $\mathcal{M}(\theta,\theta +\Delta\theta)$ for $\Delta\theta$ around $0$. Since the $\mathcal{M}(\theta,\theta +\Delta\theta)$ has a maximum for $\Delta\theta = 0$, the leading term is quadratic in $\Delta\theta$.
 We obtain:
@@ -799,6 +817,14 @@ The gradients $\partial_i h$ of the waveform can be computed with an accurate fi
 %	\mathcal{M}(\theta_1,\theta_2) =  \max_{t} \left\lvert \int\limits_{f_\text{min}}^{f_\text{max}} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert^2
 %\end{equation*}
 
+
+%\begin{equation}
+%	\mathcal{M}(h_1,h_2) =  1- \frac{\rescalar{h_1}{h_2}}{\sqrt{\rescalar{h_1}{h_1}\rescalar{h_2}{h_2}}}
+%\end{equation}
+
+%\begin{equation}
+%	\rescalar{h_1}{h_2} = \Re \int \text{d}f \; \frac{\tilde{{h}}^*_1 \tilde{{h}}_2}{S_n}
+%\end{equation}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY
 	\bibliography{biblio.bib}

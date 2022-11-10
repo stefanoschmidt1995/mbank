@@ -297,7 +297,7 @@ To simplify the geometry (and make the computation faster), we only consider hyp
 \end{equation}
 where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-cube (rectangle) with extrema $\theta_{min/max}$ and where $M$ is the distance matrix evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
-Partially following \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
+Inspired by \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
 The three resulting tiles are further split if the metric determinants $|M_{right}|, |M_{left}|$ of the left and right tile satisfy:
 \begin{equation}
 	0.5\left|\log_{\textrm{10}}\frac{|M_{right}|}{|M_{left}|}\right| > \epsilon,
@@ -350,11 +350,11 @@ The equation above can be used to uniformly draw random templates on the space a
 Once a tiling is available, we need to place the templates that will be part of the bank.
 As it is common, the input parameter controlling the average spacing of the templates (and their number) is the so-called {\it minimum match} $MM$. It is defined as the minimum tolerable match that a random injection (inside the relevant space) must have with the templates of the bank.
 
-A few template placing methods have been implemented, each of which has their strength. In section~\ref{sec:placing_accuracy}, we make quantitative studies on their performance. It is worth to note that the last three methods described appear here for the first time.
-Below we describe briefly each of them.
+A variety of template placing methods have been implemented in \texttt{mbank}, each of which has their own strength and applicability.
+Below, we describe briefly the most interesting among them and in Sec.~\ref{sec:placing_accuracy}, we make quantitative studies on their performance.
 
 \paragraph{Uniform}\label{par:uniform}
-The templates are randomly drawn from the probabilty distribution defined by the metric $p(\theta) \propto \sqrt{M(\theta)}$, as described in \ref{Messenger:2008ta}.
+The templates are randomly drawn from the probabilty distribution defined by the metric $p(\theta) \propto \sqrt{M(\theta)}$, as described in \cite{Messenger:2008ta}.
 Of course, we only have access to the approximation eq.~\eqref{eq:tiling_pdf} given by the tiling. To sample from it, we use Gibb's sampling: first we randomly choose a tile with a probability proportional to its volume and, second, we randomly draw a point within the chosen tile.
 \\
 Following an argument by Owen \cite{owen_metric}, the optimal distance between templates placed on a cubic lattice should be:
@@ -365,32 +365,42 @@ This is useful to set the total number of templates $N_{templates}$ as:
 \begin{equation} \label{eq:N_templates}
 	N_{templates} = \frac{\text{Vol}(\mathcal{B}_D)}{d(MM)^D}
 \end{equation}
-\stefano{Add here a mention that Messenger:2008ta provides other options to set the number of templates...}
-The method runs very fast but provides poor coverage and injection recovery. Nevertheless, due to its speed, it is useful to provide a rough estimation of the bank size and features.
-Moreover as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, for high dimensional spaces, a uniform placing may not be too far from being optimal.
-
+In the total number of templates, we depart from \cite{Messenger:2008ta}, where the total number of templates is set with a different scheme (see below).
+\\
+The method runs very fast but provides poor coverage and injection recovery: indeed, the number of $N_{templates}$ refers to a lattice template configuration and drastically underestimates the actual bank size.
+For such reasons, we do not expect this to be a viable option for bank generation. Nevertheless, due to its speed, it is useful to provide a rough estimation of the bank size and features, mostly useful at the tiling generation stage.
 %A variant, called {\it qmc} allows to sample from each tile using a quasi-Montecarlo sampling, to ensure a more regular separation between points. However, we observe only a mild increase of performance.\stefano{Do we mention this?}
+
+\paragraph{Random}\label{par:random}
+This methods is similar to the previous one, but provides a better mechanism to estimate the total number of points inside the bank.
+The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one template is drawn from distribution eq.~\eqref{eq:tiling_pdf} and added to the bank. All the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ from the template (i.e. within the template volume) will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta = 0.01$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 10000$.
+\\
+The method originally appeared in \cite{Messenger:2008ta}; the addition of the livepoints as a method to provide a monte carlo estimation of the covering fraction $\eta$ first appeared in \cite{Coogan:2022qxs}. Unlike \cite{Coogan:2022qxs} which does importance sampling, we use the tiling to sample from the uniform distribution over the parameter space.
+Although the method does not check for distances between templates and can overcover, it is very fast and provides a reliable bank at a cheap computational and memory cost.
+Moreover, as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, for a large number of dimensions, the banks generated by the random method provide close to optimal performance.
+
+%paragraph{Pruning}\label{par:pruning}
+%The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ (i.e. within the template volume)  will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{templates}$.
+%The rejection mechanism is similar to the {\it stochastic} method but the proposals are managed in a more efficient way, as they are always accepted.
+%The method has very good properties: the result mildly depends on the tiling chosen and it is able to take care of the boundaries. As the livepoints must be stored in the computer memory, it can be quite memory expensive and for many practical applications it cannot run without splitting the parameter space in subregions.
+%As above, we use the metric approximation eq.~\eqref{eq:metric_tiling}.
+%The idea of using livepoints to cover the space was first introduced in \ref{Coogan:2022qxs}; in the original paper, the proposals are randomly drawn from the metric, whereas in our method, the proposal are extracted among the livepoints themselfs.
+
 \paragraph{Stochastic}\label{par:stochastic}
 Some proposals are randomly drawn from the parameter space, following the probability distribution eq.~\eqref{eq:tiling_pdf}. They are accepted as templates if their minimum metric distance from {\it all} the previously added templates is greater than  $\sqrt{1-MM}$.
 Whenever $N_{max}$ proposals are consecutively rejected the procedure will stop. For distance computation, we use the metric approximation given by the tiling eq.~\eqref{eq:metric_tiling}.
 \\
 The method is inspired by \cite{PhysRevD.80.104014}, a large difference being that here we use {\it entirely} the metric match to compute distances: this results in a very large speed up. Moreover, in \cite{PhysRevD.80.104014} for each proposal only the templates in the vicinity of the proposal are considered for distance computation.
-This methods provides very nice coverage properties, however it can be quite slow to run (but still fast compared to a non metric placement approach).
-\paragraph{Random}\label{par:random}
-The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ (i.e. within the template volume)  will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{templates}$.
-The rejection mechanism is similar to the {\it stochastic} method but the proposals are managed in a more efficient way, as they are always accepted.
-The method has very good properties: the result mildly depends on the tiling chosen and it is able to take care of the boundaries. As the livepoints must be stored in the computer memory, it can be quite memory expensive and for many practical applications it cannot run without splitting the parameter space in subregions.
-As above, we use the metric approximation eq.~\eqref{eq:metric_tiling}.
-\\
-The idea of using livepoints to cover the space was first introduced in \ref{Coogan:2022qxs}; in the original paper, the proposals are randomly drawn from the metric, whereas in our method, the proposal are extracted among the livepoints themselfs.
-\stefano{Our method random is inefficient, since it's slow and shitty. Maybe we should remove this and stick to the "true" random method, as described in \ref{Coogan:2022qxs}}.
+This methods provides very nice coverage properties since it check for the mutual distance between templates; however it can be quite slow to run, especially in a large number of dimensions.
 
-is that we use the livepoints as proposals, whereas they don't do this and draw random proposals around
 \paragraph{Random-Stochastic}\label{par:randomstochastic}
 The outcome of the {\it random} placement is set as a seed bank for the {\it stochastic} method. This make sure that eventual ``holes" left by the random placement are covered. This provides a substantial speed up with respect to the stochastic method while keeping at the same time the same amount of accuracy.
-\paragraph{Tile-Stochastic/Tile-random}\label{par:tilerandom_stochastic}
-Such methods perform the stochastic and random placement algorithm respectively by considering each tile separetely.
-They are faster than stochastic and random methods but they tend to over-cover the space. If the tiles are large (i.e. a large number of tempaltes per tile is expected), the errors introduced by considering the tiles separeately becomes negligible.
+To our knowledge, the method is first described here.
+
+%\paragraph{Tile-Stochastic}\label{par:tilerandom_stochastic}
+%Such methods perform the stochastic placement algorithm by considering each tile separetely.
+%They are faster than stochastic and random methods but they tend to over-cover the space. If the tiles are large (i.e. a large number of tempaltes per tile is expected), the errors introduced by considering the tiles separeately becomes negligible.
+
 
 \subsection{Limitations} \label{sec:limitations}
 
@@ -531,6 +541,7 @@ The reason for such different qualitative behaviour is still unknown and require
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
+\stefano{Here you should make again the plots and revisit the discussion!}
 Here we compare the performances of different placing methods: \textit{uniform}, \textit{random} and \textit{stochastic}.
 This will be helpful to understand their ranges of applicability and possibile limitations in their use.
 
@@ -600,6 +611,7 @@ We generate three non-precessing template banks with both codes:
 	\item An {\it aligned spins low mass} bank
 \end{itemize}
 The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole second observing run (O2).
+\stefano{You should make these banks again, using the stochastic approach!!}
 For the first two banks, templates are placed with the {\it random} method, whereas for the last the {\it stochastic} method was employed.
 In the same table, we report the size of the banks generated and their generation time. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
 

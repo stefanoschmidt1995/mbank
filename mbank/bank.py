@@ -20,7 +20,7 @@ import ray
 
 import scipy.spatial
 
-from .utils import place_stochastically_in_tile, place_stochastically, place_iterative, place_random
+from .utils import place_stochastically_in_tile, place_stochastically, place_iterative, place_random, place_pruning
 from .utils import DefaultSnglInspiralTable, avg_dist, read_xml, partition_tiling, split_boundaries, plawspace, create_mesh, get_boundary_box
 
 from .handlers import variable_handler, tiling_handler
@@ -115,7 +115,7 @@ class cbc_bank():
 		placing_methods: list
 			The available methods for placing the templates
 		"""
-		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'tile_random', 'geo_stochastic', 'random_stochastic', 'tile_stochastic']
+		return ['uniform', 'qmc', 'geometric', 'iterative', 'stochastic', 'random', 'tile_random', 'geo_stochastic', 'random_stochastic', 'tile_stochastic', 'pruning', 'iterative_stochastic']
 	
 	def load(self, filename):
 		"""
@@ -301,7 +301,7 @@ class cbc_bank():
 		
 		return
 		
-	def place_templates(self, tiling, avg_match, placing_method, livepoints = 50, empty_iterations = 100, verbose = True):
+	def place_templates(self, tiling, minimum_match, placing_method, N_livepoints = 10000, empty_iterations = 100, verbose = True):
 		"""
 		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
@@ -311,29 +311,34 @@ class cbc_bank():
 		tiling: tiling_handler
 			A tiling handler with a non-empty tiling
 		
-		avg_match: float
-			Average match for the bank: it controls the distance between templates as in ``utils.avg_dist()``
+		minimum_match: float
+			Minimum match for the bank: it controls the distance between templates as in ``utils.avg_dist()``
 		
 		placing_method: str
 			The placing method to set templates in each tile. It can be:
 			
 			- `uniform`	-> Uniform drawing in each hyper-rectangle, according to the volume
 			- `qmc`	-> Quasi Monte Carlo drawing in each hyper-rectangle, according to the volume
-			- `geometric` -> Geometric placement
+			- `random` -> Random points sampled from the tiling are added to the bank until only a fraction eta = 0.01 of the original volume is left uncovered
+			- `stochastic` -> Stochastic placement: proposal are made and accepted only if they are more distant than sqrt(1-minimum_match) from the rest of the templates
+			- `random_stochastic` -> Random placement, followed by a stochastic placement to "fill" the holes left by the random method
+			- `geometric` -> Geometric placement: templates are placed on a lattice, with spacing computed according to the minimum match requirement
 			- `iterative` -> Each tile is split iteratively until the number of templates in each subtile is equal to one
-			- `stochastic` -> Stochastic placement
+			- `iterative_stochastic` -> The outcome of the iterative method is given as input to the stochastic method
 			- `geo_stochastic` -> Geometric placement + stochastic placement
-			- `tile_stochastic` -> Stochastic placement for each tile separately
-			- `random` -> The volume is covered with some point that are killed by placing the templates
+			- `tile_stochastic` -> Stochastic placement performed for each tile separately
+			- `pruning` -> The volume is covered with some point that are killed by placing the templates
 			- `tile_random` -> Random placement for each tile separately
 		
 			Those methods are listed in `cbc_bank.placing_methods`
 		
-		livepoints: float
-			The ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method. It only applies to the random placing method
+		N_livepoints: float
+			Only applies for `random` method or `pruning` method.
+			For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction.
+			For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.
 		
 		empty_iterations: int
-			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method.
+			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method (or related).
 		
 		verbose: bool
 			Whether to print the output
@@ -345,24 +350,47 @@ class cbc_bank():
 			The templates generated (already added to the bank)
 
 		"""
+			#######
+			# Some initial checks
+			#######
+			
 		assert placing_method in self.placing_methods, ValueError("Wrong placing method '{}' selected. The methods available are: ".format(placing_method, self.placing_methods))
 		assert self.D == tiling[0][0].maxes.shape[0], ValueError("The tiling doesn't match the chosen variable format (space dimensionality mismatch)")
+		if self.variable_format.startswith('m1m2_'):
+			raise RuntimeError("Currently mbank does not support template placing with m1m2 format for the masses")
 		
-			#getting coarse_boundaries from the tiling (to cover boundaries for the bank)
-		if placing_method in ['geometric', 'geo_stochastic', 'random', 'random_stochastic'] :
-			coarse_boundaries = np.stack([np.min([t_[0].mins for t_ in tiling], axis = 0),
-					np.max([t_[0].maxes for t_ in tiling], axis = 0)],
-					axis =0) #(2,D)
+		for R, M in tiling:
+			eigs, _ = np.linalg.eig(M)
+					#sanity checks on the metric eigenvalues
+			if np.any(eigs < 0):
+				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed.")
+			
+			abs_det = np.abs(np.prod(eigs))
+			if abs_det < 1e-50: #checking if the determinant is close to zero...
+				msg = "The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?\nRectangle: {}\nMetric: {}".format(R, M)
+				raise ValueError(msg)
 		
-		dist = avg_dist(avg_match, self.D) #desired average distance between templates
+		
+			#######
+			# Initializing some useful quantities
+			#######
+			
+		if placing_method in ['geometric', 'geo_stochastic', 'random', 'random_stochastic', 'iterative_stochastic'] :
+			coarse_boundaries = np.stack([tiling.boundaries.mins, tiling.boundaries.maxes],	axis =0) #(2,D)
+		
+		dist = avg_dist(minimum_match, self.D) #desired average distance between templates
 		if verbose: print("Approx number of templates {}".format(int(tiling.compute_volume()[0] / np.power(dist, self.D))))
 			#total number of points according to volume placement
-		N_points = lambda t: livepoints*t.compute_volume()[0] / np.power(np.sqrt(1-avg_match), self.D)
+		N_points = lambda t: N_livepoints*t.compute_volume()[0] / np.power(np.sqrt(1-minimum_match), self.D)
 		new_templates = []
 
-		if placing_method in ['stochastic', 'random', 'uniform', 'qmc', 'random_stochastic']: it = iter(())		
+		if placing_method in ['stochastic', 'random', 'pruning', 'uniform', 'qmc', 'random_stochastic']: it = iter(())		
 		elif verbose: it = tqdm(range(len(tiling)), desc = 'Placing the templates within each tile', leave = True)
 		else: it = range(len(tiling))
+
+			#######
+			# Loop on the tiling (for methods that requires it)
+			#######
 
 		for i in it:
 			
@@ -370,38 +398,41 @@ class cbc_bank():
 			boundaries_ij = np.stack([t[0].mins, t[0].maxes], axis =0) #boundaries of the tile
 			eigs, _ = np.linalg.eig(t[1]) #eigenvalues
 
-				#some sanity checks on the metric eigenvalues
-			if np.any(eigs < 0):
-				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed.")
-			
-			abs_det = np.abs(np.prod(eigs))
-			if abs_det < 1e-50: #checking if the determinant is close to zero...
-				msg = "The determinant of the metric is zero! It is impossible to place templates into this tile: maybe the approximant you are using is degenerate with some of the sampled quantities?\nRectangle: {}\nMetric: {}".format(t[0], t[1])
-				raise ValueError(msg)
-			
 			if placing_method in ['geometric', 'geo_stochastic']:
-					#if stochastic option is set, we create a first guess for stochastic placing method 
-				#new_templates_ = create_mesh(dist, t, coarse_boundaries = None) #(N,D)
-				new_templates_ = create_mesh(2*np.sqrt(1-avg_match), t, coarse_boundaries = None) #(N,D)
+				new_templates_ = create_mesh(2*np.sqrt(1-minimum_match), t, coarse_boundaries = None) #(N,D)
 			
-			elif placing_method == 'iterative':
-				new_templates_ = place_iterative(avg_match, t)
+			elif placing_method in ['iterative', 'iterative_stochastic']:
+				new_templates_ = place_iterative(minimum_match, t)
 			elif placing_method == 'tile_stochastic':
-				new_templates_ = place_stochastically_in_tile(avg_match, t)
+				new_templates_ = place_stochastically_in_tile(minimum_match, t)
 			elif placing_method == 'tile_random':
 				temp_t_ = tiling_handler(t)
-				new_templates_ = place_random(avg_match, temp_t_, N_points = int(N_points(temp_t_)), tolerance = 0.0001, verbose = False)
+				new_templates_ = place_random(minimum_match, temp_t_, N_livepoints = N_livepoints, tolerance = 0.01, verbose = False)
 		
 			new_templates.extend(new_templates_)
+
+			#######
+			# Placing the templates with the remaining methods
+			#######
 
 		if placing_method in ['uniform', 'qmc']:
 			vol_tot, _ = tiling.compute_volume()
 			N_templates = int( vol_tot/(dist**self.D) )+1
 			if tiling.flow and placing_method == 'uniform': new_templates = tiling.sample_from_flow(N_templates)
 			else: new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
-			
+		
 		if placing_method in ['random', 'random_stochastic']:
-				#As a rule of thumb, the fraction of templates/livepoints must be below 10% (otherwise, bad injection recovery)
+			new_templates = place_random(minimum_match, tiling, N_livepoints = N_livepoints, tolerance = 0.01, verbose = verbose)
+		
+		if placing_method in ['geo_stochastic', 'random_stochastic', 'iterative_stochastic', 'stochastic']:
+			new_templates = place_stochastically(minimum_match, tiling,
+					empty_iterations = empty_iterations,
+					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)	
+		
+		
+		if placing_method in ['pruning']:
+			if tiling.flow: warnings.warn("Currently the flow is not implemented with the pruning method")
+				#As a rule of thumb, the fraction of templates/N_livepoints must be below 10% (otherwise, bad injection recovery)
 			N_points_max = int(1e6)
 			N_points_tot = N_points(tiling)
 
@@ -421,23 +452,18 @@ class cbc_bank():
 				#TODO: make this a ray function? Too much memory expensive, probably...
 					#The template volume for random is sqrt(1-MM) (not dist)
 				
-				new_templates_ = place_random(avg_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
+				new_templates_ = place_pruning(minimum_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
 				
 				new_templates.extend(new_templates_)
 			
-		if placing_method in ['geo_stochastic', 'random_stochastic', 'stochastic']:
-			new_templates = place_stochastically(avg_match, tiling,
-					empty_iterations = empty_iterations,
-					seed_bank =  None if placing_method == 'stochastic' else new_templates, verbose = verbose)
-		#TODO: find a nice way to set free parameters for placing methods stochastic and random
-
 		new_templates = np.stack(new_templates, axis =0)
 		self.add_templates(new_templates)
+		
 		return new_templates
 
-	def generate_bank(self, metric_obj, avg_match, boundaries, tolerance,
+	def generate_bank(self, metric_obj, minimum_match, boundaries, tolerance,
 			placing_method = 'random', metric_type = 'hessian', grid_list = None, train_flow = False,
-			use_ray = False, livepoints = 50, empty_iterations = 100, max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000):
+			use_ray = False, N_livepoints = 50, empty_iterations = 100, max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000):
 		#FIXME: here you should use kwargs, directing the user to the docs of other functions?
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
@@ -452,7 +478,7 @@ class cbc_bank():
 		metric_obj: cbc_metric
 			A cbc_metric object to compute the match with
 
-		avg_match: float
+		minimum_match: float
 			Average match between templates
 		
 		boundaries: :class:`~numpy:numpy.ndarray`
@@ -480,8 +506,10 @@ class cbc_bank():
 		use_ray: bool
 			Whether to use ray to parallelize
 		
-		livepoints: float
-			The ratio between the number of livepoints and the number of templates placed by ``random`` placing method. It only applies to the random placing method
+		N_livepoints: float
+			Only applies for `random` method or `pruning` method.
+			For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction.
+			For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.
 		
 		empty_iterations: int
 			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method.
@@ -508,13 +536,14 @@ class cbc_bank():
 		"""
 			##
 			#Initialization & various checks
-		assert avg_match<1. and avg_match>0., "`avg_match` should be in the range (0,1)!"
-		if avg_match <0.9:
-			warnings.warn("Average match is set to be smaller than 0.9. Although the code will work, this can give unreliable results as the metric match approximation is less accurate.")
-		dist = avg_dist(avg_match, self.D) #desired average distance in the metric space between templates
+		assert minimum_match<1. and minimum_match>0., "`minimum_match` should be in the range (0,1)!"
+		if minimum_match <0.9:
+			msg = "Average match is set to be smaller than 0.9. Although the code will work, this can give unreliable results as the metric match approximation is less accurate."
+			warnings.warn(msg)
+		dist = avg_dist(minimum_match, self.D) #desired average distance in the metric space between templates
 		
 		if self.variable_format.startswith('m1m2_'):
-			raise RuntimeError("The current placing method does not support m1m2 format for the masses")
+			raise RuntimeError("Currently mbank does not support template placing with m1m2 format for the masses")
 		
 		if grid_list is None: grid_list = [1 for i in range(self.D)]
 		assert len(grid_list) == self.D, "Wrong number of grid sizes. Expected {}; given {}".format(self.D, len(grid_list))
@@ -525,6 +554,7 @@ class cbc_bank():
 		
 			###
 			#creating the tiling
+			
 		metric_fun = lambda center: metric_obj.get_metric(center, overlap = False, metric_type = metric_type)
 									#metric_type = 'hessian')
 									#metric_type = 'block_diagonal_hessian')
@@ -537,8 +567,9 @@ class cbc_bank():
 			##
 			#placing the templates
 			#(if there is KeyboardInterrupt, the tiling is returned anyway)
+
 		try:
-			self.place_templates(t_obj, avg_match, placing_method = placing_method, livepoints = livepoints, empty_iterations = empty_iterations, verbose = True)
+			self.place_templates(t_obj, minimum_match, placing_method = placing_method, N_livepoints = N_livepoints, empty_iterations = empty_iterations, verbose = True)
 		except KeyboardInterrupt:
 			self.templates = None
 		

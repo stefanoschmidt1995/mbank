@@ -83,7 +83,7 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--livepoints", default = 50, type = float,
+	"--n-livepoints", default = 50, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
 	"--empty-iterations", default = 100, type = float,
@@ -242,10 +242,11 @@ if format_info['mass_format'] == 'm1m2':
 	raise NotImplementedError("Currently no template placement is implemented for the mass format m1m2.")
 
 else:
-	t_obj = bank.generate_bank(m, avg_match = args.mm, boundaries = boundaries, tolerance = args.tile_tolerance,
+	t_obj = bank.generate_bank(m, minimum_match = args.mm, boundaries = boundaries,
+		tolerance = args.tile_tolerance,
 		placing_method = args.placing_method, metric_type = args.metric_type,
 		grid_list = args.grid_size, train_flow = args.train_flow,
-		livepoints = args.livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth,
+		N_livepoints = args.n_livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth,
 		use_ray = args.use_ray, n_layers = args.n_layers, hidden_features = args.hidden_features, N_epochs = args.n_epochs)
 	
 	tiling_file = args.run_dir+'tiling_{}.npy'.format(args.run_name)

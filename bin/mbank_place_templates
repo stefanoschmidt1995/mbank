@@ -57,7 +57,7 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--livepoints", default = 50, type = float,
+	"--n-livepoints", default = 50, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
 parser.add_argument(
 	"--empty-iterations", default = 100, type = float,
@@ -136,7 +136,7 @@ if args.train_flow:
 	t_obj.flow.save_weigths(args.flow_file)
 elif isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)
 
-bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, livepoints = args.livepoints, empty_iterations = args.empty_iterations, verbose = True)
+bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, N_livepoints = args.n_livepoints, empty_iterations = args.empty_iterations, verbose = True)
 
 	######
 	#	Plotting & saving

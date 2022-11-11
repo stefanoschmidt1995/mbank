@@ -587,6 +587,7 @@ def compute_injections_metric_match(injs, bank, tiling, match_threshold = 0.9, v
 		else: metric = tiling[out_dict['id_tile'][i]].metric
 		
 		match_i = 1 - np.sum(np.multiply(diff[id_diff_ok], np.matmul(diff[id_diff_ok], metric)), axis = -1)
+		match_i = np.exp(-(1-match_i))
 		
 		out_dict['id_metric_match'][i] = np.argmax(match_i)
 		out_dict['metric_match'][i] = match_i[out_dict['id_metric_match'][i]]
@@ -594,7 +595,8 @@ def compute_injections_metric_match(injs, bank, tiling, match_threshold = 0.9, v
 		out_dict['id_match_list'].append(list(np.where(match_i>match_threshold)[0]))
 			#if nothing is below match_threshold, we look into the first 100 best matching templates (hopeless)
 		if out_dict['id_match_list'][-1] == []: out_dict['id_match_list'][-1] = list(np.argsort(match_i)[-100:])
-		
+		#print(len(out_dict['id_match_list'][-1]))
+	
 	return out_dict
 
 
@@ -1134,6 +1136,7 @@ def place_stochastically(minimum_match, tiling, empty_iterations = 200, seed_ban
 			
 			
 			max_match = np.max(1 - np.sum(np.multiply(diff, np.matmul(diff, metric)), axis = -1))
+			#max_match = np.exp(-(1-max_match)) #do we need this?
 
 			if (max_match < MM):
 				new_templates = np.concatenate([new_templates, proposal], axis =0)

@@ -11,31 +11,32 @@ sys.path.insert(0, '../..')
 
 from mbank.bank import cbc_bank
 from mbank.metric import cbc_metric
-from mbank.utils import load_PSD, get_boundaries_from_ranges, compute_injections_match, compute_metric_injections_match, ray_compute_injections_match
+from mbank.utils import load_PSD, get_boundaries_from_ranges, compute_injections_match, compute_injections_metric_match, ray_compute_injections_match
 from mbank.handlers import tiling_handler, variable_handler
 
 ###########################################################################################
 
-def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list, N_injs, N_neigh_templates, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
+def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, match_threshold, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
 	"Computes the number of templates for each MM and for each V_tile"
 
-	epsilon_list.sort(reverse=True)
+	max_depth_list.sort(reverse=False)
 	out_dict = {'variable_format':variable_format,
 			'placing_method':placing_method,
-			'MM_list':MM_list, 'epsilon_list': epsilon_list,
+			'MM_list':MM_list, 'max_depth_list': max_depth_list,
+			'epsilon': epsilon,
 			'boundaries':boundaries,
-			'N_templates': np.zeros((len(epsilon_list), len(MM_list)), int),
-			'N_tiles': np.zeros((len(epsilon_list), ), int),
-			'volume_tiles': np.zeros((len(epsilon_list), )),
-			'MM_metric': np.zeros((len(epsilon_list), N_injs), float),
-			'MM_full': np.zeros((len(epsilon_list), N_injs), float),
-			'N_injs': N_injs, 'N_neigh_templates': N_neigh_templates, 'MM_inj': 0.97,
-			'N_livepoints': 1000, 'empty_iterations': 100	
+			'N_templates': np.zeros((len(max_depth_list), len(MM_list)), int),
+			'N_tiles': np.zeros((len(max_depth_list), ), int),
+			'volume_tiles': np.zeros((len(max_depth_list), )),
+			'MM_metric': np.zeros((len(max_depth_list), N_injs), float),
+			'MM_full': np.zeros((len(max_depth_list), N_injs), float),
+			'N_injs': N_injs, 'match_threshold': match_threshold, 'MM_inj': 0.97,
+			'N_livepoints': 10000, 'empty_iterations': 200	
 		}
 
 	t = tiling_handler()
-	for i, epsilon in enumerate(epsilon_list):
-		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, epsilon)
+	for i, max_depth in enumerate(max_depth_list):
+		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, max_depth)
 			#getting the tiling
 		#print("Tiling file: ",filename)
 		if load_tiling and os.path.exists(filename):
@@ -43,35 +44,36 @@ def get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list,
 			t = tiling_handler(filename)
 		else:
 			t = tiling_handler() #emptying the handler... If the split is not volume based, you should start again with the tiling
-			t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = 400, verbose = True)
+			#t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = max_depth, verbose = True)
+			t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = max_depth, verbose = True)
 			t.save(filename)
 		out_dict['N_tiles'][i]= len(t)
 		out_dict['volume_tiles'][i]= t.compute_volume()[0]
 		
 		for j, MM in enumerate(MM_list):
 				#generating the bank
-			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, epsilon, MM)
+			bank_name = "{}/files/bank_{}_{}_{}.dat".format(folder_name, placing_method, max_depth, MM)
 			b = cbc_bank(variable_format)
 			if load_bank and os.path.exists(bank_name):
 				b.load(bank_name)
 			else: 
 				b.place_templates(t, MM, placing_method = placing_method, 
-						livepoints = out_dict['N_livepoints'], empty_iterations = out_dict['empty_iterations'],
+						N_livepoints = out_dict['N_livepoints'], empty_iterations = out_dict['empty_iterations'],
 						verbose = True)
 				b.save_bank(bank_name)
 			out_dict['N_templates'][i,j] = b.templates.shape[0]
-			print("epsilon, MM, N_tiles, N_templates\t:", epsilon, MM, out_dict['N_tiles'][i], out_dict['N_templates'][i,j])
+			print("max_depth, MM, N_tiles, N_templates\t:", max_depth, MM, out_dict['N_tiles'][i], out_dict['N_templates'][i,j])
 		
 				#Throwing injections
 			if MM != out_dict['MM_inj']: continue #injections only for MM = 0.97
 			injs = t.sample_from_tiling(N_injs, seed = 210795)
 					#metric injections
-			inj_dict = compute_metric_injections_match(injs, b, t, N_neigh_templates = N_neigh_templates, verbose = True)
+			inj_dict = compute_injections_metric_match(injs, b, t, match_threshold = match_threshold, verbose = True)
 			out_dict['MM_metric'][i,:] = inj_dict['metric_match']
 			print('\t\tMetric match: ', np.percentile(inj_dict['metric_match'], [1, 5, 50,95])) 
 					#full match injections
 			if full_match:
-				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj, N_neigh_templates = N_neigh_templates,
+				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj,
 							symphony_match = False, cache = False)
 				out_dict['MM_full'][i,:] = inj_dict['match']
 				print('\t\tFull match: ', np.percentile(inj_dict['match'], [1, 5,50,95]))
@@ -94,11 +96,11 @@ def plot(out_dict, run_name, folder_name = None):
 	plt.title("{}\n{} - {}".format(run_name, out_dict['variable_format'],out_dict['placing_method']))
 	
 	for i in range(N_templates.shape[1]):
-		#plt.loglog(out_dict['epsilon_list'], N_templates[:,i], label = out_dict['MM_list'][i])
+		#plt.loglog(out_dict['max_depth_list'], N_templates[:,i], label = out_dict['MM_list'][i])
 		plt.loglog(out_dict['N_tiles'], N_templates[:,i], label = out_dict['MM_list'][i])
 	
 	plt.legend()
-	plt.xlabel(r"$\epsilon_{tile}$")
+	#plt.xlabel(r"$\max_depth_{tile}$")
 	plt.xlabel(r"$N_{tiles}$")
 	plt.ylabel(r"$N_{templates}$")
 	if isinstance(folder_name, str):
@@ -168,13 +170,16 @@ if __name__ == '__main__':
 	load = False
 	load_tiling = True
 	load_bank = False
-	full_match = True
+	full_match = False
 
 	MM_list = [0.97]
 	
-	epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
-	#epsilon_list = [10, 1, 0.8, 0.5, 0.2, 0.1, 0.05, 0.02]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (30, 50)
-	#epsilon_list = [10, 0.5, 0.355, 0.35, 0.3, 0.25, 0.2]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+		#The 2D bank is too simple: you don't want to validate it!!!
+	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
+
+	max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50)
+	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
 	
 			#setting ranges
 	q_range = (1,5)
@@ -184,7 +189,8 @@ if __name__ == '__main__':
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
-	N_injs, N_neigh_templates = 5000, 75
+	N_injs, match_threshold = 10000, 0.2
+	epsilon = 0.1
 	
 	m_obj = cbc_metric(variable_format,
 			PSD = load_PSD(psd, True, ifo),
@@ -206,7 +212,7 @@ if __name__ == '__main__':
 	
 	if not load:
 
-		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, epsilon_list, N_injs, N_neigh_templates,
+		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, match_threshold,
 					m_obj, boundaries, load_tiling, load_bank, full_match, folder_name)
 		
 		with open(filename, 'wb') as filehandler:

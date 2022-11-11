@@ -20,6 +20,7 @@ from matplotlib.lines import Line2D
 
 from mbank import cbc_bank, variable_handler
 
+from scipy.integrate import quad
 
 from tqdm import tqdm
 
@@ -354,20 +355,28 @@ def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_lis
 		print(t, len(B_inj[key_B]))
 		next(ax._get_lines.prop_cycler)
 
-		ax.plot(x, kde_B.pdf(x), lw=1, label=label_B, **c_A)
-		ax.plot(x, kde_A.pdf(x), lw=1, label=label_A, **c_B)
-		#ax.hist(B_inj[key_B], label = label_B, density = True, histtype = 'step', bins = 1000)
-		#ax.hist(A_inj[key_A], label = label_A, density = True, histtype = 'step', bins = 1000)
+		#ax.plot(x, kde_B.pdf(x), lw=1, label=label_B, **c_A)
+		#ax.plot(x, kde_A.pdf(x), lw=1, label=label_A, **c_B)
+		
+		#ax.hist(B_inj[key_B], label = label_B, density = True, cumulative = True, histtype = 'step', bins = 1000)
+		#ax.hist(A_inj[key_A], label = label_A, density = True, cumulative = True, histtype = 'step', bins = 1000)
+
+		ax.plot(x, np.cumsum(kde_A.pdf(x))*np.diff(x)[0], lw=1, label=label_A, **c_A)
+		ax.plot(x, np.cumsum(kde_B.pdf(x))*np.diff(x)[0], lw=1, label=label_B, **c_B)
+		ax.set_ylim([1e-3,1.0])
+		ax.set_yscale('log')
 
 		ax.tick_params(axis='both', which='major', labelsize=8)
 		ax.tick_params(axis='both', which='minor', labelsize=7)
 		
+		
 		if isinstance(MM, float): ax.axvline(MM, c = 'k', ls = '--')
 		if isinstance(t, str): ax.set_title(t, fontsize = 10)
-	axes[-1].legend(loc = 'upper left', fontsize = 8)
-	axes[-1].set_xlim([0.95,1.005])
+	axes[0].legend(loc = 'lower right', fontsize = 8)
+	axes[-1].set_xlim([0.9,1.001])
 		
 	axes[-1].set_xlabel(r"$\mathcal{M}$", fontsize = 10)
+
 	plt.tight_layout()	
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
@@ -463,9 +472,10 @@ if __name__ == '__main__':
 
 		###
 		#validation of placing methods
-	variable_format_files = {'Mq_nonspinning': 'placing_methods_accuracy/paper_Mq_nonspinning/data_Mq_nonspinning_{}.pkl',
+	variable_format_files = {#'Mq_nonspinning': 'placing_methods_accuracy/paper_Mq_nonspinning/data_Mq_nonspinning_{}.pkl',
 							'Mq_chi': 'placing_methods_accuracy/paper_Mq_chi/data_Mq_chi_{}.pkl',
-							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl'}
+							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
+							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
 	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
@@ -479,7 +489,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###
@@ -508,13 +518,13 @@ if __name__ == '__main__':
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}_flow.png'.format(t.replace(' ', '_'))
-		corner_plot(b,f,t, savefile = filename)
+		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
+	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

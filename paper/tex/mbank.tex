@@ -95,7 +95,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data by LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} Collaborations is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in searches for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky}.
 All these searches need accurate templates banks that covers the parameter space of interests. The template bank generation can be highly non trivial and computationally expensive task but is crucial for the outcome of the searches.
 
-The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014} - consists in scattering templates around the parameter space with a rejection technique \cite{sbank}. A proposed template is included in the bank only if its mismatch with all the proposed templates in the bank is larger than the user defined threshold.
+The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014, sbank} - consists in scattering templates around the parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its mismatch with all the proposed templates in the bank is larger than the user defined threshold.
 While this method is proven to work in many cases, it is computationally demanding, hence very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
 With the ever growing parameter space hyper-volume for the BBH searches, the stochastic method may not be our best approach to the template bank generation moving forward.
 
@@ -484,7 +484,7 @@ The results are reported in fig.~\ref{fig:metric_accuracy}.
 	\includegraphics[width=.85\textwidth,keepaspectratio]{placing_validation}
 	\caption{Results for the validation of the placing methods on $0.97$ minimum match banks. Each row refers to a different placing method whereas each column refers to a different manifold being sampled. In each plot, we report with a cross the number of tiles $N_{\text{tiles}}$ against the number of templates $N_{\text{templates}}$ of the bank.
 	The diamond plot refers to the fitting factor distribution of an injection study performed on the banks. The fitting factor is computed both with the match (orange) and the metric match (blue). The histograms are normalized to arbitrary units and a red tick marks the $0.97$ match threshold. The upper limit of the histograms always corresponds to the match value of $1$.
-	The histograms are built with $5000$ injections for \texttt{Mq\_s1xz} and $1000$ injections in the remaining cases.
+	The histograms are built with $10000$ injections for each manifold.
 	}
 	\label{fig:placing_validation}
 \end{figure*}
@@ -524,10 +524,10 @@ The reason for such different qualitative behaviour is still unknown and require
 	 %\multicolumn{1}{c}{\phantom{Bank name}} & \multicolumn{1}{c}{\phantom{Ranges}} & \multicolumn{1}{c}{\texttt{sbank}} & \multicolumn{1}{c}{\texttt{mbank}} \\
 	 \hline
 	 Nonspinning & \begin{tabular}{@{}l@{}} $M\in [30,50] M_\odot$ \\ $q\in [1,5]$   \\ \end{tabular}  &
-	 		396 & 442 & $O(\text{hours})$ & $O(\text{seconds})$ \\
+	 		396 & 371 & $O(\text{hours})$ & $O(\text{seconds})$ \\
 	 \cdashline{1-6}
 	 Aligned spin & \begin{tabular}{@{}l@{}} $M\in [30,50]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
-	 	3275 & 4108 & $O(\text{days})$ & $O(\text{minutes})$ \\
+	 	3275 & 4117 & $O(\text{days})$ & $O(\text{minutes})$ \\
 	 \cdashline{1-6}
 	 Aligned spin low mass & \begin{tabular}{@{}l@{}} $M\in [10,30]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
 	 	62009 & 80524 & $O(\text{months})$ &  $O(\text{hours})$\\
@@ -543,45 +543,38 @@ The reason for such different qualitative behaviour is still unknown and require
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
-\stefano{Here you should make again the plots and revisit the discussion!}
 Here we compare the performances of different placing methods: \textit{uniform}, \textit{random} and \textit{stochastic}.
 This will be helpful to understand their ranges of applicability and possibile limitations in their use.
 
 We consider 3 different manifolds:
 \begin{itemize}
-	\item \texttt{Mq\_nonspinning} with coordinates $M, q$ in the rectangle $[30, 50] M_\odot \times [1,5]$
-	\item \texttt{Mq\_chi} with coordinates $M, q, \chi $ in the rectangle $[30, 50] M_\odot \times [1,5] \times [-0.99, 0.99]$
+	\item \texttt{Mq\_chi} with coordinates $M, q, \chi $ in the rectangle $[40, 50] M_\odot \times [1,5] \times [-0.99, 0.99]$
 	\item \texttt{Mq\_s1xz} with coordinates $M, q, s_{1}, \theta_1$ in the rectangle $[40, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi]$
+	\item \texttt{Mq\_s1xz\_s2z\_iota} with coordinates $M, q, s_{1}, \theta_1, s_{2z}, \iota$ in the rectangle $[40, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi] \times [-0.99, 0.99] \times [0, \pi]$
 \end{itemize}
-For the first two manifold we use the approximant \texttt{IMRPhenomD}, while for the latter we use \texttt{IMRPhenomPv2}.
-For each manifold, we generate different tilings with a different number of tiles and we generate a bank with $0.97$ minimum match.
+For the first manifold we use the approximant \texttt{IMRPhenomD}, while we use \texttt{IMRPhenomPv2} for the others.
+For each manifold, we generate several tilings with a different number of tiles (obtained setting a different value of \texttt{max-depth}) and we generate a bank with $0.97$ minimum match.
 To compute the metric, we use the PSD for Handford measured on the first three months of the third observing run (O3), as publicly released by the LVK collaboration \cite{O3a_PSDs}.
 We consider a frequency window between $10Hz$ and $1024Hz$.
 
-We then perform an injection study on the banks thus generated and we report the histogram of the fitting factors for both the match and the metric match. We choose $1000$ injections for the first two manifold and $5000$ injections in the latter\footnote{
-The number of injections are the same order of magnitude of the number of templates in the bank, hence we expect the results obtained to be robust.}.
-For the stochastic placement we set the parameter $N_{max} = 100$, while for the random method we employ $1000 N_{\text{templates}}$ livepoints (where $N_{\text{templates}}$ is defined in eq.~\eqref{eq:N_templates}).
+We report the histogram of the fitting factors for both the match and the metric match, computed on a set of $1000$ injections.
+For the stochastic placement we set the parameter $N_{max} = 200$, while for the random method we employ $1000$ livepoints.
 The results are shown in fig.~\ref{fig:placing_validation}.
 
 According to eq.~\eqref{eq:N_templates}, the number of templates $N_{\text{templates}}$ placed by the {\it uniform} method is a measure of the volume of the space. For this reason, it is interesting to look how the number of templates placed by the {\it uniform} method depends on the number of tiles.
 We note that $N_{\text{templates}}$ grow with the number of tiles until a certain upper limit. Indeed we expect that an incresing number of tiles provides a better estimation of the overall volume of the space until the estimation converges to the true value in the limit of infinite tiles. 
 The fact that the tiling generation method is able to reach a stable estimation of the number is then a confirmation of its robustness in estimating the actual volume of the space.
 
-We now analyse the properties of the different methods.
+Analysing the properties of the different methods, we note that the {\it uniform} placing method understimates the number of templates with respect to the other two methods. Moreover, it provides a poor coverage of the space, since a very large fraction of the injections has a fitting factor below the target $0.97$. This is expected since the uniform method does not allow to control of the coverage, yielding to a poor performance.
+It is worth noting that as the dimensionality of the bank increases, the injection recovery increases: as discussed before, this is a well known features \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr} of high dimensional template banks and it makes the unform (and similarly the random) method very appealing to cover quickly a high dimensional region of the parameter space.
 
-We note that the {\it uniform} placing method understimates the number of templates with respect to the other two methods. Moreover, it provides a poor coverage of the space, since a very large fraction of the injections has a fitting factor below the target $0.97$. This is expected since, unlike other methods, all the templates are drawn independently from each other: this causes great oscillation in the templates densities, generating overdense and underdense regions.
-However, it is important to note that, as mentioned before, this methods can still be useful to provide a quick estimation of the bank features and in practice it can be used in the exploratory analysis preceding the generation of a bank.
+The {\it random} method provides a very high injection recovery at the price of a very large number of templates. As shown in fig.~\ref{fig:placing_validation}, manifolds \texttt{Mq\_s1xz} and \texttt{Mq\_s1xz\_s2z\_iota} are covered with 5 times more templates than those placed by the other methods.
+The nice injection recovery is obtained thanks to the iterative control of the bank coverage, made by means of livepoints.
+On the other hand, since there is no control of the mutual distance between a proposal and the rest of the bank, it is very likely that some regions will be overcovered (i.e. some templates will be too close to each other).
 
-The {\it random} method provides very nice coverage properties of the two non-precessing manifolds (\texttt{Mq\_nonspinning} and \texttt{Mq\_chi}): this can be seen by the excellent fitting factor of the injection performed. Moreover, the method performances do not depend on the number of tiles.
-For the precessing manifold, \texttt{Mq\_s1xz}, the method's performance sligthly deteriorates as can be seen by the large tails in the fitting factor histogram.
-This is a well known feature of this placing method that leads to bad coverage whenever the metric changes drastically across the space. In this situation, a livepoint can ``kill" other livepoints in an unphysically large portion of the parameter space: in fact, as seen sec.~\ref{sec:metric_accuracy} the metric can predict an unphysical small metric match even at large coordinate distance $||\Delta\theta||$. This is more likely to happen for small values of $\sqrt{|M|}$, where small eigenvalues can extend the region of constant metric match to very large distances.
-Due to this effect, the high density regions can be underpopulated due to the breaking down of the metric approximation. A possible solution for this is to introduce a cut-off on the effect of the metric, hence limiting the unphysical long range action of a quasi-degenerate metric: this will be the scope of future work.
-Despite this pathology, the {\it random} method still remains a valid option due to its robustness and speed.
+The {\it stochastic} method is always able to cover the space with the appropriate minimum match. Moreover, the bank size does not depend on the number of tiles. This very nice performance is expected: this placing method (with some variations) is the state of the art of bank generation and has proven to be reliable in past years.
+The price to pay for such nice performance is a larger bank generation time when compared with the other two methods: indeed, a lot of computational power is spent on computing mutual distances between the templates, which makes this method slower and at the same time more accurate.
 
-As shown by our results, the {\it stochastic} method is always able to cover the space with the appropriate minimum match. Moreover, the bank size does not depend on the number of tiles. This very nice performance is of course expected: this placing method (with some variations) is the state of the art of bank generation and has proven to be reliable in past years.
-
-
-As a finale note, we recommend to use, due to its speed and precision, the {\it random} method, whenever the space to cover are not too large. In the cases where the method fails, the method {\it stochastic} or even {\it random-stochastic} are very likely to give the performance required.
 
 \begin{figure}[t!]
 	\includegraphics{sbank_comparison}
@@ -603,7 +596,7 @@ As a finale note, we recommend to use, due to its speed and precision, the {\it 
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
-\texttt{sbank} \cite{sbank} is the standard tool used by the LIGO Scientific, Virgo and Kagra Collaborations (LVK) to generate large template banks for analysis and, as such, it has been used sucessfully in the past three observing runs by several pipelines.
+\texttt{sbank} \cite{sbank} is the standard tool used by the LIGO Scientific, Virgo and Kagra Collaborations (LVK) to generate large template banks for analysis and, as such, it has been sucessfully used in the past three observing runs by several pipelines.
 For this reason, it is very important to compare the performance of our code against the benchmark set by \texttt{bank}. The comparison is based on the size, speed and effectualness of the banks generated.
 
 We generate three non-precessing template banks with both codes:
@@ -614,12 +607,11 @@ We generate three non-precessing template banks with both codes:
 \end{itemize}
 The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole second observing run (O2).
 \stefano{You should make these banks again, using the stochastic approach!!}
-For the first two banks, templates are placed with the {\it random} method, whereas for the last the {\it stochastic} method was employed.
-In the same table, we report the size of the banks generated and their generation time. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
+For all the three banks, templates are placed with the {\it stochastic} method, with a parameter $N_{max}=200$. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
 
-The first striking feature we observe is that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed up.
+The first striking feature we observe is that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}, in the two aligned spins banks. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed up.
 
-Looking at the injections fitting factor histograms in fig.~\ref{fig:sbank_comparison}, we see that the histograms have similar tails. This means that \texttt{mbank} is able to cover the space leaving as few underdense regions as \texttt{sbank}. On the other hand, we see the peak in the fitting factor distributions for \texttt{mbank} is systematically higher that the one by \texttt{sbank}. This is consistent with the fact that \texttt{mbank} has more templates, which must provide a higher average fitting factor.
+%Looking at the injections fitting factor histograms in fig.~\ref{fig:sbank_comparison}, we see that the histograms have similar tails. This means that \texttt{mbank} is able to cover the space leaving as few underdense regions as \texttt{sbank}. On the other hand, we see the peak in the fitting factor distributions for \texttt{mbank} is systematically higher that the one by \texttt{sbank}. This is consistent with the fact that \texttt{mbank} has more templates, which must provide a higher average fitting factor.
 
 When considering the generation times, we see that \texttt{mbank} is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \texttt{mbank} convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
 
@@ -763,7 +755,7 @@ Although this latter strategy may sound tempting, it would cease to provide a me
 	
 	\item {\it Interpolate between different tiles} Due to the discrete nature of the tiles, a bank can show large discontinuities on the template densities. While this may not be necessarly a problem for filtering, avoiding this could improve the bank performance by reducing the number of templates without affecting the bank's effectualness. To create a smooth dependence of the metric on the parameter space, we could set up an interpolation scheme, based on the tiling.
 	
-	\item {\it Post process the bank} Regardless of the placing method, the templates in a bank may not be placed optimally, creating over(under)dense regions. It may be good to add a post-processing step to move or remove some templates: this would rely on a large injection set to trim the bank. The overall result can be a smaller bank with better covering properties.
+	\item {\it Post process the bank} Regardless of the placing method, the templates in a bank may not be placed optimally, creating over(under)dense regions. This is especially true for the {\it random} placing method. It may be good to add a post-processing step to move or remove some templates: this would rely on a large injection set to trim the bank. The overall result can be a smaller bank with better covering properties.
 	It is worth to note that this method may be also applied to any bank, not only those generated by \texttt{mbank} 
 \end{itemize}
 

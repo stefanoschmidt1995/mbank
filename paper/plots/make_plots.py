@@ -217,13 +217,12 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 	
 	plt.tight_layout()
 
-	if savefile is not None: plt.savefig(savefile, transparent = True)	
-
+	if savefile is not None: plt.savefig(savefile, transparent = True)
+	
 def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 	id_N_templates = np.where(np.array(out_dict['MM_list'])==out_dict['MM_inj'])[0]
 	#out_dict['N_templates'] = np.log10(out_dict['N_templates'])
 	max_N_templates, min_N_templates = np.max(out_dict['N_templates'][:,id_N_templates]), np.min(out_dict['N_templates'][:,id_N_templates])
-	min_y, max_y = 0.9*min_N_templates, 1.1*max_N_templates
 	
 	for i, N_t in enumerate(out_dict['N_tiles']):
 		perc = np.percentile(out_dict['MM_metric'][i,:], 1) if np.all(out_dict['MM_full'][i,:]==0.) else np.minimum(np.percentile(out_dict['MM_full'][i,:], 1), np.percentile(out_dict['MM_metric'][i,:], 1))
@@ -241,19 +240,29 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 		
 			#dealing with the grid
 				#this control the length of the support for the MM hist
-		if out_dict['variable_format']=='Mq_s1xz':
-			y_strecth = 4e-5
-		elif out_dict['variable_format']=='Mq_chi':
-			y_strecth = 0.0008
-		else:
-			y_strecth = 0.005
+				#TODO: play with this stretch factor...
+		if out_dict['variable_format']=='Mq_chi':
+			y_strecth = 1.2 #0.0008
+			y_min, y_max = 10,2000
+				#do not plot the second to last point
+			if i == len(out_dict['N_tiles'])-1: continue
+		elif out_dict['variable_format']=='Mq_s1xz':
+			y_strecth = 1.9 #4e-5
+			y_min, y_max = 15,50_000
+		elif out_dict['variable_format']=='Mq_s1xz_s2z_iota':
+			y_strecth = 1.9 #1e-7
+			y_min, y_max = 2000, 2_000_000
+		y_min, y_max = y_min*0.95, y_max*1.5
+		ax.set_ylim([y_min, y_max])
 
-		transform_grid = lambda x: (max_N_templates - min_N_templates)*y_strecth*(x-1)/(1-out_dict['MM_inj'])
+		#transform_grid = lambda x: (max_N_templates - min_N_templates)*y_strecth*(x-1)/(1-out_dict['MM_inj'])
+		transform_grid = lambda x: y_strecth*((y_max - y_min)/(y_max))*(x-1)/(1-out_dict['MM_inj'])
 		id_MM = np.where(MM_grid ==out_dict['MM_inj'])[0][0]
 		MM_grid_transformed = transform_grid(MM_grid)
 		tick_location = MM_grid_transformed[[id_MM,-1]]
-
-		ax.plot(np.repeat(N_t, 2), np.exp(MM_grid_transformed[[0,-1]])*N_templates, '--', lw = 1, c='k', alpha = 0.5) #support of the histogram		
+			
+			#support of the histogram
+		ax.plot(np.repeat(N_t, 2), np.exp(MM_grid_transformed[[0,-1]])*N_templates, '--', lw = 1, c='k', alpha = 0.5) 
 		ax.plot(x_hist, np.exp(MM_grid_transformed)* N_templates,
 						c= 'cornflowerblue', label = 'Metric Match' if i==0 else None)
 		ax.scatter(N_t, N_templates, marker ='x', c='k', s = 6) #data point
@@ -269,22 +278,18 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 						c= 'darkorange', label = 'Match' if i==0 else None)
 		
 	ax.set_yscale('log')
-	#ax.set_ylim([min_y, max_y])
 	ax.set_xscale('log')
 	#ax.axhline(out_dict['MM_inj'], c = 'r')
 	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{tiles}$", fontsize = 12)
-	if set_labels in ['y', 'both']: ax.set_ylabel(r"$N_{templates}$", rotation = 270, fontsize = 12)
+	if set_labels in ['y', 'both']: label = ax.set_ylabel(r"$N_{templates}$", rotation = 270, fontsize = 12, labelpad=17)
 	#ax.set_ylim((0.94,1.001))
-	if set_legend: ax.legend(loc = 'lower right')
-	
-	#if out_dict['variable_format']=='Mq_nonspinning':
-	ax.set_ylim(np.array(ax.set_ylim())*[0.95, 1.5])
-	
-	ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{}'.format(int(x)) if (x >=10) else '') #formatter
-	ticks_y_minor_formatter = ticker.FuncFormatter(lambda x, pos: '{}'.format(int(x)) if (x >=10) and (int(x) in [50,200,500]) else '') #formatter
-	ax.yaxis.set_major_formatter(ticks_y_formatter)
-	ax.yaxis.set_minor_formatter(ticks_y_minor_formatter)
+	if set_legend: ax.legend(loc = 'lower right', fontsize = 10)
 
+		#This will make sure that all the axis will come with minor ticks
+	ax.yaxis.get_minor_locator().set_params(numticks = 100000)
+	ax.xaxis.get_minor_locator().set_params(numticks = 100000)
+	ax.yaxis.get_major_locator().set_params(numticks = 30)
+	ax.xaxis.get_major_locator().set_params(numticks = 4)
 
 def plot_placing_validation(format_files, placing_methods, savefile = None):
 
@@ -300,6 +305,8 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 					out_dict = pickle.load(filehandler)
 			except FileNotFoundError:
 				axes[j,i].text(0.05, 0.5, 'Work in progress :)', {'fontsize':11})
+				axes[j,i].set_yticks([])
+				axes[j,i].set_xticks([])
 				continue
 			print(variable_format, method, out_dict['MM_metric'].shape)
 				#plot
@@ -312,12 +319,12 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 				label_position = 'x'
 			else:
 				label_position = None
-			plot_MM_study(axes[j,i], out_dict, label_position, False if (i,j)!=(2,1) else True)
+			plot_MM_study(axes[j,i], out_dict, label_position, False if (i,j)!=(0,1) else True)
 			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
 			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
 			text_dict['rotation'] = 'vertical'
 			y_center = 10**np.mean(np.log10(axes[j,i].get_ylim()))
-			if i==0: axes[j,i].text(0.005, y_center, method, text_dict )
+			if i==0: axes[j,i].text(0.1, y_center, method, text_dict )
 
 	
 	plt.tight_layout()
@@ -477,8 +484,7 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
-
+	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 		###
 		#Comparison with sbank - injections
@@ -489,7 +495,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 	
 		###
@@ -524,7 +530,7 @@ if __name__ == '__main__':
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
+	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

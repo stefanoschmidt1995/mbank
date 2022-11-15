@@ -486,13 +486,11 @@ def compute_injections_match(inj_dict, templates, metric_obj, symphony_match = F
 			else:
 				true_match = metric_obj.WF_match(template_WFs, inj_WF, False)
 			
-			
-			
 			#updating the dict
 		ids_max = np.argmax(true_match)
 
 		inj_dict['match_list'].append(list(true_match)) #(N_neigh_templates,)
-		inj_dict['id_match'][i] = np.argmax(true_match)
+		inj_dict['id_match'][i] = inj_dict['id_match_list'][i][np.argmax(true_match)]
 		inj_dict['match'][i] = np.max(true_match)
 
 	metric_obj.set_variable_format(old_format)

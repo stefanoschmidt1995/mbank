@@ -1215,11 +1215,13 @@ class cbc_metric(object):
 
 			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
 		
+		The computation is done in batches, if the input array are too large to be stored in memory.
+		
 		Parameters
 		----------
 		
 		theta1: :class:`~numpy:numpy.ndarray`
-			shape: (N,D) -
+			shape: (N,D)/(D,) -
 			Parameters of the first BBHs. The dimensionality depends on self.variable_format
 
 		theta2: :class:`~numpy:numpy.ndarray`
@@ -1252,19 +1254,36 @@ class cbc_metric(object):
 		if theta1.shape != theta2.shape:
 			if theta1.shape[-1] != theta1.shape[-1]:
 				raise ValueError("Last dimension of the two imputs should be the same!")
-		
-		h1 = self.get_WF(theta1, self.approx, plus_cross = symphony)
-		h2 = self.get_WF(theta2, self.approx, plus_cross = symphony)
 
-		if symphony:
-			match = self.WF_symphony_match(h1, h2, overlap)
-		else:
-			match = self.WF_match(h1, h2, overlap)
+			# The computation is performed in batches, to make it less memory intensive...
+			# The code below is equivalent to:
+			#
+			#		h1 = self.get_WF(theta1, self.approx, plus_cross = symphony)
+			#		h2 = self.get_WF(theta2, self.approx, plus_cross = symphony)
+			#		match = self.WF_symphony_match(h1, h2, overlap) if symphony else self.WF_match(h1, h2, overlap)
+
+		N_batch = 100
+		N = max(theta1.shape[0], theta2.shape[0])
+		match = []
+		
+		h1_ = self.get_WF(theta1, self.approx, plus_cross = symphony) if N>theta1.shape[0] else None
+		h2_ = self.get_WF(theta2, self.approx, plus_cross = symphony) if N>theta2.shape[0] else None
+		
+		for i in range(0, N, N_batch):
+			h1 = self.get_WF(theta1[i:i+N_batch], self.approx, plus_cross = symphony) if h1_ is None else h1_
+			h2 = self.get_WF(theta2[i:i+N_batch], self.approx, plus_cross = symphony) if h2_ is None else h2_
+
+			if symphony:
+				match.extend(self.WF_symphony_match(h1, h2, overlap))
+			else:
+				match.extend(self.WF_match(h1, h2, overlap))
+
+		match = np.array(match)
 
 		if squeeze: match = match[0]
 
 		return match
-	
+
 	def metric_match(self, theta1, theta2, metric = None, overlap = False):
 		"""
 		Computes the metric match line by line between elements in theta1 and elements in theta2.

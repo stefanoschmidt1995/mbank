@@ -578,7 +578,8 @@ The price to pay for such nice performance is a larger bank generation time when
 
 \begin{figure}[t!]
 	\includegraphics{sbank_comparison}
-	\caption{Histogram for the fitting factors of the banks used to compare \texttt{mbank} and \texttt{sbank}. For each parameter space considered, we randomly draw $5000$ points (injections) from the tiling used to generate the \texttt{mbank} bank and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	\caption{
+	Cumulative distribution of the fitting factors of the banks used to compare \texttt{mbank} and \texttt{sbank}. For each parameter space considered, we randomly draw $5000$ points (injections) from the tiling used to generate the \texttt{mbank} bank and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
 	The details of the banks generated are reported in table~\ref{tab:sbank_comparison}.
 	}
 	\label{fig:sbank_comparison}
@@ -587,7 +588,7 @@ The price to pay for such nice performance is a larger bank generation time when
 \begin{figure}[t!]
 	\includegraphics{bank_injections}
 	\caption{
-	Histogram for the fitting factors of the three case study banks. For each bank, we randomly draw $75000$ points (injections) from the tiling and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms both for the match and the metric match. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
+	Cumulative distribution of the fitting factors of the three case study banks. For each bank, we randomly draw $75000$ points (injections) from the tiling and we compute the fitting factor of these injections against the two banks. We report the distribution of fitting factor in the histograms both for the match and the metric match. For visualization purposes, we plot the $0.97$ line, which corresponds to the minimum match of the banks.
 	The details of the banks generated are reported in table~\ref{tab:casestudy_banks}.
 	%\stefano{Should we make the histogram of the cumulative distribution of the match values? Maybe it's more informative}
 	}
@@ -606,14 +607,13 @@ We generate three non-precessing template banks with both codes:
 	\item An {\it aligned spins low mass} bank
 \end{itemize}
 The ranges of the parameter space covered by the three banks are reported in table~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole second observing run (O2).
-\stefano{You should make these banks again, using the stochastic approach!!}
-For all the three banks, templates are placed with the {\it stochastic} method, with a parameter $N_{max}=200$. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pair of banks.
+For all the three banks, templates are placed with the {\it stochastic} method, with a parameter $N_{max}=300$. In fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pairs of banks.
 
-The first striking feature we observe is that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}, in the two aligned spins banks. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed up.
+The first striking feature we observe is that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}, in the two aligned spins banks. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed up in the generation.
 
-%Looking at the injections fitting factor histograms in fig.~\ref{fig:sbank_comparison}, we see that the histograms have similar tails. This means that \texttt{mbank} is able to cover the space leaving as few underdense regions as \texttt{sbank}. On the other hand, we see the peak in the fitting factor distributions for \texttt{mbank} is systematically higher that the one by \texttt{sbank}. This is consistent with the fact that \texttt{mbank} has more templates, which must provide a higher average fitting factor.
+Looking at the injections fitting factor distributions in fig.~\ref{fig:sbank_comparison}, we note the fitting factor distribution of \texttt{sbank} and \texttt{mbank} are similar in their shape, even though \texttt{sbank} shows a slightly better performance than \texttt{mbank}. This suggests that, at least in this simple non-precessing parameter space, \texttt{mbank} is able to match the state-of-the-art performance in covering.
 
-When considering the generation times, we see that \texttt{mbank} is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \texttt{mbank} convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
+%When considering the generation times, we see that \texttt{mbank} is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \texttt{mbank} convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -681,10 +681,9 @@ This choice of variable is based on the fact that the effect of precession can b
 By looking at the scatter plots of the templates fig.~\ref{fig:bank_scatter}, it is manifest the effect due to the discretization error introduced by the tiles: this causes a discontinuity in the template density. Of course, this effect is unphysical and would have been avoided by a purely stochastic placing method.
 Another possible source of discontinuity can be traced back to numerical noise in the numerical gradients of the waveforms. Depending on the approximant, the gradients (hence the metric) may not behave smoothly all across the parameter space, thus explaining (partly) the hard discontinuities.
 
-Nevertheless, the injection recovery (fig.~\ref{fig:bank_injections}) is satysfying, with only $8.31\%$ of the $75000$ injections performed having a recovery less than the target match $MM = 0.97$.
-This result can be straightforwardly improved by setting a more stringent termination requirement $N_{max}$, which will add more templates, providing a better coverage.
-
-By looking at fig.~\ref{fig:bank_injections}, we also note that the injection recovery computed with the metric match tends to overestimate the true injection match. The discrepancy however is small enough that the bank performance remains acceptable.
+The injection recovery (fig.~\ref{fig:bank_injections}) is satysfying, with less than $10\%$ of the $75000$ injections performed having a recovery less than the target match $MM = 0.97$.
+We also note that the true fitting factors and the ones approximated by the match are consistent between each other.
+The bank coverage can be straightforwardly improved by setting a more stringent termination requirement $N_{max}$, which will add more templates with an improvement in injection recovery.
 
 \subsection{An IMBH HM bank}\label{sec:HM_bank}
 
@@ -694,7 +693,6 @@ We include in the bank the variables $\log M, q, \chi, \iota$, where $\chi=s_{1z
 As before in table~\ref{tab:sbank_comparison}, we report the ranges for each of this quantities. We use the modern HM approximant \texttt{IMRPhenomXPHM}.
 
 The inclusion of HM makes the bank much larger (i.e. the volume element is larger): for reference, a non HM bank, covering the masses and $\chi$ ranges (of course, without $\iota$) has $\sim 1000$ templates: that is a 2 orders of magnitude difference!
-%By looking at the scatter plot fig.~\ref{fig:bank_scatter}, we can note the effect of the discretization introduced by the tiling.
 
 By looking at the injection recovery fig.~\ref{fig:bank_injections} it is striking the discrepancy between the fitting factor computed by the metric and the un-approximated one. Indeed, in the HM case the metric strongly {\it underestimates} the match, yielding an overpopulated bank. With the {\it metric} injection recovery, approximately $12\%$ of the injections have a recovery below $0.97$: this is consistent with the placing method used, which only ``knows" about metric matches. On the other hand, only $0.29\%$ are below the $0.98$ recovery factor: the bank generated is effectively a $98\%$ bank.
 This effect is consistent with what observed in fig.~\ref{fig:metric_accuracy} and it is only observed whenever an HM approximant is used: as discussed above, the cause of this is unknown and requires more investigation.
@@ -707,7 +705,7 @@ The eccentricity leaves a characteristic signature on the inspiral, thus it will
 We use the approximant \texttt{EccentricFD} \cite{PhysRevD.93.124061} and we limit ourselfs to low eccentricities $e<0.3$, where the WF modelling is more realiable. Being a Post-Newtonian model, it does not include the merger and the waveform are cutted in the late inspiral, as done by the code \texttt{lalsimulation} \cite{lalsuite}. Of course, this removes interesting physics and the resulting bank is expected to have a lower number of templates than what obtained using a fully eccentric approximant.
 
 As in the case of the HM bank, including eccentricity yields a bank orders of magnitude larger than a standard non-eccentric bank.
-By looking at the injection recovery, we note that only $0.47\%$ of the injections have match below $0.97$ against the bank. Although the metric match still underestimates the fitting factor, this issue is less severe than in the HM case.
+By looking at the fitting factor distributions, we note that, similarly to the IMBH case, the metric {\it underestimates} the match. Again, the origin of this is still under investigation.
 
 From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuities introduced by the metric are less visibile. This is due to the smaller dimension of the space (3 against 4 of the previous cases), which makes easier to cover the space with a reliable tiling. Moreover, since the approximant \texttt{EccentricFD} is analytic, the metric has a smoother dependence on the parameter space, which may also help to avoid discontinuities in template density.
 

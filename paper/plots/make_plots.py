@@ -326,13 +326,12 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 			y_center = 10**np.mean(np.log10(axes[j,i].get_ylim()))
 			if i==0: axes[j,i].text(0.1, y_center, method, text_dict )
 
-	
 	plt.tight_layout()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 
 	#plt.show()
 
-def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_list = None, MM = None, savefile = None):
+def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_list = None, MM = None, x_low_lim = 0.9, savefile = None):
 	label_A, label_B = labels
 	key_A, key_B = keys
 	
@@ -370,17 +369,19 @@ def plot_comparison_injections(list_A, list_B, labels, keys, title = None, c_lis
 
 		ax.plot(x, np.cumsum(kde_A.pdf(x))*np.diff(x)[0], lw=1, label=label_A, **c_A)
 		ax.plot(x, np.cumsum(kde_B.pdf(x))*np.diff(x)[0], lw=1, label=label_B, **c_B)
-		ax.set_ylim([1e-3,1.0])
+		ax.set_ylim([1e-4,1.0])
 		ax.set_yscale('log')
 
 		ax.tick_params(axis='both', which='major', labelsize=8)
 		ax.tick_params(axis='both', which='minor', labelsize=7)
 		
+		ax.yaxis.get_minor_locator().set_params(numticks = 100000)
+		#ax.yaxis.get_major_locator().set_params(numticks = 30)
 		
 		if isinstance(MM, float): ax.axvline(MM, c = 'k', ls = '--')
 		if isinstance(t, str): ax.set_title(t, fontsize = 10)
-	axes[0].legend(loc = 'lower right', fontsize = 8)
-	axes[-1].set_xlim([0.9,1.001])
+	axes[0].legend(loc = 'upper left', fontsize = 8)
+	axes[-1].set_xlim([x_low_lim,1.001])
 		
 	axes[-1].set_xlabel(r"$\mathcal{M}$", fontsize = 10)
 
@@ -484,7 +485,7 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 		###
 		#Comparison with sbank - injections
@@ -495,7 +496,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, x_low_lim = 0.95, title = title, savefile = savefile)
 	
 	
 		###
@@ -504,7 +505,7 @@ if __name__ == '__main__':
 	bank_list = ['precessing_bank/bank_paper_precessing.dat', 'HM_bank/bank_paper_HM.dat',
 		'eccentric_bank/bank_paper_eccentric.dat']
 	title_list = ['Precessing', 'IMBH HM', 'Nonspinning eccentric']
-	injs_list = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM-injections_stat_dict.pkl',
+	injs_list = ['precessing_bank/bank_paper_precessing-injections_stat_dict_light.pkl', 'HM_bank/bank_paper_HM-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.pkl']
 
 		#plotting bank histograms
@@ -530,7 +531,7 @@ if __name__ == '__main__':
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
+	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

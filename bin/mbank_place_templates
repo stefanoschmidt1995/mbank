@@ -57,8 +57,8 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--n-livepoints", default = 50, type = float,
-	help="Parameter to control the number of livepoints to use in the `random` placing method. The number of livepoints is `livepoints` time the number of templates placed by the `uniform` method.")
+	"--n-livepoints", default = 10000, type = float,
+	help="Parameter to control the number of livepoints to use in the `random` and `pruning` placing method. For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction. For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.")
 parser.add_argument(
 	"--empty-iterations", default = 100, type = float,
 	help="Number of consecutive rejected proposal after which the `stochastic` placing method stops.")

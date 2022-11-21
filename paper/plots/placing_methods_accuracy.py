@@ -16,7 +16,7 @@ from mbank.handlers import tiling_handler, variable_handler
 
 ###########################################################################################
 
-def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, match_threshold, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
+def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, mchirp_window, m_obj, boundaries, load_tiling, load_bank, full_match, folder_name):
 	"Computes the number of templates for each MM and for each V_tile"
 
 	max_depth_list.sort(reverse=False)
@@ -30,7 +30,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			'volume_tiles': np.zeros((len(max_depth_list), )),
 			'MM_metric': np.zeros((len(max_depth_list), N_injs), float),
 			'MM_full': np.zeros((len(max_depth_list), N_injs), float),
-			'N_injs': N_injs, 'match_threshold': match_threshold, 'MM_inj': 0.97,
+			'N_injs': N_injs, 'mchirp_window': mchirp_window, 'MM_inj': 0.97,
 			'N_livepoints': 10000, 'empty_iterations': 200	
 		}
 
@@ -68,13 +68,13 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			if MM != out_dict['MM_inj']: continue #injections only for MM = 0.97
 			injs = t.sample_from_tiling(N_injs, seed = 210795)
 					#metric injections
-			inj_dict = compute_injections_metric_match(injs, b, t, match_threshold = match_threshold, verbose = True)
+			inj_dict = compute_injections_metric_match(injs, b, t, verbose = True)
 			out_dict['MM_metric'][i,:] = inj_dict['metric_match']
 			print('\t\tMetric match: ', np.percentile(inj_dict['metric_match'], [1, 5, 50,95])) 
 					#full match injections
 			if full_match:
 				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj,
-							symphony_match = False, cache = False)
+							symphony_match = False, cache = False, mchirp_window = mchirp_window)
 				out_dict['MM_full'][i,:] = inj_dict['match']
 				print('\t\tFull match: ', np.percentile(inj_dict['match'], [1, 5,50,95]))
 		
@@ -169,17 +169,17 @@ if __name__ == '__main__':
 	
 	load = False
 	load_tiling = True
-	load_bank = False
-	full_match = False
+	load_bank = True
+	full_match = True
 
 	MM_list = [0.97]
 	
 		#The 2D bank is too simple: you don't want to validate it!!!
 	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
 
-	max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50)
-	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
-	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	#max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50)
+	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
 	
 			#setting ranges
 	q_range = (1,5)
@@ -189,7 +189,7 @@ if __name__ == '__main__':
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
 	f_min, f_max = 10., 1024.
-	N_injs, match_threshold = 10000, 0.2
+	N_injs, mchirp_window = 1000, 0.2
 	epsilon = 0.1
 	
 	m_obj = cbc_metric(variable_format,
@@ -212,7 +212,7 @@ if __name__ == '__main__':
 	
 	if not load:
 
-		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, match_threshold,
+		out_dict = get_N_templates_data(variable_format, placing_method, MM_list, max_depth_list, epsilon, N_injs, mchirp_window,
 					m_obj, boundaries, load_tiling, load_bank, full_match, folder_name)
 		
 		with open(filename, 'wb') as filehandler:

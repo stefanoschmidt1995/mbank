@@ -64,8 +64,8 @@ parser.add_argument(
 	help="An optional file with weigths for a normalizing flow model. If provided it will be used to interpolate the metric when computing the metric injection match.")
 	#If not given, it is understood that a file 'tiling_${RUN_NAME}.npy' is located in run dir
 parser.add_argument(
-	"--match-threshold", type = float, default = 0.9,
-	help="Threshold for the match. For each injection, the templates with metric match higher than match-threshold will be stored and their full match with the injection will be computed (if --full-match is specified)")
+	"--mchirp-window", type = float, default = 0.1,
+	help="The window in relative chirp mass inside which the templates are considered for full match (if --full-match is specified)")
 parser.add_argument(
 	"--full-match", action='store_true', default = False,
 	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
@@ -114,7 +114,7 @@ parser.add_argument(
 	"--mm", type = float,
 	help="Minimum match for the bank - for plotting purposes")
 parser.add_argument(
-	"--approximant", default = None,
+	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 
 args, filenames = parser.parse_known_args()
@@ -225,7 +225,7 @@ else:
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, match_threshold = args.match_threshold, verbose = True)
+injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, verbose = True)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
@@ -242,9 +242,11 @@ if args.full_match or args.full_match_symphony:
 
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
+				mchirp_window = args.mchirp_window,
 				symphony_match = args.full_match_symphony, cache = args.cache)
 	else:
 		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
+				mchirp_window = args.mchirp_window,
 				symphony_match = args.full_match_symphony, cache = args.cache)
 	metric.set_variable_format(args.variable_format)
 
@@ -289,18 +291,21 @@ if args.plot:
 	N_bins = int(np.sqrt(len(matches_metric)))
 	plt.gca().tick_params(axis='x', labelsize=fs)
 	plt.gca().tick_params(axis='y', labelsize=fs)
-	logbins = np.logspace(np.log10(np.percentile(matches_metric, .5)),np.log10(max(matches_metric)), N_bins)
-	plt.hist(matches_metric, bins = logbins, density = True,
+	#logbins = np.logspace(np.log10(np.percentile(matches_metric, .5)),np.log10(max(matches_metric)), N_bins)
+	nbins = int(np.sqrt(len(matches_metric)))
+	plt.hist(matches_metric, bins = nbins, density = True, cumulative = True,
 				color = 'blue',	label = 'metric match',
-				histtype = 'step' if full_match else 'bar')
+				histtype = 'step')
 	if full_match:
-		logbins = np.logspace(np.log10(np.percentile(matches, .5)),np.log10(max(matches)), N_bins)
-		plt.hist(matches, bins = logbins, histtype='bar',
+		#logbins = np.logspace(np.log10(np.percentile(matches, .5)),np.log10(max(matches)), N_bins)
+		plt.hist(matches, bins = nbins, histtype='step', cumulative = True,
 				density = True, color = 'orange', label = 'match')
 	
 	if isinstance(args.mm, (float, int)): plt.axvline(x = args.mm, c = 'r') #DEBUG
-	#plt.xscale('log') #Do you want this log-scale?
 	plt.legend(fontsize = fs+3)
+	plt.yscale('log')
+	plt.xlabel(r"$\mathcal{M}$")
+	plt.ylabel("Cumulative fraction")
 
 	plt.savefig(args.run_dir+'FF_hist.png', transparent = False)
 

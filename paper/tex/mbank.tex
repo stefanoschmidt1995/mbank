@@ -92,21 +92,20 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As the gravitational waves astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data by LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} Collaborations is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, here have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in searches for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky}.
-All these searches need accurate templates banks that covers the parameter space of interests. The template bank generation can be highly non trivial and computationally expensive task but is crucial for the outcome of the searches.
+As gravitational waves (GWs) astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data by LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} Collaborations is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there have been already searches targerting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in searches for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky}.
+All these searches need accurate template banks that covers the parameter space of interest. A template bank gathers a set of GW signals that will be searched in the data with matched filtering \cite{Owen:1998dk}. Their generation can be computationally expensive task but it is crucial for the outcome of state-of-the-art searches.
 
-The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014, sbank} - consists in scattering templates around the parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its mismatch with all the proposed templates in the bank is larger than the user defined threshold.
+The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014, sbank} - consists in scattering templates around the parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its ``distance" (more precisely mismatch) with all the proposed templates in the bank is larger than the user defined threshold.
 While this method is proven to work in many cases, it is computationally demanding, hence very time consuming. Indeed it requires to generate a huge number of BBH waveforms template and to perform extensive match computations.
-With the ever growing parameter space hyper-volume for the BBH searches, the stochastic method may not be our best approach to the template bank generation moving forward.
+With the ever growing parameter space hyper-volume for BBH searches in the strive to more accurate searches, current approaches may become computationally unfeasible.
 
-Revitalizing a pionieering line of research in bank generation \cite{owen_metric, Messenger:2008ta}, there has been recently an increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}, aiming to speed up or optimized the stochastic method.
-Such methods rely on approximating the match between two waveforms with a bilinear form. Despite being approximate, this approach allow for a (much) faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
+Revitalizing a pionieering line of research in bank generation \cite{owen_metric, Messenger:2008ta}, there has been recently an increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}, aiming optimize the template placement.
+Such methods rely on approximating the distance (or match) between two waveforms with a bilinear form. Despite being approximate, is allows for a faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 
 In this work, we develop a novel approach to template placing based on the metric approximation of the mismatch.
-Our method is specifically designed for dealing with high-dimensional (more than 4 dimensional) template banks of precessing signals. This makes it particularly suitable for investigating ``exotic" regions for BBH parameter space, enabling generation of banks for precessing and eccentric signals.
+Our method is specifically designed for dealing with high-dimensional (more than 4 dimensional) template banks of GWs signals, making it particularly suitable to generate template banks for precessing and eccentric signals.
 
-Our model constructs an internal representation of the parameter space of interests, computes the metric for distance computation and exploits this for fast template placing.
-%\sarah{This is nice. I think you will want to have maybe a diagram that gives an overview of the whole package. For instance, to show how the bank code and injection code can make a workflow that gives you a validated bank.} \stefano{Do you mean a map of all the executables that I can run an all the relations between them? Or maybe something more high level saying just the operations (tiling, template placing, injections)?}
+%Our model constructs an internal representation of the parameter space of interests, computes the metric for distance computation and exploits this for fast template placing.
 The approach is implemented in an open-source, production-ready, python package \texttt{mbank}, available on GitHub\footnote{
 It is available at the repository \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}
 and on the PyPI repository\footnote{
@@ -115,23 +114,23 @@ In the PyPI repository, the package is distributed under the name \texttt{\href{
 The package offers support for tiling the parameter space of interests and placing templates with an user defined minimal match. Moreover, it offers an injection helper that allows for a very fast validation of the bank.
 As a summary, \texttt{mbank} is implemented to be:
 \begin{itemize}
-	\item Extremely fast
+	\item Orders of magnitude faster than the state-of-the-art
 	\item Suitable to cover a high dimensional parameter space
 	\item Close to provide optimal coverage
 \end{itemize}
 
 The rest of this paper is devoted to present and describe \texttt{mbank}.
-In sec.~\ref{sec:methods} we present the details of the bank generation algorithm.
-Section~\ref{sec:validation} will be devoted to the validation of the performance of the code. We will assess the accuracy of the metric approximation and of the template placing methods we implemented. We also compare our method with the widely used stochastic placement code \texttt{sbank}.
-In sec.~\ref{sec:bank_generation}, to demonstrate the capabilities of \texttt{mbank}, we generate three large banks covering ``exotic" regions of parameter space: a bank of precessing signals, a bank of Intermediate Mass Black Hole (IMBH) with Higher Order Modes (HM) and a bank of eccentric signals.
-Finally, in sec.~\ref{sec:conclusion} we will present some conclusive remarks, with particular attention to future prospects.
+In Sec.~\ref{sec:methods} we present the details of the bank generation algorithm.
+Sec.~\ref{sec:validation} will be devoted to the validation of the performance of the code. We assess the accuracy of the metric approximation and of the template placing methods we implemented. We also compare our method with the widely used stochastic placement code \texttt{sbank}.
+In Sec.~\ref{sec:bank_generation}, to demonstrate the capabilities of \texttt{mbank}, we generate three large banks covering ``exotic" regions of parameter space: a bank of precessing signals, a bank of Intermediate Mass Black Hole (IMBH) with Higher Order Modes (HM) and a bank of eccentric signals.
+Finally, in Sec.~\ref{sec:conclusion} we will present some conclusive remarks, with particular attention to future prospects.
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Methods} \label{sec:methods}
 
-When searching for a BBH signal in the gravitational waves data, it is custom to use a frequentist detection statistics $\Lambda$ \cite{Creighton_book, PhysRevD.94.024012}.
-We model the detector output $s(t)$ to be composed of {\it gaussian} noise $n(t)$ and by possibly a known GW signal $h(t)$.
-Given some observed data $d(t)$, the detection statistics is then a measure of the (log)probability ratio between the signal hypothesis $s = n+h$ and the noise hyphothesis $s = n$
+When searching for a BBH signal in GW data, it is custom to use a frequentist detection statistics $\Lambda$ \cite{Creighton_book, PhysRevD.94.024012}.
+We model the detector output $s(t)$ to be composed of {\it gaussian} noise $n(t)$ and possibly by a known GW signal $h(t)$.
+Given some observed data $d(t)$, the detection statistics is then a measure of the (log)probability ratio between the signal hypothesis $s = n+h$ and the noise hyphothesis $s = n$.
 In symbols:
 \begin{equation}\label{eq:LL}
 	\Lambda(\theta) = \log\frac{p(s = n+h(\theta)|d)}{p(s = n|d)}
@@ -140,39 +139,23 @@ where we assume that the signal model is parameterized by a set of parameters $\
 For every given observation time, the search consists in maximizing such probability with respect to $\theta$. 
 
 The generic eccentric BBH signal registered at detector is characterized by 17 quantitities \cite{Sathyaprakash_2009}, grouped into \textit{intrisic} and \textit{extrisic} parameters.
-The intrisic parameters are needed to fully carachterize the source and they consist in two BH masses ($m_1$, $m_2$), two 3 dimensional spins $s_1$, $s_2$), the inclination angle $\iota$, the reference phase $\phi$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$.
-The extrinsic parameters characterizes the position of the source with respect to the observer: they are the sky location (two angles), the luminosity distance $D$, a polarization angle $\Psi$ and the time of arrival of the signal.
+Twelve intrisic parameters are needed to fully carachterize the source and they consist in two BH masses ($m_1$, $m_2$), two 3 dimensional spins ($\mathbf{s}_1$, $\mathbf{s}_2$), the inclination angle $\iota$, the reference phase $\phi$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$.
+Five extrinsic parameters characterizes the position of the source with respect to the observer: they are sky location (two angles: right ascension and declination), luminosity distance $D$, polarization angle $\Psi$ and the time of arrival of the signal.
 
-Luckily, depending on the scope of the search, it turns out that one is able to maximize $\Lambda(\theta)$ analytically over many of them. For the other quantities, a brute force approach is required: $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, usually gathered in a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee_2021}. 
-A GW search aims to filter the data with the signals gathered in a template bank and compute the detection statistics for each template as a function of time: this technique, called {\it matched filtering}, is implemented by several pipelines to sucessfully search for GW signals \cite{Usman:2015kfa,PhysRevD.95.042001,gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
-
+Depending on the scope of the search, it turns out that one is able to maximize $\Lambda(\theta)$ analytically over many of such parameters\footnote{
 In the case of a a non-precessing BBH, where we neglect the Higher Order Modes (HM) of the waveforms, the paramters space to search by brute force has only 4 dimensions (the two masses and the two z components of the spins).
-%In this situation, the maximized likelihood has the following expression:
-%\begin{equation}\label{eq:LL_filtering}
-%	\Lambda(\theta) \propto 4 \int_{-\infty}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta) \tilde{d}(f)}{S_n(f)}
-%\end{equation}
-%where $\tilde{\phantom{h}}$ denotes the Fourier transform and $S_n(f)$ is the power spectral density of the gaussian noise $n(t)$.
-Moving on to more general searches, the dimensionality of the parameter space to be covered by the template bank increaseas.
-% and, at the same time, the analytical form of the maximized likelihood may change.
+}. For the other quantities, a brute force approach is required, where $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, called {\it template bank} \cite{PhysRevD.77.104017, Mukherjee_2021}.
+A GW search filters the data with the templates of a bank and computes the detection statistics for each template as a function of time: this technique, called {\it matched filtering}, is implemented by several pipelines to sucessfully search for GW signals \cite{Usman:2015kfa,PhysRevD.95.042001,gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
 
-It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$ embedded in a large 12 dimensonal manifold $\mathcal{B}$: each point of the manifold corresponds to a GW signal. The number $D$ of dimensions depends on the BBH variables under consideration.
+It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$, embedded in a large 12 dimensonal manifold $\mathcal{B}$: each point of the manifold corresponds to a GW signal. The number $D$ of dimensions depends on the BBH variables under consideration.
 As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful default value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the full manifold $\mathcal{B}$.
 
-Placing templates on $\mathcal{B}_D$ is a highly non-trivial task, as one has to struggle to ensure a good coverage (to avoid missing any signal) while keeping a low number of templates (to save computational power).
-Throughtout the years many different techniques have been devised to achieve such goal.
-
-
-The general approach consist in equipping $\mathcal{B}_D$ with a distance (called {\it mis-match}) and then placing templates so that they:
-\begin{itemize}
-	\item cover all the manifold
-	\item their mutual distance is as close as possible to a target distance
-\end{itemize}
-%Computing the distance between the two points on effective BBH manifold explicitly (without using the metric) is computationally expensive due to required generation of two BBH merger waveforms.
-Computing the distance between the two points on the effective BBH manifold $\mathcal{B}_D$ explicitly (without using the metric) is computationally expensive due to waveform generation and mismatch computation.
-With current waveform generation methods, this operation is very slow and generating a reliable bank can take up to weeks of computation.
-
-This work develops a novel approach to template placing. It is focused on the generation of a high dimensional ($D>4$) banks.
-The bank generation (i.e. the placing of templates) is articulated in three logical steps:
+%Placing templates on $\mathcal{B}_D$ is a highly non-trivial task, as one has to struggle to ensure a good coverage (and avoid missing any signal) while keeping a low number of templates (and save computational power).
+%Throughtout the years many different techniques have been devised to achieve such goal.
+%
+To place templates on $\mathcal{B}_D$, it is standard to equip the manifold with a distance (called {\it mis-match}) and then place templates so that: (i) they cover all the manifold and (ii) their mutual distance is as close as possible to a target distance.
+Building on this, we develop a novel approach to template placing, focused on the generation of high dimensional ($D>4$) banks.
+The bank generation happens in three steps:
 
 \begin{enumerate}
 	\item Construction of a metric approximation of the match between templates. This makes $\mathcal{B}_D$ a Riemannian manifold.
@@ -180,7 +163,7 @@ The bank generation (i.e. the placing of templates) is articulated in three logi
 	\item Placing the templates according to the tiling
 \end{enumerate}
 
-Although the template placing is only approximately optimal, this method is order of magnitude faster than the standard approachs, as it avoids to compute a large number of waveforms. For this reason, it allows the creation of large banks on a high dimensional parameter space.
+Although the template placing is only approximately optimal, this method is order of magnitude faster than the standard approachs, as it avoids to compute a large number of waveforms.
 We will devote the rest of this section to go through all the details of the steps above.
 
 \subsection{The metric} \label{sec:metric}
@@ -189,43 +172,43 @@ In this section we define a metric distance on the manifold of templates $\mathc
 
 Under the assumption of gaussian noise \cite{Creighton_book}, it is natural to introduce a complex \textit{scalar product}\footnote{
 Technically, this is a scalar product on the $L^2$ space of the waveforms $h$.
-Moreover, the search likelihood eq.~\eqref{eq:LL} will depend only $\scalar{h}{h}$ and $\scalar{s}{h}$.
+Moreover, the search likelihood Eq.~\eqref{eq:LL} will depend only $\scalar{h}{h}$ and $\scalar{s}{h}$.
 } between two \textit{waveforms} $h$ as:
 
 \begin{equation} \label{eq:scalar_product}
 	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta_1) \tilde{h}(f;\theta_2)}{S_n(f)}
 \end{equation}
 
-where $h(\cdot; \theta)$ denotes the frequency waveform evaluated at the point $\theta$ of the manifold.
+where $\tilde{h}(\cdot; \theta)$ denotes the frequency waveform evaluated at the point $\theta$ of the manifold.
 For non-precessing circular BBHs, $h = A(f,\theta) e^{i\phi(\theta)} = h_+ + i h_\times$. This however is not valid in the more general case of a precessing and/or eccentric binary. In this case, the form of the likehood changes \cite{Harry:2016ijz, PhysRevD.97.023004}, depending on physical assumptions about the signal, yielding in principle to a different form for the scalar product. Here, however, we neglect this fact and we consider only the physical content of the plus polarization\footnote{
 We note incidentally that our assumption is equivalent to considering only signals coming at the interferometer with a zero right acension and polarization angle.}:
 $h = A(f,\theta) e^{i\phi(\theta)} = h_+$. We defer to future studies the discussion of a more general scalar product.
 
-It is important to note that the parameters $\theta$ may not fully specify the BBH parameter space: in this case, the expression $h(\theta)$ assumes that the waveform is generated at some default constant paramters for the quantities not constrained by $\theta$.
-Eq.~\eqref{eq:scalar_product} is a measure of the detection statistics $\Lambda(\theta_1)$ that is measured when a signal $h(t; \theta_2)$ is present in the data.
+%It is important to note that the parameters $\theta$ may not fully specify the BBH parameter space: in this case, the expression $h(\theta)$ assumes that the waveform is generated at some default constant paramters for the quantities not constrained by $\theta$. Eq.~\eqref{eq:scalar_product} is a measure of the detection statistics $\Lambda(\theta_1)$ that is measured when a signal $h(t; \theta_2)$ is present in the data.
 
 A waveform $h(\theta)$ can be normalized using the scalar product above:
 \begin{equation} \label{eq:normalization}
 	\hat{h}(\theta) = \frac{h(\theta)}{\scalar{h(\theta)}{h(\theta)}}.
 \end{equation}
 
-We can use the scalar product to define the sought for distance between signals.
+%We can use the scalar product to define the sought for distance between signals.
 For each parameter $t$, we define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized WFs as:
 \begin{align}\label{eq:overlap}
 	\mathcal{O}(\theta_1,\theta_2, t) &= \left\lvert \int\limits_{0}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert \nonumber\\
 	&= \lvert \scalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}} \rvert
 \end{align}
-where, with a slight abuse of notation, we defined $\hat{h}(\theta)e^{i 2\pi ft}$ to be the waveform $\hat{h}(\theta)$ traslated by a constant time $t$ and $\lvert \cdot \rvert$ denotes the absolute value of a complex number.
+where we defined $\hat{h}(\theta)e^{i 2\pi ft}$ to be the waveform $\hat{h}(\theta)$ traslated by a constant time $t$ and $\lvert \cdot \rvert$ denotes the absolute value of a complex number.
 
 Based on the overlap, we can eventually define the {\it match} as:
 \begin{equation}\label{eq:match}
 	\mathcal{M}&(\theta_1,\theta_2) = \max_t \mathcal{O}(\theta_1,\theta_2, t) \\
 	%&= \max_t \sqrt{ \rescalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}}^2 + \imscalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i2\pi ft}}^2 }  \nonumber 
 \end{equation}
-
+%
 The match takes values in the range $[0,1]$ and trivially $\mathcal{M}(\theta,\theta) = 1$.
+It amounts to the scalar product between $h(\theta_1)$ and $h(\theta_2)$, maximised over a constant time shift between the two.
 
-We are now ready to define a {\it distance}\footnote{
+We are now ready to define a {\it distance} $d(\theta_1,\theta_2)$ \footnote{
 From a strict geometrical point of view, this is not a distance since it does not satisfy triangular inequality. However, this does not affect its effectivness in measuring the ``dissimilarity" between two waveforms and it will be used regardless.}
 on the D-manifold $\mathcal{B}_D$:
 \begin{align}\label{eq:distance}
@@ -233,18 +216,19 @@ on the D-manifold $\mathcal{B}_D$:
 \end{align}
 The quantity $1-\mathcal{M}$ above is also called {\it mismatch}.
 
-We are interested to construct the metric approximation of the distance. This amounts to replace the distance with a bilinear form in the neighbourhood of any given point $\theta$. Such bilinear form is represented by a $D\times D$ matrix $M(\theta)$ such that\footnote{
+To construct the metric approximation of the distance, we replace the distance with a bilinear form in the neighbourhood of any point $\theta$. Such bilinear form is represented by a $D\times D$ matrix $M(\theta)$ such that\footnote{
 In this expression and everywhere else, we assume Einstein summation convention for vector product.}:
 \begin{align}\label{eq:metric_definition}
 	d^2(\theta_1,\theta_2) = 1 - \mathcal{M}(\theta_1,\theta_2) \simeq M_{ij}(\theta) \Delta\theta_i \Delta\theta_j
 \end{align}
 where $\Delta\theta = \theta_1-\theta_2$ is a D-dimensional vector.
 The distance induced by the metric approximates the distance between two points of the manifold.
-It is worth noting that, like any expansion, eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit of small $||\Delta\theta||$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}. For $||\Delta\theta|| \gtrsim 1$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
+It is worth noting that, like any expansion, Eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit of small $||\Delta\theta||$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}.
+%For $||\Delta\theta|| \gtrsim 1$ the metric approximation may lose its predictivity power and the validity of the approximation needs to be checked in every situation.
 
-Of course, there is not a {\it correct} expression for the matrix $M_{ij}(\theta)$, but its exact value may depend on the application and on the range of applicability of the approximation.
-A fair guess for the tensor field $M_{ij}(\theta)$ can be done through an optimization problem where we try to minimize the discrepancy between the metric distance eq.~\eqref{eq:metric_definition} and the actual distance eq.~\eqref{eq:distance}.
-The disagreement of the two distances around a point $\theta$ can be encoded into a {\it loss function}, which depends on a guess for the matrix elements $M^\prime_{ij}$:
+Of course, there is not a ``true" expression for the matrix $M_{ij}(\theta)$, but its value may depend on the application and on the range of applicability of the approximation.
+A fair guess for the tensor field $M_{ij}(\theta)$ can be done through an optimization problem where we try to minimize the discrepancy between the metric distance Eq.~\eqref{eq:metric_definition} and the actual distance Eq.~\eqref{eq:distance}.
+The disagreement of the two distances around a point $\theta$ can be encoded into a {\it loss function}, which depends on a value for the matrix elements $M^\prime_{ij}$:
 \begin{equation} \label{eq:loss_function}
 	\mathcal{L}_\theta(M^\prime_{ij}) &= \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_{target}\}} \hspace{-3.8em}
 		\dvol{\theta^\prime}{D}  \left[ d^2(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j \right]^2
@@ -256,26 +240,25 @@ At a given point $\theta$, the components $M_{ij}(\theta)$ of the metric are sel
 \begin{equation} \label{eq:metric_optmization}
 	M_{ij}(\theta) = \argmin_{M^\prime_{ij}}  \mathcal{L}_\theta(M^\prime_{ij})
 \end{equation}
-Although the problem can be tackled using one standard optimization techniques of numerical optimizaton, it is unfeasible to use it as is\footnote{
-Future work may try to tacke this optimization problem finding a solution at an acceptable computational cost.},
-since it requires to compute many waveforms to evaluate $d(\theta,\theta^\prime)$ eq.~\eqref{eq:distance} and to sample from a ``complicate" set such as $\{d(\theta,\theta^\prime) < d_{target}\}$.
+Although the problem can be tackled using standard optimization techniques, in most cases it is unfeasible to do so\footnote{
+Future work may try to tacke this optimization problem finding a solution at a feasible computational cost.},
+since it requires to evaluate many times $d(\theta,\theta^\prime)$ Eq.~\eqref{eq:distance} and to sample from a ``complex" set such as $\{d(\theta,\theta^\prime) < d_{target}\}$.
 
-To make the metric generation feasible, we should find faster {\it heuristic} solution to eq.~\eqref{eq:metric_optmization}: a good guess is to identify it with the bilinear term of the Taylor expansion of the match.
-It turns out that this depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression, first derived by Owen \cite{owen_metric}:
+To make the metric generation feasible, we find a faster {\it heuristic} solution to Eq.~\eqref{eq:metric_optmization} by identifing the metric $M_{ij}(\theta)$ with the bilinear term of the Taylor expansion of the match.
+It depends on the gradients $\partial_i h(\theta)$ of the waveform and has the following expression \cite{owen_metric}:
 \begin{equation}\label{eq:metric_expression}
 	M_{ij}(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
 \end{equation}
-where $H(\theta)$ is the Hessian of the overlap eq.~\eqref{eq:overlap} (a $D+1$ square matrix). Note that the metric is positive definite.
-The details of the computation of the Hessian in terms of the gradients of the waveform are presented in appendix \ref{app:metric}.
-The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
+where $H(\theta)$ is the Hessian of the overlap Eq.~\eqref{eq:overlap}, a $D+1$ square matrix.
+Note that the metric is positive definite. The details of the computation of the Hessian in terms of the gradients of the waveform are presented in appendix \ref{app:metric}. The full expression is given in eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 
-For most of the waveforms available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based waveform model \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, such gradients are available analytically (thus speeding up the computation).
+For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of Machine Learning based models \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, such gradients are available analytically.
 
 %%%
 %%%%%%%%% THIS PART IS ABOUT THE PARABOLIC FIT HESSIAN: AS IT DOES NOT REALLY WORK. IT IS PROBLEMATIC TO MENTION IT IN THE PAPER.
-%Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}. The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$. A possible solution to this problem is to update the eigenvalues of the Hessian eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance. In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}. Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
+%Despite being the most common approach, the hessian metric approximation tends to {\it undestimate} the small eigenvalues of the metric $M$. Whenever this happens, the metric loses its predictivity (especially at large coordinate distances $||\Delta\theta||$), as it will be shown in fig.~\ref{fig:metric_accuracy_distance}. The reason for that is that the gradients are computed with a small finite difference step $\epsilon \sim 10^{-5}$, while the metric is used to make predictions at larger values $\epsilon \sim 1$. A possible solution to this problem is to update the eigenvalues of the Hessian Eq.~\eqref{eq:metric_expression} with those computed by looking at the match at larger distances. For each eigen-direction $\hat{\lambda}_i$, we place a number of points along $\hat{\lambda}_i$ at difference distances $\epsilon$ and we compute the mis-match with the center $\theta$. The i-th eigenvalue $\lambda_i$ is then computed by a parabolic fit of the relation mismatch-distance. In general, the metric with the newly calibrated eigenvalues tends to have much larger eigenvalues but provides a more accuracte representation of the local behavior of the match. We call this metric {\it parabolic fit hessian}. Which version of the metric - {\it hessian} or {\it parabolic fit hessian} - to use is a matter of applications.
 
-Equipped with the metric eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes a Riemannian manifold with line element:
+Equipped with the metric Eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes a Riemannian manifold with line element:
 \begin{equation}\label{eq:line_element}
 	\d{s^2} = M_{ij}(\theta) \d{\theta_i} \d{\theta_j}
 \end{equation}
@@ -289,35 +272,36 @@ As a final remark, we note that other definitions for the match are possible (se
 
 \subsection{The tiling} \label{sec:tiling}
 
-In principle the metric is a continuos quantity, defined at every point of the space. However, as the computation of the metric is expensive, it is unfeasible to compute the metric whenever a (mis)match computation is required.
-For this reason, the parameter space of interests (geometrically the manifold $\mathcal{B}_D$) should be divided into different {\it tiles} (subset). In doing so, we assume that, in each tile, the metric can be approximated as a constant.
-%The validity of this assumption will be assesed in sec.~\ref{sec:tiling_accuracy}.
+In principle, the metric is a continuos quantity, defined at every point of the space. However, as the computation of the metric is expensive, it is unfeasible to compute the metric whenever a (mis)match computation is required.
+For this reason, the parameter space of interest (geometrically the manifold $\mathcal{B}_D$) should be divided into different {\it tiles} (subsets). In doing so, we assume that the metric can be approximated as a constant within each tile.
+%The validity of this assumption will be assesed in Sec.~\ref{sec:tiling_accuracy}.
 
-To simplify the geometry (and make the computation faster), we only consider hyper-cubes as tiles. A tile $\mathcal{T}$ is an ordered couple:
+To simplify the geometry and make the computation faster, we only consider hyper-rectangles as tiles. A tile $\mathcal{T}$ is an ordered couple:
 \begin{equation} \label{eq:tile}
 	\mathcal{T} = \left(R_{[\theta_{min}, \theta_{max}]}, M \right)
 \end{equation}
-where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-cube (rectangle) with extrema $\theta_{min/max}$ and where $M$ is the distance matrix evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
+where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-rectangles with extrema $\theta_{min/max}$ and where $M$ is the distance matrix evaluated at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
-Inspired by \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
+Similarly to \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
 The three resulting tiles are further split if the metric determinants $|M_{right}|, |M_{left}|$ of the left and right tile satisfy:
 \begin{equation}
 	0.5\left|\log_{\textrm{10}}\frac{|M_{right}|}{|M_{left}|}\right| > \epsilon,
 \end{equation}
 where the threshold $\epsilon$ can be freely chosen by the user and controls the total number of tiles being generated.
-This condition makes sure that the volume element $\sqrt{|M|}$ does not change too much between neighbouring tiles.
+This condition makes sure that the volume element $\sqrt{|M(\theta)|}$ does not change too much between neighbouring tiles.
 Function \texttt{SplitTile} is described in alg.~\ref{alg:tiling}.
 
 The tiling generation algorithm iteratively splits an initial tile $\mathcal{T}_{0}$ which covers the space of interest, until all the tiles satisfy the condition above.
 To prevent the algorithm from running indefinetely, we may also impose an (optional) threshold \texttt{max-depth} on the number of ``generations of tiles". If set, this limits the number of tiles to $3^{\texttt{max-depth}}$.
 
-As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome such restriction is to generate the bank on a large domain of interest and imposing any non-linear boundary as a post processing step. 
+As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose non cubic boundaries. However, due to the speed of the bank generation, a feasible approach to overcome this is to generate the bank on a larger domain and imposing any non-linear boundary as a post processing step. 
 
-The tiling defines a {\it very fast} approximation $M^{\text{tiling}}_{ij}(\theta)$ to the true metric $M_{ij}(\theta)$ all over the region of interest:
+The tiling defines a {\it fast} approximation $M^{\text{tiling}}_{ij}(\theta)$ to the true metric $M_{ij}(\theta)$ (and hence to Eq.~\eqref{eq:distance}) all over the region of interest:
 \begin{equation}\label{eq:metric_tiling}
 	M^{\text{tiling}}_{ij}(\theta) = \sum_{\mathcal{T}_k} \mathbf{1}_{R_k}(\theta) M^{k}_{ij}
 \end{equation}
-where $\mathbf{1}_{R_k}(\theta)$ is the indicator function on the rectangle $R_k$ of the k-th tile and the sum runs over all the tiles $\mathcal{T}_k$ of the tiling. The matrix $M^{k}_{ij}$ is the metric evaluated at the center of the rectangle $R_k$ as in eq.~\eqref{eq:tile}.
+where $\mathbf{1}_{R_k}(\theta)$ is the indicator function on the rectangle $R_k$ of the k-th tile and the sum runs over all the tiles $\mathcal{T}_k$ of the tiling. The matrix $M^{k}_{ij}$ is the metric evaluated at the center of the rectangle $R_k$ as in Eq.~\eqref{eq:tile}.
+
 
 It is important to realise that a tiling defines also an approximation to the uniform probability measure $p$\footnote{
 A probability distribution is said to be {\it uniform} if, for every volume $V$ of the space, it satisfies $p(V) \propto \text{Vol}(V)$.}
@@ -350,53 +334,56 @@ The equation above can be used to uniformly draw random templates on the space a
 \subsection{Template placing} \label{sec:template_placing}
 
 Once a tiling is available, we need to place the templates that will be part of the bank.
-As it is common, the input parameter controlling the average spacing of the templates (and their number) is the so-called {\it minimum match} $MM$. It is defined as the minimum tolerable match that a random injection (inside the relevant space) must have with the templates of the bank.
+As it is common, the input parameter controlling the average spacing of the templates and their number is the so-called {\it minimum match} $MM$. It is defined as the minimum tolerable match that a random injection (inside the relevant space) must have with the templates of the bank.
 
 A variety of template placing methods have been implemented in \texttt{mbank}, each of which has their own strength and applicability.
-Below, we describe briefly the most interesting among them and in Sec.~\ref{sec:placing_accuracy}, we make quantitative studies on their performance.
+Below, we describe briefly the most interesting among them and in Sec.~\ref{sec:placing_accuracy}, we make quantitative studies on their performance\footnote{
+This list is not exhaustive: more placing methods are implemeted and documented, although not fully validated, in \texttt{mbank}.}.
 
 \paragraph{Uniform}\label{par:uniform}
 The templates are randomly drawn from the probabilty distribution defined by the metric $p(\theta) \propto \sqrt{M(\theta)}$, as described in \cite{Messenger:2008ta}.
-Of course, we only have access to the approximation eq.~\eqref{eq:tiling_pdf} given by the tiling. To sample from it, we use Gibb's sampling: first we randomly choose a tile with a probability proportional to its volume and, second, we randomly draw a point within the chosen tile.
+Of course, we only have access to the approximation Eq.~\eqref{eq:tiling_pdf} given by the tiling. To sample from it, we use Gibb's sampling: first we randomly choose a tile with a probability proportional to its volume and, second, we randomly draw a point within the chosen tile.
 \\
 Following an argument by Owen \cite{owen_metric}, the optimal distance between templates placed on a cubic lattice should be:
 \begin{equation}
 	d(MM) = 2 \sqrt{\frac{1-MM}{D}}
 \end{equation}
-This is useful to set the total number of templates $N_{templates}$ as:
+This is useful to set the total number of templates $N_{t}$ as:
 \begin{equation} \label{eq:N_templates}
-	N_{templates} = \frac{\text{Vol}(\mathcal{B}_D)}{d(MM)^D}
+	N_{t} = \frac{\text{Vol}(\mathcal{B}_D)}{d(MM)^D}
 \end{equation}
-In the total number of templates, we depart from \cite{Messenger:2008ta}, where the total number of templates is set with a different scheme (see below).
+In setting the total number of templates, we depart from \cite{Messenger:2008ta}, where it is set with a different scheme (see below).
 \\
-The method runs very fast but provides poor coverage and injection recovery: indeed, the number of $N_{templates}$ refers to a lattice template configuration and drastically underestimates the actual bank size.
+The method runs very fast but provides poor coverage and injection recovery: indeed, $N_{t}$ refers to a lattice template configuration and poorly estimates the bank size.
 For such reasons, we do not expect this to be a viable option for bank generation. Nevertheless, due to its speed, it is useful to provide a rough estimation of the bank size and features, mostly useful at the tiling generation stage.
 %A variant, called {\it qmc} allows to sample from each tile using a quasi-Montecarlo sampling, to ensure a more regular separation between points. However, we observe only a mild increase of performance.\stefano{Do we mention this?}
 
 \paragraph{Random}\label{par:random}
 This methods is similar to the previous one, but provides a better mechanism to estimate the total number of points inside the bank.
-The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one template is drawn from distribution eq.~\eqref{eq:tiling_pdf} and added to the bank. All the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ from the template (i.e. within the template volume) will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta = 0.01$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 10000$.
+The relevant space is covered with $N_{livepoints}$ points, called {\it livepoints}.
 \\
-The method originally appeared in \cite{Messenger:2008ta}; the addition of the livepoints as a method to provide a monte carlo estimation of the covering fraction $\eta$ first appeared in \cite{Coogan:2022qxs}. Unlike \cite{Coogan:2022qxs} which does importance sampling, we use the tiling to sample from the uniform distribution over the parameter space.
+At each iteration, one template is drawn from $p^{\text{tiling}}(\theta)$ Eq.~\eqref{eq:tiling_pdf} and added to the bank. All the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ from the template (i.e. within the template volume) will be removed from the set of livepoints (killed). The iteration goes on until only a small fraction $\eta = 0.01$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 10000$.
+\\
+While the method originally appeared in \cite{Messenger:2008ta}, the addition of the livepoints as a method to provide a monte carlo estimation of $\eta$ first appeared in \cite{Coogan:2022qxs}. Unlike \cite{Coogan:2022qxs} which does importance sampling, we use the tiling to sample from the uniform distribution over the parameter space.
 Although the method does not check for distances between templates and can overcover, it is very fast and provides a reliable bank at a cheap computational and memory cost.
 Moreover, as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, for a large number of dimensions, the banks generated by the random method provide close to optimal performance.
 
 %paragraph{Pruning}\label{par:pruning}
-%The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ (i.e. within the template volume)  will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{templates}$.
+%The relevant space is covered with $N_{livepoints}$ points, called livepoints. At each iteration, one livepoints is chosen and all the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ (i.e. within the template volume)  will be removed from the set livepoints (killed). The iteration goes on until only a small fraction $\eta$ of the original livepoints is ``alive". A good rule of thumb to set $N_{livepoints} = 50 N_{t}$.
 %The rejection mechanism is similar to the {\it stochastic} method but the proposals are managed in a more efficient way, as they are always accepted.
 %The method has very good properties: the result mildly depends on the tiling chosen and it is able to take care of the boundaries. As the livepoints must be stored in the computer memory, it can be quite memory expensive and for many practical applications it cannot run without splitting the parameter space in subregions.
-%As above, we use the metric approximation eq.~\eqref{eq:metric_tiling}.
+%As above, we use the metric approximation Eq.~\eqref{eq:metric_tiling}.
 %The idea of using livepoints to cover the space was first introduced in \ref{Coogan:2022qxs}; in the original paper, the proposals are randomly drawn from the metric, whereas in our method, the proposal are extracted among the livepoints themselfs.
 
 \paragraph{Stochastic}\label{par:stochastic}
-Some proposals are randomly drawn from the parameter space, following the probability distribution eq.~\eqref{eq:tiling_pdf}. They are accepted as templates if their minimum metric distance from {\it all} the previously added templates is greater than  $\sqrt{1-MM}$.
-Whenever $N_{max}$ proposals are consecutively rejected the procedure will stop. For distance computation, we use the metric approximation given by the tiling eq.~\eqref{eq:metric_tiling}.
+Some proposals are randomly drawn from $p^{\text{tiling}}(\theta)$ Eq.~\eqref{eq:tiling_pdf} and they are accepted as templates if their minimum metric distance from {\it all} the previously added templates is greater than  $\sqrt{1-MM}$.
+Whenever a maximum number of proposals $N_{max}$ is consecutively rejected the procedure will stop. For distance computation, we use the metric approximation given by the tiling Eq.~\eqref{eq:metric_tiling}.
 \\
-The method is inspired by \cite{PhysRevD.80.104014}, a large difference being that here we use {\it entirely} the metric match to compute distances: this results in a very large speed up. Moreover, in \cite{PhysRevD.80.104014} for each proposal only the templates in the vicinity of the proposal are considered for distance computation.
-This methods provides very nice coverage properties since it check for the mutual distance between templates; however it can be quite slow to run, especially in a large number of dimensions.
+The method is inspired by \cite{PhysRevD.80.104014}, a large difference being that we use {\it entirely} the metric match to compute distances. Moreover, in \cite{PhysRevD.80.104014} for each proposal only the templates in the vicinity of the proposal are considered for distance computation.
+This method provides good coverage since it checks for the mutual distance between templates; however it can be quite slow to run, especially in a large number of dimensions.
 
 \paragraph{Random-Stochastic}\label{par:randomstochastic}
-The outcome of the {\it random} placement is set as a seed bank for the {\it stochastic} method. This make sure that eventual ``holes" left by the random placement are covered. This provides a substantial speed up with respect to the stochastic method while keeping at the same time the same amount of accuracy.
+The outcome of the {\it random} placement is set as a seed bank for the {\it stochastic} method, in order to make sure that eventual ``holes" left by the random placement are covered. It provides a substantial speed up with respect to the stochastic method while keeping a similar accuracy.
 To our knowledge, the method is first described here.
 
 %\paragraph{Tile-Stochastic}\label{par:tilerandom_stochastic}
@@ -410,35 +397,37 @@ In some regions of the parameter space, the template placing can perform poorly 
 In general, this can happen in several situations:
 
 \begin{enumerate}
-	\item {\it The quadratic approximation fails}. In this case, eq.~\eqref{eq:metric_definition} ceases to be a good approximation for the match. Obviously, whenever this happens, there is no guarantee for the template placement to be optimal.
+	\item {\it The quadratic approximation fails}. In this case, Eq.~\eqref{eq:metric_definition} ceases to be a good approximation for the match. Whenever this happens, there is no guarantee for the template placement to be optimal.
 	\item {\it The metric changes drastically in a small region of the parameter}. Here, the tiling algorithm may not be able to track the sudden change in the metric and that region of the parameter space will be dramatically under/over-covered.
 	\item {\it The approximant is not numerically stable}. In this case, one or many eigenvalues of the metric will be unphysically large: the metric loses any predictivity.
-	\item {\it The waveform does not depend on one of the dimensions of the space}. In this case the metric is close to be degenerate and it fails to be a good approximation of the match: the region (ellipsoid) where $d_M<\sqrt{1-MM}$ covers an unphysically large coordinate volume. When this happens, the metric approximation loses accuracy as it predict a small value of the match also at large coordinate distance where the limit $\Delta\theta \lesssim 1$ (and the metric approximation) is not valid anymore.
+	\item {\it The waveform does not depend on one of the dimensions of the space}. In this case the metric is close to be degenerate and it fails to be a good approximation of the match: the region (ellipsoid) where $d_M<\sqrt{1-MM}$ covers an unphysically large coordinate volume.
+	%When this happens, the metric approximation loses accuracy as it predict a small value of the match also at large coordinate distance where the limit $\Delta\theta \lesssim 1$ (and the metric approximation) is not valid anymore.
 \end{enumerate}
 
 In general, it is hard to realize when the placement fails and there is not a single recipe for this.
-
+%
 As a rule of thumb, to detect the failure of the metric approximation (case 1.), the user should compare the match with the metric match and measure their discrepancies\footnote{To ease the study of metric accuracy in a given point in space, the script \texttt{mbank\_validate\_metric} is provided together with the \texttt{mbank} package}.
 
-On the other hand, a large injection study should be able to discover regions of the parameter space where the metric changes rapidly. Such regions will be over/under-densely populated with templates, giving a small/large injection recovery factor.
+On the other hand, a large injection study should be able to discover regions of the parameter space where the metric changes rapidly (case 2.). Such regions will be over/under-densely populated with templates, giving a small/large injection recovery factor.
 
-Whenever the metric is not numerically stable and there is a diverging metric determinant, an unphysically large number of templates are placed in a small region. This creates a large discontinuity in the template density, which should be easily detectable by plotting a corner plots of the templates.
+Whenever the metric is not numerically stable (case 3.) and there is a diverging metric determinant, an unphysically large number of templates are placed in a small region. This creates a large discontinuity in the template density, which should be easily detectable by plotting a corner plots of the templates.
 
 If the metric is close to be degenerate (case 4.), the placing methods (especially {\it uniform} and {\it random}) will provide a poor coverage. This can be easily recognized from a poor metric injection recovery. This happens especially at low masses or low mass ratios, where the discrepancy between the first and the last metric eigenvalue can be very large. Problems in this aspect should arise for low values of total mass $M<15 M_{\odot}$.
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
-In this section we study the performance of different parts of our model. We begin by assessing the quality of the metric approximation to the match sec.~\ref{sec:metric_accuracy}.
-Next sec.~\ref{sec:placing_accuracy}, we will compare the different placing methods and check their performance on several tiling: this will be useful to decide which placing method and tiling depending on the parameter space to cover.
-Finally, we will compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{sbank} on a selected set of banks. The comparison will be based on bank's size, speed and effectualness.
+In this section we study the performance of different parts of our model. We begin by assessing the quality of the metric approximation to the match Sec.~\ref{sec:metric_accuracy}.
+Next Sec.~\ref{sec:placing_accuracy}, we compare the different placing methods and check their performance on several tiling: this will be useful to decide choose the many hyperparameters involved in generating a bank.
+Finally, we compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{sbank} on a selected set of banks. The comparison will be based on bank's size, speed and effectualness.
 
-In much of what follows we will need to check the performance of a generated bank. To do so, we follow a very standard procedure. We randomly extract a number of signals (usually called injections). Unless otherwise specified, we extract them from the PDF defined by the tiling eq.~\eqref{eq:tiling_pdf}.
-For each injection at a given point on the manifold $\theta$, we compute the fitting factor $FF$ defined as the best match the injection have with a template of the bank:
+In much of what follows we will need to check the performance of a generated bank. To do so, we follow a very standard procedure. We randomly extract a number of signals (usually called injections)\footnote{
+Unless otherwise specified, we extract them from the PDF defined by the tiling Eq.~\eqref{eq:tiling_pdf}.}.
+For each injection at a given point on the manifold $\theta$, we compute the fitting factor $FF$, defined as the best match the injection has with the templates of the bank:
 \begin{equation}\label{eq:FF}
 	FF(\theta) = \max_{\theta^\prime \in \text{bank}} \mathcal{M}(\theta, \theta^\prime)
 \end{equation}
-for the match $\mathcal{M}$ in the equation above we can either use the true match eq.~\eqref{eq:match} or its metric approximation eq.~\eqref{eq:metric_definition} (metric match).
+where we can compute the match $\mathcal{M}$ with either the true match Eq.~\eqref{eq:match} or its metric approximation Eq.~\eqref{eq:metric_definition} (metric match) as defined by the tiling.
 Of course, the latter is faster to compute but less accurate. In what follows we will perform many injection studies, using both the match and the metric match.
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
@@ -472,12 +461,12 @@ The experiment is performed on the following manifolds:
 For the first two manifolds we use the approximant \texttt{IMRPhenomD} \cite{PhysRevD.93.044006, PhysRevD.93.044007}, whereas for the latter two we use \texttt{IMRPhenomPv2} \cite{PhysRevLett.113.151101} and \texttt{IMRPhenomXPHM} \cite{PhysRevD.103.104056}. The frequency range for the metric computation is always set to be $[10, 1024]Hz$.
 The results are reported in fig.~\ref{fig:metric_accuracy}.
 
-\begin{figure}[t]
-	\includegraphics{metric_accuracy_hessian_distance}
-	\caption{For each pair of point with constant metric match of $0.97$, we report the actual mismatch as a function of coordinate distance $||\Delta\theta||$. For small values of $||\Delta\theta||$ the metric and the true mismatch agree whereas for larger values of $||\Delta\theta||$, we note a strong disagreement between the two values.
-	}
-	\label{fig:metric_accuracy_distance}
-\end{figure}
+%\begin{figure}[t]
+%	\includegraphics{metric_accuracy_hessian_distance}
+%	\caption{For each pair of point with constant metric match of $0.97$ (i.e. mismatch of $0.03$, as marked by the dashed line), we report the actual mismatch as a function of coordinate distance $||\Delta\theta||$.
+%	}
+%	\label{fig:metric_accuracy_distance}
+%\end{figure}
 
 \begin{figure*}[th!]
 	\centering
@@ -488,22 +477,20 @@ The results are reported in fig.~\ref{fig:metric_accuracy}.
 	}
 	\label{fig:placing_validation}
 \end{figure*}
-%%%%%%
-%%%%%%%%%%%% OLD PART CONCERNING THE PARABOLIC FIT HESSIAN
-%By looking at the results for the metric hessian fig.~\ref{fig:metric_accuracy_hessian}, we note indeed a large scatter in the match values at a constant metric match. On the other hand, the random fluctuations of the match are well centered around the expected value. For the manifold \texttt{Mq\_chi\_iota} (where an HM approximant was used), the situation is different, as the hessian metric provides a more reliable approximation to the match. However, in this case the match is underestimated by the metric match. The picture changes drastically for the parabolic fit hessian fig.~\ref{fig:metric_accuracy_parabolic}: here the scatter of the match values is smaller (i.e. the metric approximation is more reliable) but the metric underestimates the match.\\Trying to draw some general conclusions, the {\it hessian} metric approximation can yield to large errors in match estimation but it is not biased: given two points with a metric match $\mathcal{M}_{\text{metric}}$ the most likely match value between them is $\mathcal{M} = \mathcal{M}_{\text{metric}}$. On the other hand, the {\it parabolic fit hessian} metric approximation has smaller discrepancies but it consisently underestimates the match: if two points have metric match $\mathcal{M}_{\text{metric}}$ the most likely match value is often $\mathcal{M} > \mathcal{M}_{\text{metric}}$. A separate conclusion holds for any HM metric. In this situation, the two metric computation methods do not differ significantly and the remarks made for the {\it parabolic fit hessian} seem to be valid. When it comes to template placing, the overall picture is somehow conterintuitive: althogh less accurate, due to its smaller bias, the {\it hessian} metric has better performance, whereas the {\it parabolic fit hessian} leads to an overcovered bank (as it underestimates the match). This will be manifest in sec.\ref{sec:HM_bank} where an HM bank, covering the manifold \texttt{Mq\_chi\_iota}, is shown to overcover the space. The same bias is not observed in non-HM banks generated with the hessian metric.For this reason, in the remainder of the paper we will focus only on the {\it hessian} metric, as the other alternative seem
 
 We first consider the first three manifolds, covered with a non-HM approximant.
 By looking at the results in fig.~\ref{fig:metric_accuracy}, we observe a very large scatter in the match values between points at constant metric match: this seems to challenge the accuracy of the metric match.
-However, as discussed above, the metric approximation to the match eq.~\eqref{eq:metric_definition}, coming from a Taylor expansion, is guaranteed to be valid whenver the higher order terms of the expansion are large (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$). To quantify this, one should compute the full taylor expansion, which is expensive and out of the scope of the work.
-We can limit ourselfs to note that higher order terms become more and more negligible as $||\Delta\theta||$ becomes smaller.
-
-To clarify this point, in fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The trend is clear: for increasingly larger values of $||\Delta\theta||$, the higher order terms become more important, hence the accuracy of the metric approximation degrades.
-
+However, as discussed above, the metric approximation to the match Eq.~\eqref{eq:metric_definition}, coming from a Taylor expansion, is guaranteed to be valid whenever the higher order terms of the expansion are small (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$). To quantify this, one should compute the full taylor expansion, which is expensive and out of the scope of the work.
+We can limit ourselves to note that higher order terms tend to become negligible as $||\Delta\theta||$ becomes smaller.
+%
+%To clarify this point, in fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The trend is clear: for increasingly larger values of $||\Delta\theta||$, the higher order terms become more important, hence the accuracy of the metric approximation degrades.
+%
 Despite a large number of points with low accuracy, the template placing does not seem to be affected by this. Indeed, the fitting factors of a set of injections is properly estimated by the metric match, as shown in Figs.\ref{fig:placing_validation}-\ref{fig:bank_injections}.
 
 The picture changes by inspecting the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM).
-The metric approximation consistently {\it underestimates} the actual match and provides a lower limit to the true match, yielding systematically smaller values of the match. This does not depend on the coordinate distance $||\Delta\theta||$ between points.
-This bias is consistent with the injection study for the HM bank generated in sec.~\ref{sec:HM_bank}, which shows a large discrepancy between metric match and true match.
+The metric approximation consistently {\it underestimates} the actual match and provides a lower limit to the true match, yielding systematically smaller values of the match.
+%This does not depend on the coordinate distance $||\Delta\theta||$ between points.
+This bias is consistent with the injection study for the HM bank generated in Sec.~\ref{sec:HM_bank}, which shows a large discrepancy between metric match and true match.
 The reason for such different qualitative behaviour is still unknown and requires more investigation. 
 
 
@@ -561,7 +548,7 @@ We report the histogram of the fitting factors for both the match and the metric
 For the stochastic placement we set the parameter $N_{max} = 200$, while for the random method we employ $1000$ livepoints.
 The results are shown in fig.~\ref{fig:placing_validation}.
 
-According to eq.~\eqref{eq:N_templates}, the number of templates $N_{\text{templates}}$ placed by the {\it uniform} method is a measure of the volume of the space. For this reason, it is interesting to look how the number of templates placed by the {\it uniform} method depends on the number of tiles.
+According to Eq.~\eqref{eq:N_templates}, the number of templates $N_{\text{templates}}$ placed by the {\it uniform} method is a measure of the volume of the space. For this reason, it is interesting to look how the number of templates placed by the {\it uniform} method depends on the number of tiles.
 We note that $N_{\text{templates}}$ grow with the number of tiles until a certain upper limit. Indeed we expect that an incresing number of tiles provides a better estimation of the overall volume of the space until the estimation converges to the true value in the limit of infinite tiles. 
 The fact that the tiling generation method is able to reach a stable estimation of the number is then a confirmation of its robustness in estimating the actual volume of the space.
 
@@ -667,7 +654,7 @@ They are:
 	\end{itemize}
 Generating these banks with a standard approach is extremely costly and such cases represent the ideal situation where \texttt{mbank} is most useful.
 
-For each bank, we perform an injection study, as described in sec.~\ref{sec:sbank_comparison}. We generate $75000$ inections randomly drawn from the tiling: the results are reported in fig.~\ref{fig:bank_injections}. We also plot the templates of the banks in fig.~\ref{fig:bank_scatter}.
+For each bank, we perform an injection study, as described in Sec.~\ref{sec:sbank_comparison}. We generate $75000$ inections randomly drawn from the tiling: the results are reported in fig.~\ref{fig:bank_injections}. We also plot the templates of the banks in fig.~\ref{fig:bank_scatter}.
 In table~\ref{tab:casestudy_banks}, we summarize the features of each bank, such as the size and the range of physical quantities that they cover.
 All the banks are generated with a minimum match $MM$ requirement of $0.97$, using the {\it stochastic} placement method.
 As above, we use the Hanford detector PSD measured during O3, as publicly released by the LVK collaboration \cite{O3a_PSDs}.
@@ -727,7 +714,7 @@ From the scatterplot fig.~\ref{fig:bank_scatter}, we note that the discontinuiti
 %}
 
 We presented a novel method to generate template banks to cover a high dimensional manifold of (possibly) precessing/HM/eccentric BBH signals.
-We rely on the metric approximation to the match eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling we are able to implement several strategies to place templates around the space with a given minimum match target.
+We rely on the metric approximation to the match Eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling we are able to implement several strategies to place templates around the space with a given minimum match target.
 The code implementing our method is publicy available as a package \texttt{mbank} and it comes with a number of tools to make the bank generation and validation easy.
 
 To validate our method, we compared the output of our code to the one of the state-of-the-art \texttt{sbank}: we find that mbank is able to faithfully cover the space, although with a larger number of templates when compared with \texttt{sbank}.
@@ -743,13 +730,13 @@ This was possible thanks to two innovative features:
 
 Our work can be improved and extended in several directions:
 \begin{itemize}
-	\item {\it Improving the metric computation} As discussed in sec.~\ref{sec:metric_accuracy}, the metric accuracy may not be optimal, especially for large coordinate distance $||\Delta\theta||$. While this has proven not to affect negatively the template placing, it would still be desiderable to have a better estimation of the match. Future developments can provide a better estimation of the metric by solving the problem in eq.~\eqref{eq:metric_optmization} or even departing from the bilinear approximation\footnote{
-Although this latter strategy may sound tempting, it would cease to provide a meaningful estimation of volume, which may be problematic for template placement.} of eq.~\eqref{eq:metric_definition}.
+	\item {\it Improving the metric computation} As discussed in Sec.~\ref{sec:metric_accuracy}, the metric accuracy may not be optimal, especially for large coordinate distance $||\Delta\theta||$. While this has proven not to affect negatively the template placing, it would still be desiderable to have a better estimation of the match. Future developments can provide a better estimation of the metric by solving the problem in Eq.~\eqref{eq:metric_optmization} or even departing from the bilinear approximation\footnote{
+Although this latter strategy may sound tempting, it would cease to provide a meaningful estimation of volume, which may be problematic for template placement.} of Eq.~\eqref{eq:metric_definition}.
 	
-	\item {\it Make the random placing method more efficient} As discussed in sec.~\ref{sec:placing_accuracy}, the random placing method may fail whenever the metric predicts an unphysically large region of constant match. A possible way to fix this is to introduce an exponential damping to the metric effect $\propto e^{-||\Delta\theta||}$ at large coordinate distance $||\Delta\theta||$. This could solve the undercovering problem, enabling to fully exploit the strength of the method.
+	\item {\it Make the random placing method more efficient} As discussed in Sec.~\ref{sec:placing_accuracy}, the random placing method may fail whenever the metric predicts an unphysically large region of constant match. A possible way to fix this is to introduce an exponential damping to the metric effect $\propto e^{-||\Delta\theta||}$ at large coordinate distance $||\Delta\theta||$. This could solve the undercovering problem, enabling to fully exploit the strength of the method.
 	Of course, an eventual better metric computation method may naturally solve this problem.
 	
-	\item {\it Investigate the performance for HM}. We observed in sec.~\ref{sec:HM_bank} that the metric placement overcovers the space, due to the fact that the metric underestimates the match. This is puzzling and it requires more investigation.
+	\item {\it Investigate the performance for HM}. We observed in Sec.~\ref{sec:HM_bank} that the metric placement overcovers the space, due to the fact that the metric underestimates the match. This is puzzling and it requires more investigation.
 	
 	\item {\it Interpolate between different tiles} Due to the discrete nature of the tiles, a bank can show large discontinuities on the template densities. While this may not be necessarly a problem for filtering, avoiding this could improve the bank performance by reducing the number of templates without affecting the bank's effectualness. To create a smooth dependence of the metric on the parameter space, we could set up an interpolation scheme, based on the tiling.
 	
@@ -770,7 +757,7 @@ This will enable to optimally allocate resourches to search for signature of pre
 \appendix
 \section{Details of the metric computation}\label{app:metric}
 
-In this appendix we report the details of the derivation of the expression~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
+In this appendix we report the details of the derivation of the expression~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap Eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
 In what follows, we define $\rescalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2}$ to be respectively the real and imaginary part of $\scalar{h_1}{h_2}$.
 
 We begin by expanding the quantity $\mathcal{M}(\theta,\theta +\Delta\theta)$ for $\Delta\theta$ around $0$. Since the $\mathcal{M}(\theta,\theta +\Delta\theta)$ has a maximum for $\Delta\theta = 0$, the leading term is quadratic in $\Delta\theta$.
@@ -783,7 +770,7 @@ We obtain:
 where all the derivatives are evaluated at ${\Delta\theta = \Delta t = 0}$ and the explicit time maximization yields
 ${\Delta t = -\frac{\partial_{it}\mathcal{O} \Delta\theta_i}{\partial_{tt}\mathcal{O}}}$.
 
-From the above eq.~\eqref{eq:metric_derivation}, we can read the expression for the metric in eq.~\eqref{eq:metric_expression} recognizing in the derivatives $\partial\partial\mathcal{O}|_{\Delta\theta, \Delta t = 0}$ the components of the Hessian matrix $H$ of the overlap.
+From the above Eq.~\eqref{eq:metric_derivation}, we can read the expression for the metric in Eq.~\eqref{eq:metric_expression} recognizing in the derivatives $\partial\partial\mathcal{O}|_{\Delta\theta, \Delta t = 0}$ the components of the Hessian matrix $H$ of the overlap.
 
 We now compute the Hessian of the overlap as a function of the gradients of the {\it normalized} waveforms.
 We have\footnote{
@@ -821,7 +808,7 @@ Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
 	&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}} \label{eq:H_ij_grad} 
 \end{align}
 
-Such expressions, togheter with eq.~\eqref{eq:metric_expression} fully specify the metric computation.
+Such expressions, togheter with Eq.~\eqref{eq:metric_expression} fully specify the metric computation.
 The gradients $\partial_i h$ of the waveform can be computed with an accurate finite difference scheme.
 
 %\begin{equation*}

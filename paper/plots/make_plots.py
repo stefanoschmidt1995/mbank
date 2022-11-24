@@ -236,6 +236,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 		pdf_metric = np.exp(kde.score_samples(MM_grid[:,None]))
 
 		N_templates = out_dict['N_templates'][i, id_N_templates]
+		print(out_dict['placing_method'], N_templates)
 		x_hist = N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0]))
 		
 			#dealing with the grid
@@ -248,7 +249,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 			if i == len(out_dict['N_tiles'])-1: continue
 		elif out_dict['variable_format']=='Mq_s1xz':
 			y_strecth = 1.9 #4e-5
-			y_min, y_max = 15,50_000
+			y_min, y_max = 2,50_000
 		elif out_dict['variable_format']=='Mq_s1xz_s2z_iota':
 			y_strecth = 1.9 #1e-7
 			y_min, y_max = 2000, 2_000_000
@@ -485,7 +486,7 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 		###
 		#Comparison with sbank - injections
@@ -496,7 +497,7 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, x_low_lim = 0.95, title = title, savefile = savefile)
+	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, ('sbank', 'mbank'), ('match','match'), MM = 0.97, x_low_lim = 0.95, title = title, savefile = savefile)
 	
 	
 		###
@@ -531,7 +532,7 @@ if __name__ == '__main__':
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 		#Plotting injection recovery
 	savefile = img_folder+'bank_injections.pdf'
-	plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
+	#plot_comparison_injections(injs_list, injs_list, ('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
 	
 	quit()
 	

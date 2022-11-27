@@ -9,7 +9,7 @@ except ImportError:
 		raise ImportErorr("sphinx modules not found: impossibile to build the documents.\nTry: pip install -r docs/requirements.txt")
 
 required_packages =['scipy', 'numpy', 'matplotlib',
-	'python-ligo-lw==1.7.1', 'lalsuite>=6.70', 'tqdm', 'ray'] #the dependencies are fucked up, for some reason
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray'] #the dependencies are fucked up, for some reason
 #required_packages =[]
 
 with open("README.md", "r") as fh:

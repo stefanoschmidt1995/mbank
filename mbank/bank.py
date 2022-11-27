@@ -217,7 +217,7 @@ class cbc_bank():
 		#xmldoc.appendChild(ligolw.LIGO_LW()).appendChild(signl_inspiral_table)
 		#ligolw_process.set_process_end_time(process)
 		xmldoc.childNodes[-1].appendChild(signl_inspiral_table)
-		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
+		lw_utils.write_filename(xmldoc, filename, verbose=False)
 		xmldoc.unlink()
 		
 		return

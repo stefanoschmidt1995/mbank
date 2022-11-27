@@ -1043,6 +1043,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 				If a string is given, it is understood as the file the tiling handler is loaded from. The file shall be the same format as produced by ``tiling_handler.save()``
 				If a list is given, it is understood as a list of tiles and the list will be initialized accordingly. Providing a single tile/tuple is also possible.
 		"""
+		#FIXME: improve the interface of this!! It sucks atm
 		list.__init__(self)
 		self.lookup_table = None
 		self.boundaries = None

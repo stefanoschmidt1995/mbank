@@ -10,14 +10,16 @@ You can learn more on gravitational wave templates bank [here](https://journals.
 
 The package implements four core functionalities:
 
-1. **Tiling generation**: it partitions the parameter space into a set of non-overlapping tiles. A tile is an hyper-cube in the coordinates variables being used. In each tile, the match between two waveforms (geometrically, the distance between two points) is represented by a matrix, which approximates the match (distance) function with a bilinear form. The tiles are generated with an hierarchical splitting procedure (see also [here](link/to/mass)): where each tile is split into sub-tiles if its volume accomodates for more templates than a given threshold.
+1. **Tiling generation**: it partitions the parameter space into a set of non-overlapping tiles. A tile is an hyper-cube in the coordinates variables being used. In each tile, the match between two waveforms (geometrically, the distance between two points) is represented by a matrix, which approximates the match (distance) function with a bilinear form. The tiles are generated with an hierarchical splitting procedure, where each tile is split into sub-tiles if the variation of the metric determinant inside it is larger than a threshold.
+The tiling can be supplemented with a normalizing flow model, which is able to interpolate within each tile, increasing the accuracy.
 
 2. **Template placing**: given a tiling, it places templates so that they are (approximately) equally spaced in each tile. The distance between templates is controlled by the minimum match parameter. Several strategies are adopted:
 
-	- _uniform_: all the templates are draw from an uniform distribution. This works very poorly, as the resulting points are not well equally spaced
+	- _uniform_: a constant number of templates the templates are draw from an uniform distribution. There is no check for coverage. This works very poorly, as the resulting points are not well equally spaced.
 	- _geometric_: the templates are placed on a grid according to the metric of each tile. This provides a very powerful coverage in the inner part of the tile but doesn't perform well at the boundaries between tiles.
 	- _stochastic_: following a [standard technique](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.80.104014), random templates are proposed and only the ones that are too far away from the others are included in the bank. This is the most accurate placing method that can be implemented, at the price of a large computational cost (but still smaller than other non-metric techniques).
-	- _random_: taking inspiration from [here](https://arxiv.org/abs/2202.09380), a set of possible templates (proposals) are radomly drawn from the space: these are called _livepoints_. Iteratively, a livepoint is added to the bank and all livepoints close to it are removed from the set of proposals. The iteration goes on until the set of livepoints is almost empty. This method performs well under certain conditions and although faster than the stochastic is memory expensive.
+	- _random_: taking inspiration from [here](https://arxiv.org/abs/2202.09380), random templates are added to the bank. The coverage is checked by means of a set of livepoints, i.e. a set of templates randomly drawn from the space. For each new template added, all the livepoints close to it are removed from the set of proposals. The iteration goes on until the set of livepoints is almost empty. This methods is fast and provides a good coverage, at the cost of placing more templates than needed. As the number of dimensions of the space increases, this method become more and more attractive.
+	- _pruning_: This is the same method above where the proposals are drawn from the set of livepoints. While this make sure that the two added templates are never too close from each other, it is very memory expensive and unfeasible for large banks.
 	- _tile\_stochastic_/_tile\_random_: the stochastic/random placement method is performed in each tile separately. Although this results in a huge speed-up, the parameter will likely be over-covered by the bank.
 	- _iterative_: each tile is divided into sub-tiles according to the same algorithm used to generate the tiles. The metric is not computed from scratch. The templates are the centers of each sub-tile, as soon as the volume of the sub-tile is small enough.
 	
@@ -29,8 +31,8 @@ The package implements four core functionalities:
 
 `mbank` comes with 4 executables that implement the functionalities descibed above. They are:
 
-- ``mbank_run``: it generates a bank, both creating the tiling and placing the templates
-- ``mbank_place_templates``: given a tiling, it place the templates
+- ``mbank_run``: it generates a bank, both creating the tiling, placing the templates and (possibly) training the normalizing flow model
+- ``mbank_place_templates``: given a tiling, it place the templates, possibly after training the normalizing flow model
 - ``mbank_injections``: it computes the injection recovery of the bank.
 - ``mbank_injfile``: builds the injection file
 

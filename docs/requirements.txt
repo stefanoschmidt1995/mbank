@@ -1,4 +1,6 @@
 sphinx >=4.4.0
-myst-parser==0.17.0
+myst-parser
 readthedocs-sphinx-search>=0.1.1
 sphinx-rtd-theme>=0.5.1
+sphinx-sitemap
+sphinxawesome-theme

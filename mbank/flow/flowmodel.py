@@ -2,34 +2,29 @@
 mbank.flow.flowmodel
 ====================
 
-		This module implements the basic normalizing flow model, useful for sampling from the Binary Black Hole parameter space.
-		It requires `torch` and `nflows`, which are not among the `mbank` dependencies.
+Implements the basic normalizing flow model, useful for sampling from the Binary Black Hole parameter space.
+It requires `torch` and `nflows`, which are not among the `mbank` dependencies.
 """
 
 import numpy as np
 from tqdm import tqdm 
 import warnings
 
-try:
-	import torch
-	from torch import distributions
-	from torch.utils.data import DataLoader, random_split
-	from torch.distributions.utils import broadcast_all
-	from torch.autograd.functional import jacobian
+import torch
+from torch import distributions
+from torch.utils.data import DataLoader, random_split
+from torch.distributions.utils import broadcast_all
+from torch.autograd.functional import jacobian
 
-	from nflows.flows.base import Flow
-	from nflows.distributions.base import Distribution
-	from nflows.distributions.normal import StandardNormal
-	from nflows.utils import torchutils
-	from nflows.transforms.base import InputOutsideDomain
-	from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
-	from nflows.transforms.linear import NaiveLinear
+from glasflow.nflows.flows.base import Flow
+from glasflow.nflows.distributions.base import Distribution
+from glasflow.nflows.distributions.normal import StandardNormal
+from glasflow.nflows.utils import torchutils
+from glasflow.nflows.transforms.base import InputOutsideDomain
+from glasflow.nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
+from glasflow.nflows.transforms.linear import NaiveLinear
 
-	from nflows.transforms.base import Transform, CompositeTransform
-except:
-	#raise ImportError("Unable to find packages `torch` and/or `nflows`: try installing them with `pip install torch nflows`.")
-	msg = "Unable to find packages `torch` and/or `nflows`: you will not be able to use the flow functionalities.\nIf you want to use them, try `pip install torch nflows`."
-	warnings.warn(msg)
+from glasflow.nflows.transforms.base import Transform, CompositeTransform
 
 from .utils import ks_metric, cross_entropy_metric
 
@@ -79,12 +74,17 @@ class TanhTransform(Transform):
 ############################################################################################################
 
 class GW_Flow(Flow):
+	"""
+	A Normalizing flow suitable to reproduce the uniform distribution over the parameter space.
+	It offers an interface to loading and saving the model as well as to the training.
+	"""
 	
 	def __init__(self, transform, distribution):
 		"""
 		Constructor.
 		
-		Args:
+		Parameters
+		----------
 			transform: nflows.transforms.base.Transform
 				A bijection that transforms data into noise (in the `nflows` style)
 			distribution: nflows.distributions.base.Distribution
@@ -141,17 +141,51 @@ class GW_Flow(Flow):
 		----------
 			N_epochs: int
 				Number of training epochs
+			
+			train_data: :class:`~numpy:numpy.ndarray`
+				Training data. They need to fit the dimensionality of the flow and be convertible into a torch tensor
+			
+			validation_data: :class:`~numpy:numpy.ndarray`
+				Validation data. They need to fit the dimensionality of the flow and be convertible into a torch tensor
+			
+			optimizer: torch.optim
+				An torch optimizer object. Typical usage is:
+				
+				.. code-block:: python
+				
+					from torch import optim
+					flow = GW_Flow(**args)
+					optimizer = optim.Adam(flow.parameters(), lr=0.001)
+
+			batch_size: int
+				Batch size: number of points of the training set to be used at each iteration
+			
+			validation_step: int
+				Number of training steps after which the validation metric is computed
+			
+			callback: callable
+				A callable, called at each validation step of the training.
+				It has to have call signature ``callback(GW_Flow, epoch)``: see :func:`mbank.flow.utils.plotting_callback` for an example.
 
 			validation_metric: str
 				Name for the validation metric to use: options are `cross_entropy` and `ks` (Kolmogorov-Smirnov). Default is cross entropy
+
+			verbose: bool
+				Whether to print a progress bar during the training
 
 		Returns
 		-------
 			history: dict
 				A dictionary keeping the historical values of training & validation loss function + KS metric.
 				It has the following entries:
-				- validation_step: number of epochs between two consecutive evaluation of the validation metrics
-				- train_loss: values of the loss function
+				
+				- `validation_step`: number of epochs between two consecutive evaluation of the validation metrics
+				- `train_loss`: values of the loss function at each iteration
+				- `validation_loss`: values of the validation loss function at each validation iteration
+				- `valmetric_value`: values of the validation metric at each validation iteration
+				- `valmetric_mean`: expected value of the validation metric for a perfectly trained flow
+				- `valmetric_std`: standard deviation of the validation metric for a perfectly trained flow
+				- `validation_metric`: name of the validation metric being used
 		"""
 		#TODO: implement early stopping!!
 		#FIXME: there's something weird with cross entropy: why do you exceed the threshold even though the loss function still goes down?
@@ -179,10 +213,10 @@ class GW_Flow(Flow):
 
 			for param, val in zip(self._transform._transforms[0].parameters(), [low, high]):
 				param.data = val
-			print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
-			print("train low high ", [torch.min(train_data, axis = 0)[0],  torch.max(train_data, axis = 0)[0]])
-			print("val low high ",[torch.min(validation_data, axis = 0)[0],
-						torch.max(validation_data, axis = 0)[0]])
+			#print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
+			#print("train low high ", [torch.min(train_data, axis = 0)[0],  torch.max(train_data, axis = 0)[0]])
+			#print("val low high ",[torch.min(validation_data, axis = 0)[0],
+			#			torch.max(validation_data, axis = 0)[0]])
 
 		else:
 			msg = "The first layer is not of the kind 'TanhTransform': although this will not break anything, it is *really* recommended to have it as a first layer. It is much needed to transform bounded data into unbounded ones."
@@ -225,22 +259,22 @@ class GW_Flow(Flow):
 				if callable(callback) and not (i%callback_step): callback(self, i)
 				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
 		except KeyboardInterrupt:
-			print("KeyboardInterrupt: quitting the training loop")
+			if verbose: print("KeyboardInterrupt: quitting the training loop")
 
 		#TODO: change the name of log_pvalue to validation_metric (or something)
 		history = {'validation_step': validation_step,
 			'train_loss': np.array(train_loss),
 			'validation_loss': np.array(val_loss),
-			'log_pvalue': np.array(metric),
-			'log_pvalue_mean': metric_computer.metric_mean,
-			'log_pvalue_std': metric_computer.metric_std,
-			'metric_type': validation_metric
+			'valmetric_value': np.array(metric),
+			'valmetric_mean': metric_computer.metric_mean,
+			'valmetric_std': metric_computer.metric_std,
+			'validation_metric': validation_metric
 		}
 
 		return history
 	
 	def train_flow_metric(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, alpha = 100, callback = None, validation_metric = 'cross_entropy', verbose = False):
-		"Train the flow with PDF and metric"
+		#"Train the flow with PDF and metric"
 		#raise NotImplementedError("Implement a nice and viable loss function :D")
 		if isinstance(callback, tuple): callback, callback_step = callback
 		else: callback_step = 10
@@ -374,23 +408,7 @@ class GW_Flow(Flow):
 		return history
 	
 	def train_flow_reverse_KL(self, N_epochs, target_logpdf, optimizer, batch_size = 1000, validation_data =None, validation_step = 10, callback = None, out_dir=None, verbose = False):
-		"""
-		Trains the flow with reverse KL: see eq. (17) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
-		
-		Parameters
-		----------
-			N_epochs: int
-				Number of training epochs
-
-		Returns
-		-------
-			history: dict
-				A dictionary keeping the historical values of training & validation loss function + KS metric.
-				It has the following entries:
-				- validation_step: number of epochs between two consecutive evaluation of the validation metrics
-				- train_loss: values of the loss function
-		"""
-		
+		#"Trains the flow with reverse KL: see eq. (17) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_."
 		msg = "Fitting with reverse KL is not feasible as it requires the evaluation of the GRADIENT of the true PDF!\n"
 		msg += "Can you express the gradients of the metric determinant in terms of the first derivatives only of the WFs? I really doubt that, as the grad|M| tells something about curvature, which depends on the second derivative (at least in GR).\n"
 		msg += "Moreover, also with a simple gaussian, there seems to be a huuuge problem of overflow: the flow is not able to identify the interesting region.\n"
@@ -458,11 +476,26 @@ class GW_Flow(Flow):
 
 class STD_GW_Flow(GW_Flow):
 	"""
-	An implementation of the standard flow: the flow is composed by one TanhTransform layer and a stack of layers made by NaiveLinear+MaskedAffineAutoregressiveTransform
+	An implementation of the standard flow: the flow is composed by one TanhTransform layer and a stack of layers made by NaiveLinear+MaskedAffineAutoregressiveTransform.
+	All the applications within mbank, use of this class.
 	"""
 	def __init__(self, D, n_layers, hidden_features = 2):
 		"""
 		Initialization of the flow
+		
+		Parameters
+		----------
+			D: int
+				Dimensionality of the flow
+			
+			n_layers: int
+				Number of layers (each made by NaiveLinear+MaskedAffineAutoregressiveTransform)
+			
+			hidden_features: int
+				Number of hidden features of the ``MaskedAffineAutoregressiveTransform``
+			
+			
+		
 		"""
 		base_dist = StandardNormal(shape=[D])
 		
@@ -479,6 +512,26 @@ class STD_GW_Flow(GW_Flow):
 	
 	@classmethod
 	def load_flow(cls, weigth_file):
+		"""
+		Loads the flow from a file. The architecture is inferred from the loaded weights.
+		
+		.. code-block:: python
+
+			new_flow = STD_GW_Flow.load_flow('weight.zip')
+		
+		Parameters
+		----------
+			weigth_file: str
+				File to load the flow from
+		
+		Returns
+		-------
+			new_flow: STD_GW_Flow
+				Initialized flow
+			
+		
+		"""
+	
 		w = torch.load(weigth_file)
 		try:
 			D = w['_transform._transforms.0.low'].shape[0]
@@ -496,40 +549,6 @@ class STD_GW_Flow(GW_Flow):
 		
 		
 
-class GW_Flow_Uniform(GW_Flow):
-	"""
-	An implementation of the standard flow with an uniform distribution, instead of a random normal
-	"""
-	def __init__(self, D, n_layers, hidden_features = 2):
-		"""
-		Initialization of the flow
-		"""
-		#FIXME: this is a scam and does not work!!
-		from uniform import BoxUniform
-		#base_dist = BoxUniform(low=torch.zeros(D), high = torch.ones(1))
-		base_dist = BoxUniform([D])
-		
-		transform_list = []#[TanhTransform(D)]
-
-		for _ in range(n_layers):
-			transform_list.append(NaiveLinear(features=D))
-				#FIXME: are you sure you want D hidden features?
-			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=hidden_features))
-
-		transform_list.append(InverseTanhTransform(D))
-		
-		transform_list = CompositeTransform(transform_list)
-
-		super().__init__(transform=transform_list, distribution=base_dist)
-
-			#Initializing the noise transform
-		#low = torch.zeros(D)
-		#high = torch.ones(D)
-
-		#for param, val in zip(self._transform._transforms[-1].parameters(), [low, high]):
-		#	param.data = val
-
-		return
 
 
 

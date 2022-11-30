@@ -281,7 +281,7 @@ To simplify the geometry and make the computation faster, we only consider hyper
 \begin{equation} \label{eq:tile}
 	\mathcal{T} = \left(R_{[\theta_{min}, \theta_{max}]}, M \right)
 \end{equation}
-where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-rectangles with extrema $\theta_{min/max}$ and where $M$ is the metric evaluated Eq.~\eqrf{eq:metric_expression} at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
+where $R_{[\theta_{min}, \theta_{max}]}$ is an hyper-rectangles with extrema $\theta_{\text{min/max}}$ and where $M$ is the metric evaluated Eq.~\eqref{eq:metric_expression} at the center of the tile $\frac{\theta_{min}+\theta_{max}}{2}$.
 
 Similarly to \cite{Hanna:2022zpk}, we use the function \texttt{SplitTile} to split a tile $\mathcal{T}$ in 3 tiles $\mathcal{T}_{left}$, $\mathcal{T}_{center}$, $\mathcal{T}_{right}$.
 The three resulting tiles are further split if the metric determinants $|M_{right}|, |M_{left}|$ of the left and right tile satisfy:
@@ -632,7 +632,7 @@ Looking at the injections fitting factor distributions in fig.~\ref{fig:sbank_co
 	 	115748 & 4238 \\
 	 \hline
 	 \end{tabular}
-	 \caption{Summary of three case study banks generate with \texttt{mbank}. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{mx-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$  and the number of tiles $N_{\text{tiles}}$. An injection study is performed in fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in fig.~\ref{fig:bank_scatter}.}
+	 \caption{Summary of three case study banks generate with \texttt{mbank}. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{max-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$  and the number of tiles $N_{\text{tiles}}$. An injection study is performed in fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in fig.~\ref{fig:bank_scatter}.}
  	 \label{tab:casestudy_banks}
 \end{table*}
 

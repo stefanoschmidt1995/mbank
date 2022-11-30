@@ -1,8 +1,9 @@
 """
 mbank.bank
 ==========
-	Module to implement a bank of gravitational waves signals.
-	It implement the class ``cbc_bank`` which provides a large number of functionalities to generate a bank, perform I/O operations on files
+
+Module to implement a bank of gravitational waves signals.
+It implement the class ``cbc_bank`` which provides a large number of functionalities to generate a bank, perform I/O operations on files
 """
 
 import numpy as np
@@ -62,9 +63,10 @@ except:
 
 class cbc_bank():
 	"""
-	The class implements a bank for compact binary coalescence signals (CBC). A bank is a collection of templates (saved as the numpy array ``bank.templates``). Each template is a row of the array; the columns are specified by a given variable format.
-	The available variable formats are listed in ``mbank.handlers.variable_handler``.
-	A bank is generated from a tiling object (created internally) that speeds up the template placing. However, the tiling file is not part of a bank and lives as an independent object ``tiling_handler``.
+	The class implements a bank for compact binary coalescence signals (CBC). A bank is a collection of templates (saved in the method ``bank.templates``). Each template is a row of the array; the columns are specified by a given variable format.
+	To know more about the available variable formats, please refer to :class:`mbank.handlers.variable_handler`.
+	
+	A bank is generated from a tiling object (created internally) that speeds up the template placing. The tiling file is not part of a bank and lives as an independent object :class:`mbank.handlers.tiling_handler`.
 	A bank can be saved in txt or in the std ligo xml file.
 	"""
 	def __init__(self, variable_format, filename = None):
@@ -102,6 +104,7 @@ class cbc_bank():
 		-------
 			D: float
 				Keeps the dimensionality of the space
+
 		"""
 		return self.var_handler.D(self.variable_format) #handy shortening
 	
@@ -227,7 +230,7 @@ class cbc_bank():
 		"""
 		Save the bank to file
 		
-		``WARNING: xml file format currently does not support eccentricity``
+		**WARNING: xml file format currently does not support eccentricity**
 		
 		Parameters
 		----------
@@ -265,7 +268,7 @@ class cbc_bank():
 		-------
 			BBH_components: :class:`~numpy:numpy.ndarray`
 				shape: (N,12)
-				Array of BBH components of the templates in the bank. They have the same layout as `variable_handler.get_BBH_components`
+				Array of BBH components of the templates in the bank. They have the same layout as :func:`mbank.handlers.variable_handler.get_BBH_components`
 		"""
 		if self.templates is not None:
 			return np.array(self.var_handler.get_BBH_components(self.templates, self.variable_format)).T
@@ -614,7 +617,7 @@ class cbc_bank():
 		
 		.. math::
 		
-			p(theta) \propto \sqrt(|M(theta)|)
+			p(\\theta) \propto \\sqrt{|M(\\theta)|}
 		
 		The function uses `emcee` package, not in the `mbank` dependencies.
 		

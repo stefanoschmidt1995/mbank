@@ -9,7 +9,7 @@ except ImportError:
 		raise ImportErorr("sphinx modules not found: impossibile to build the documents.\nTry: pip install -r docs/requirements.txt")
 
 required_packages =['scipy', 'numpy', 'matplotlib',
-	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray'] #the dependencies are fucked up, for some reason
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow'] 
 #required_packages =[]
 
 with open("README.md", "r") as fh:
@@ -17,7 +17,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name="gw-mbank",
-	version="0.1.0",
+	version="0.1.1",
 	author="Stefano Schmidt",
 	author_email="stefanoschmidt1995@gmail.com",
 	description="Metric bank generation for gravitational waves data analysis",

@@ -1,15 +1,16 @@
 """
 mbank.metric
 ============
-	This module implements the metric computation for cbc signals. It provides a class ``cbc_metric`` that, besides the metric computations, offers some functions to compute waveforms and the match between them.
+
+This module implements the metric computation for cbc signals. It provides a class ``cbc_metric`` that, besides the metric computations, offers some functions to compute waveforms and the match between them.
 	
-	The metric is a D dimensional square matrix that approximates the match between two waveforms. The metric M is defined such that:
+The metric is a D dimensional square matrix that approximates the match between two waveforms. The metric M is defined such that:
 	
-	.. math::
-		<h(\\theta) | h(\\theta + \Delta\\theta) > = 1 - M(\\theta)_{ij} \Delta\\theta_i \\Delta\\theta_j
+.. math::
+	<h(\\theta) | h(\\theta + \Delta\\theta) > = 1 - M(\\theta)_{ij} \Delta\\theta_i \\Delta\\theta_j
 	
-	The metric is a useful local approximation of the match and it is the physical input for the bank generation.
-	The explicit expression for the metric is a complicated expression of the gradients of the waveform and it is a function of theta.
+The metric is a useful local approximation of the match and it is the physical input for the bank generation.
+The explicit expression for the metric is a complicated expression of the gradients of the waveform and it is a function of theta.
 """
 
 import numpy as np
@@ -72,7 +73,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 			
-		variable_format: string
+		variable_format: str
 			How to handle the variables. Different options are possible and which option is set, will decide the dimensionality D of the parameter space (hence of the input).
 			Variable format can be changed with ``set_variable_format()`` and can be accessed under name ``cbc_metric.variable_format``. See ``mbank.handlers.variable_handler`` for more details.
 
@@ -81,7 +82,7 @@ class cbc_metric(object):
 			It is a tuple with a frequency grid array and a PSD array (both one dimensional and with the same size).
 			PSD should be stored in an array which stores its value on a grid of evenly spaced positive frequencies (starting from f0 =0 Hz).
 
-		approx: string
+		approx: str
 			Which approximant to use. It can be any lal approx.
 			The approximant can be changed with set_approximant() and can be accessed under name cbc_metric.approx
 		
@@ -135,7 +136,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		approx: string
+		approx: str
 			Which approximant to use. It can be any lal FD approximant.
 		"""
 			#checking if the approximant is right
@@ -165,7 +166,7 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		variable_format: string
+		variable_format: str
 			A string to specify the variable format
 		"""
 		assert variable_format in self.var_handler.valid_formats, "Wrong variable format '{}'. Available formats are: ".format(variable_format)+str(self.var_handler.valid_formats)
@@ -306,7 +307,7 @@ class cbc_metric(object):
 			shape: (N,D) -
 			parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 	
-		approx: string
+		approx: str
 			Which approximant to use. It can be any lal FD approximant
 			If None, the default approximant will be used
 		
@@ -440,7 +441,7 @@ class cbc_metric(object):
 			shape: (D, ) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
-		approx: string
+		approx: str
 			Which approximant to use. It can be FD lal approx
 			If None, the default approximant will be used
 		
@@ -507,7 +508,7 @@ class cbc_metric(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on self.variable_format
 	
-		approx: string
+		approx: str
 			Which approximant to use. It can be FD lal approx
 			If None, the default approximant will be used
 		
@@ -1066,9 +1067,9 @@ class cbc_metric(object):
 	
 	def WF_symphony_match(self, h1, h2, overlap = False, F_p = 1., F_c = 0.):
 		"""
-		Computes the symphony match line by line between two WFs. The WFs shall be evaluated on the custom grid 
-		No checks will be done on the input
+		Computes the match element by element between two set of frequency domain WFs, using the `symphony` match.
 		The symphony match is defined in eq (13) of `1709.09181 <https://arxiv.org/abs/1709.09181>`_
+		No checks will be perfomed on the inputs
 		
 		To be computed, the symphony match requires the specification of antenna pattern functions. They are typically a function of sky location and a (conventional) polarization angle.
 		
@@ -1142,8 +1143,8 @@ class cbc_metric(object):
 	
 	def WF_match(self, h1, h2, overlap = False):
 		"""
-		Computes the match line by line between two WFs. The WFs shall be evaluated on the custom grid 
-		No checks will be done on the input
+		Computes the match element by element between two set of frequency domain WFs. The WFs shall be evaluated on the custom grid.
+		No checks will be perfomed on the inputs
 		
 		The
 		
@@ -1152,11 +1153,11 @@ class cbc_metric(object):
 		
 		h1: :class:`~numpy:numpy.ndarray`
 			shape: (N,K) -
-			First WF frequency series
+			First set of WFs
 
 		h2: :class:`~numpy:numpy.ndarray`
 			shape: (N,K)/(K,) -
-			Second WF frequency series
+			Second set of WFs
 		
 		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
@@ -1205,12 +1206,12 @@ class cbc_metric(object):
 		"""
 		Computes the elementwise match between waveforms defined by theta1 and theta2
 		
-		If symphony is False, the match is the standard non-precessing one 
+		If ``symphony==False``, the match is the standard non-precessing one 
 		.. math::
 		
 			|<h1p|h2p>|^2
 			
-		If symphony is True, it returns the symphony match (as in `1709.09181 <https://arxiv.org/abs/1709.09181>`_)
+		If ``symphony==True``, it returns the symphony match (as in `1709.09181 <https://arxiv.org/abs/1709.09181>`_)
 		.. math::
 
 			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
@@ -1222,11 +1223,11 @@ class cbc_metric(object):
 		
 		theta1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D)/(D,) -
-			Parameters of the first BBHs. The dimensionality depends on self.variable_format
+			Parameters of the first BBHs. The dimensionality depends on the variable format
 
 		theta2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) /(D,) -
-			Parameters of the second BBHs. The dimensionality depends on self.variable_format
+			Parameters of the second BBHs. The dimensionality depends on the variable format
 	
 		symphony: bool
 			Whether to compute the symphony match (default False)
@@ -1286,23 +1287,23 @@ class cbc_metric(object):
 
 	def metric_match(self, theta1, theta2, metric = None, overlap = False):
 		"""
-		Computes the metric match line by line between elements in theta1 and elements in theta2.
-		The match is approximated by the metric:
+		Computes the match element by element between two sets of WFs, defined by ``theta1`` and ``theta2``.
+		The match :math:`\\mathcal{M}` is approximated by the metric:
 		
 		.. math::
 		
-			match(theta1, theta2) = 1 - M_ij(theta1) (theta1 - theta2)_i (theta1 - theta2)_j
+			\\mathcal{M}(\\theta_1, \\theta_2) \\simeq 1 - M_{ij}\\left(\\frac{\\theta_1+\\theta_2}{2}\\right) (\\theta_1 - \\theta_2)_i (\\theta_1 - \\theta_2)_j
 		
 		Parameters
 		----------
 		
 		theta1: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
-			Parameters of the first BBHs. The dimensionality depends on self.variable_format
+			Parameters of the first BBHs. The dimensionality depends on the variable format
 
 		theta2: :class:`~numpy:numpy.ndarray`
 			shape: (N,D) -
-			Parameters of the second BBHs. The dimensionality depends on self.variable_format
+			Parameters of the second BBHs. The dimensionality depends on the variable format
 		
 		metric: :class:`~numpy:numpy.ndarray`
 			shape: (D,D) -
@@ -1341,7 +1342,7 @@ class cbc_metric(object):
 		
 	def get_points_at_match(self, N_points, theta, match, metric = None, overlap = False):
 		"""
-		Given a central theta point, it computes ``N_points`` couples of random points with constant metric match. The metric is evaluated at `theta`, hence the couple of points returned will be symmetric w.r.t. to theta and their distance from theta will be `dist/2`.
+		Given a central ``theta`` point, it computes ``N_points`` couples of random points with constant metric match. The metric is evaluated at `theta`, hence the couple of points returned will be symmetric w.r.t. to theta and their distance from theta will be `dist/2`.
 		
 		The match is related to the distance between templates in the metric as:
 		
@@ -1416,14 +1417,15 @@ class cbc_metric(object):
 	
 	def get_points_on_ellipse(self, N_points, theta, match, metric = None, inside = False, overlap = False):
 		"""
-		Given a central theta point, it computes ``N_points`` random point on the ellipse of constant match center in theta.
+		Given a central ``theta`` point, it computes ``N_points`` random point on the ellipse of constant match center in theta.
 		The points returned will have approximately the the given metric match, although the actual metric match may differ as the metric is evaluated at `theta` and not at the baricenter of the points in question.
 		If the option ``inside`` is set to ``True``, the points will be inside the ellipse, i.e. they will have a metric match larger than the given ``match``.
-		The match is related to the distance between templates in the metric as:
+		
+		The match :math:`\\mathcal{M}` is related to the distance :math:`d` between templates in the metric as:
 		
 		.. math::
 		
-			dist = sqrt(1-match)
+			d = \\sqrt{(1-\\mathcal{M})}
 		
 		Parameters
 		----------
@@ -1434,7 +1436,7 @@ class cbc_metric(object):
 		theta: :class:`~numpy:numpy.ndarray`
 			shape: (D,) -
 			Parameters of the central point the metric is evaluated at (i.e. the center of the ellipse).
-			The dimensionality depends on ``self.variable_format``
+			The dimensionality depends on the variable format
 
 		match: float
 			Match between the randomly drawn points and the central point ``theta``.

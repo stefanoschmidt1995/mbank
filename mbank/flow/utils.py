@@ -2,11 +2,9 @@
 mbank.flow.utils
 ================
 
-		Plotting & validation utilities for the `mbank.flow`
+Plotting & validation utilities for the `mbank.flow`
 """
 
-import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
 import warnings
 
@@ -15,8 +13,15 @@ import numpy as np
 
 import os
 import re
-import imageio.v2 as iio
 import torch
+
+try:
+	import pandas as pd
+	import seaborn as sns
+	import imageio.v2 as iio
+except:
+	msg = "Unable to find one or more of the packages `pandas`, `seaborn` and `imageio`: you will not be able to use the flow plotting utilities.\nIf you want to use them, try `pip install pandas seaborn imageio`."
+	warnings.warn(msg)
 
 ########################################################################
 
@@ -71,15 +76,25 @@ class cross_entropy_metric(validation_metric):
 ########################################################################
 	
 def plot_loss_functions(history, savefolder = None):
-	"Makes some basic plots of the validation"
+	"""
+	Given a history dict, returned by :func:`mbank.flow.flowmodel.GW_Flow.train_flow_forward_KL`, it plots the loss function and the validation metric as a function of the epoch
+	
+	Parameters
+	----------
+		history: dict
+			An history dict (as returned by :func:`mbank.flow.flowmodel.GW_Flow.train_flow_forward_KL`)
+		
+		savefolder: str
+			A folder where to save the plots: they will be saved with the names `loss.png` and `validation_metric.png`.
+	"""
 
 	if isinstance(savefolder, str):
 		if not savefolder.endswith('/'): savefolder = savefolder+'/'
 	
 	train_loss = history['train_loss']
 	validation_loss = history['validation_loss']
-	metric_mean, metric_std = history['log_pvalue_mean'], history['log_pvalue_std']
-	metric = history['log_pvalue']
+	metric_mean, metric_std = history['valmetric_mean'], history['valmetric_std']
+	metric = history['valmetric_mean']
 	validation_epoch = range(0, len(train_loss), history['validation_step'])
 	
 	plt.figure()
@@ -95,9 +110,11 @@ def plot_loss_functions(history, savefolder = None):
 	plt.gca().fill_between(validation_epoch, metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
 	plt.axhline(metric_mean, c = 'r', label = 'expected value')
 	plt.xlabel("Epoch")
-	plt.ylabel(r"$\log(p_{value})$")
+	
+	plt.ylabel(r"$\log(D_{KL})$")
+	#plt.ylabel(r"$\log(p_{value})$")
 	plt.legend()
-	if isinstance(savefolder, str): plt.savefig(savefolder+"p_value_metric.png")
+	if isinstance(savefolder, str): plt.savefig(savefolder+"validation_metric.png")
 	
 	return
 
@@ -140,16 +157,34 @@ def plotting_callback(model, epoch, dirname, data_to_plot, variable_format, base
 	compare_probability_distribution(data_flow, data_true = data_to_plot, variable_format = variable_format, title = 'epoch = {}'.format(epoch), savefile = savefile )
 	return
 
-def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, hue_labels = ['flow', 'train'], savefile = None, show = False):
+def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, hue_labels = ('flow', 'train'), savefile = None, show = False):
 	"""
-	Make a nice contour plot for visualizing the 2D slices of a multidimensional PDF.
+	Shows the probability distribution learnt by the flow and compares it with the training one.
+	It makes a nice contour plot to visualize the 2D slices of the multidimensional PDF.
 		
 	Parameters
 	----------
-		writeme
+		data_flow: :class:`~numpy:numpy.ndarray`
+			Samples from the normalizing flow
 
+		data_true: :class:`~numpy:numpy.ndarray`
+			Samples from the target (true) distribution (if None, it will not be plotted)
+		
+		variable_format: str
+			Variable format, to place the axes labels properly
+		
+		title: str
+			A title for the plot
+		
+		hue_labels: list/tuple
+			Labels for the two distributions: they will appear in the legend
+		
+		savefile: str
+			File to save the plot at
+		
+		show: bool
+			Whether to show the plot
 	"""
-		#FIXME: very likely this will result in circular imports at some point. The best way to fix this is to separate variable_handlers and tiling_handlers in separate files (but takes time).
 	from mbank.handlers import variable_handler
 	var_handler = variable_handler()
 	labels = var_handler.labels(variable_format, latex = False) if isinstance(variable_format, str) else None

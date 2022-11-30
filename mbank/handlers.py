@@ -1,12 +1,13 @@
 """
 mbank.handlers
 ==============
-	Two two important handlers class for ``mbank``:
+
+Two two important handlers class for ``mbank``:
 	
-	- ``variable_handler``: takes care of the BBH parametrization
-	- ``tiling_handler``: takes care of the tiling of the space
+- :class:`variable_handler`: takes care of the BBH parametrization
+- :class:`tiling_handler`: takes care of the tiling of the space
 	
-	The handlers are used extensively throughout the package
+The handlers are used extensively throughout the package
 """
 ####################################################################################################################
 
@@ -199,7 +200,7 @@ class variable_handler(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		raise_error: bool
@@ -239,7 +240,7 @@ class variable_handler(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 		
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
@@ -281,7 +282,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -356,7 +357,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -386,7 +387,7 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -410,7 +411,7 @@ class variable_handler(object):
 			Parameters of the BBHs.
 			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -508,7 +509,7 @@ class variable_handler(object):
 		theta: :class:`~numpy:numpy.ndarray` (N,D)
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -608,7 +609,7 @@ class variable_handler(object):
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -641,7 +642,7 @@ class variable_handler(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -860,7 +861,7 @@ class variable_handler(object):
 			shape: (N,D)/(D,) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
-		variable_format: string
+		variable_format: str
 			How to handle the BBH variables.
 		
 		Returns
@@ -900,8 +901,8 @@ class tile(tuple):
 	
 	where rectangle is represented by a :class:`~scipy.spatial.Rectangle` object and metric is a square matrix, stored as a :class:`~numpy:numpy.ndarray`.
 	
-	The rectangle and the metric can be accessed with `tile.rectangle` and `tile.metric`.
-	The volume and the center of the tile can be accessed with `tile.center` and `tile.volume` respectively.
+	The rectangle and the metric can be accessed with attributes ``tile.rectangle`` and ``tile.metric``.
+	The volume and the center of the tile can be accessed with ``tile.center`` and ``tile.volume`` respectively.
 	"""
 	def __new__(cls, rectangle, metric = None):
 		"""
@@ -965,10 +966,11 @@ class tile(tuple):
 		----------
 			axis: int
 				Dimension along which the tile shall be split. If `None`, the dimension will be set to be the largest
-		 Returns
-		 -------
-		 	*split: tile
-		 		The splitted
+
+		Returns
+		-------
+			*split: tile
+				The splitted
 		"""
 		if n<=1: return self
 		
@@ -994,13 +996,15 @@ class tile(tuple):
 		"""
 		Computes the approximate number of templates inside the tile, given the typical distance between templates
 
-		`N_templates` is compute as:
+		The number of templates :math:`N_\\text{templates}` is computed from the average distance ``avg_dist`` :math:`d_\\text{avg}` as:
 		
-		::
+		.. math::
 			
-			N_templates = rect.volume() * sqrt(abs(det(metric))) / avg_dist**D
+			N_\\text{templates} = \\frac{V_\\text{T}  \\sqrt{|\\text{det} M|}}{ d_{\\text{avg}}^D}
 
-		`N_templates` is a measure of volume if `avg_dist` is kept fixed
+		where :math:`V_\\text{T}` is the coordinate volume of the tile and :math:`|\\text{det} M|` is the absolute value of the determinant of the metric.
+		
+		Note that the quantity :math:`V_\\text{T} \\cdot \\sqrt{|\\text{det} M|}` amounts to the volume of the tile, making also :math:`N_\\text{templates}` a measure of volume.
 
 		Parameters
 		----------
@@ -1023,7 +1027,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 	Each tile, consists in:
 	
 	- an hypercubes (:class:`~scipy.spatial.Rectangle` object) that defines its boundaries
-	- a metric that it's used to compute distances between points of the tile. It is represented by a DxD matrix (``np.ndarray`` object), where D is the dimensionality of the space.
+	- a metric that it's used to compute distances between points of the tile. It is represented by a DxD matrix (:class:`~numpy:numpy.ndarray` object), where D is the dimensionality of the space.
 	
 	Overall a tiling handler looks like:
 	
@@ -1431,7 +1435,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		If `metric_function` is a function, the volume will be computed by means of an integration.
 		It must returns a metric approximation given a point theta in D dimension.
 		
-		The volume is computed as the integral of :math:`sqrt{|M(theta)|}` over the D dimensional space of the tile.
+		The volume is computed as :math:`\\int \\text{d}\\theta \\sqrt{|M(\\theta)|}` over the D dimensional space covered by the tiling.
 		
 		Using a metric function for the integration, may be veeeery slow!
 		

@@ -24,8 +24,8 @@ Welcome to ``mbank``'s documentation!
    :name: package_reference
    
    package_reference/metric.rst
-   package_reference/bank.rst
    package_reference/handlers.rst
+   package_reference/bank.rst
    package_reference/utils.rst
    package_reference/mbankflow.rst
 

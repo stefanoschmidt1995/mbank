@@ -38,15 +38,21 @@ The tiling can be supplemented with a normalizing flow model, which is able to i
 
 Each executable comes with a number of options that are processed by a parser. For instance:
 
-	mbank_run --options-you-like
+```Bash
+mbank_run --options-you-like
+```
 
 If you don't feel too much like typing, you can specify some parameters on a `ini` file: the entries of the ini should have the same name of the relevant options. However, you can still use the parser, which will overwrite any conflicting option in the ini file. For example:
 
-	mbank_run --other-options options_file.ini
+```Bash
+mbank_run --other-options options_file.ini
+```
 
 If you're not sure which options are available, feel free to use the `--help` option.
 
-	mbank_place_templates --help
+```Bash
+mbank_place_templates --help
+```
 
 As many options are in commond with the all the `mbank` commands, you're encouraged to use the same ini both for all the tasks that `mbank` can do. This will let you to keep everything in a single place, ensuring consistency between runs.
 You can find some complete example ini files [here](https://github.com/stefanoschmidt1995/mbank/tree/master/examples).

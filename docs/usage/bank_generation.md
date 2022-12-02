@@ -89,7 +89,9 @@ use-ray: true
 The `[section]` specification is compulsory: this will set the `run-name` variable!
 You can then create your first precessing bank by
 
-	mbank_run my_first_precessing_bank.ini
+```Bash
+mbank_run my_first_precessing_bank.ini
+```
 
 If the `--plot` option is set, you will see in your `--run-dir` two plots describing your bank:
 
@@ -104,7 +106,9 @@ And another one describing the normalizing flow model:
 If you are happy with your tiling but you want to run again the template placing, you can run the command `mbank_place_templates`. Do not forget to specify the name of a tiling file!
 For instance, if you want to change the minimum match, you can simply run:
 	
-	mbank_place_templates --tiling-file tiling_my_first_precessing_bank.npy --mm 0.95 my_first_precessing_bank.ini
+```Bash
+mbank_place_templates --tiling-file tiling_my_first_precessing_bank.npy --mm 0.95 my_first_precessing_bank.ini
+```
 
 This will do the template placing again and will produce a new bank and plots.
 

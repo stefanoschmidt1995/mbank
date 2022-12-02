@@ -53,7 +53,9 @@ use-ray: true
 
 By running
 
-	mbank_injections my_first_precessing_injections.ini
+```Bash
+mbank_injections my_first_precessing_injections.ini
+```
 
 This will produce two nice plots.
 

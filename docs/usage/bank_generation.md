@@ -1,7 +1,7 @@
 How to generate a bank
 ======================
 
-To generate a bank, you need to specify the following options to the command `mbank_run`:
+To generate a bank, you need to specify some of the following options to the command `mbank_run`:
 
 - `run-name`: a label for the run. All the output files will be named accordingly.
 - `variable-format`: the coordinates to include in the bank. See [here](../package_reference/handlers.rst) the available formats.
@@ -21,8 +21,22 @@ The possible variables are: `mtot`, `q`, `s1`/`s2`, `theta` (polar angle of spin
 - `plot`: create the plots?
 - `show`: show the plots?
 - `use-ray`: whether to parallelize the metric computation using the [`ray` package](https://www.ray.io/)
+- `train-flow`: whether to train a normalizing flow model to interpolate within the tiles. The flow will be trained with samples from the tiling and used to interpolate between them
+- `n-layers`: number of layers to be used in the flow architecture. Each layer is formed by a Linear layer + a Masked Affine Autoregressive layer
+- `hidden-features`: number of hidden features in each Masked Affine Autoregressive layer
+-`n-epochs`: the number of training epochs for the flow
 
-The bank will be saved in folder `run-dir` under the name `bank_run_name`, both in `npy` and `xml` format. In addition a tiling file and a `tile_id_population` file will be produced. The latter keeps track of the indices of the templates in each tile.
+
+
+The bank will be saved in folder `run-dir` under the name `bank_run_name`, both in `dat` and `xml` format. The tiling will be saved under the name `tiling_run_name.npy`. If the flow model is employed, a file `flow_run_name.zip` will gather the weights of the trained flow.
+
+`mbank_run` will execute the following steps:
+- instantiate the metric
+- generate the tiling
+- train the normalizing flow model (optional)
+- place the templates with the desired method
+
+Another command, `mbank_place_templates` performs only the template placement, given a tiling (option `--tiling-file`). It can also load and use a pre-trained normalizing flow model (option `--flow-file`). If the option `--train-flow` is enabled, the flow generation will be performed.
 
 ## Bank from command line
 
@@ -31,25 +45,42 @@ If you want to generate your first precessing bank, the options can be packed in
 ```ini
 [my_first_precessing_bank]
 
+	#General options
 variable-format: Mq_s1xz
 mm: 0.97
 run-dir: precessing_bank
+
+	#PSD options
 psd: ./aligo_O3actual_H1.txt
 ifo: H1
 asd: true
+
+	#Placing method options
 placing-method: stochastic
-livepoints: 20
+n-livepoints: 20000
 empty-iterations: 100
+
+	#Tiling options
 grid-size: 1,1,2,2
 tile-tolerance: 0.3
 max-depth: 10
-approximant: IMRPhenomXP
-f-min: 15
-f-max: 1024
 mtot-range: 30 75
 q-range: 1 5
 s1-range: 0.0 0.9 
 theta-range: -0.0 3.15
+
+	#Metric options
+approximant: IMRPhenomXP
+f-min: 15
+f-max: 1024
+
+	#Flow options
+train-flow: true
+n-layers: 4
+hidden-features: 4
+n-epochs: 2000
+
+	#Other options
 plot: true
 show: true
 use-ray: true
@@ -60,13 +91,15 @@ You can then create your first precessing bank by
 
 	mbank_run my_first_precessing_bank.ini
 
-If the `--plot` option is set, you will see in your `--run-dir` some plots describing your bank:
+If the `--plot` option is set, you will see in your `--run-dir` two plots describing your bank:
 
 ![](../img/bank.png)
 
-![](../img/tiling.png)
-
 ![](../img/hist.png)
+
+And another one describing the normalizing flow model:
+
+![](../img/flow.png)
 
 If you are happy with your tiling but you want to run again the template placing, you can run the command `mbank_place_templates`. Do not forget to specify the name of a tiling file!
 For instance, if you want to change the minimum match, you can simply run:
@@ -125,10 +158,10 @@ metric = cbc_metric(variable_format,
 We are now ready for the bank generation. This is done with:
 
 ```Python
-t_obj = bank.generate_bank(metric, avg_match = 0.97, boundaries = boundaries,
+t_obj = bank.generate_bank(metric, minimum_match = 0.97, boundaries = boundaries,
 		tolerance = 0.3, max_depth = 10,
 		placing_method = 'random', metric_type = 'hessian', grid_list = (1,1,4),
-		livepoints = 20, empty_iterations = 100,
+		N_livepoints = 20000, empty_iterations = 100,
 		use_ray = True)
 ```
 
@@ -143,9 +176,9 @@ t_obj.save('tiling.npy')
 bank.save_bank('bank.dat')
 ```
 
-As mentioned above, the bank generation happens in two steps: tiling generation and template placement. If you want even more control on the low level details, you can perform these two operations separately.
+As mentioned above, the bank generation happens in two steps: tiling generation (plus eventual flow training) and template placement. If you want even more control on the low level details, you can perform these two operations separately.
 
-To generate a tiling
+To generate a tiling:
 
 ```Python
 t_obj = tiling_handler()
@@ -154,11 +187,19 @@ t_obj.create_tiling_from_list(boundaries, tolerance = 0.3, max_depth = 10,
 		metric_func = metric_function)
 ```
 
+You can also train (and save) the normalizing flow model, given the tiling:
+
+```Python
+t_obj.train_flow(N_epochs=1000, N_train_data=10000, n_layers=2, hidden_features=4, verbose = True)
+t_obj.flow.save_weigths('flow.zip')
+```
+
 Given a tiling, you can generate a bank with:
 ```Python
 bank.place_templates(t_obj, 0.97, placing_method = 'random',
-		livepoints = 20, empty_iterations = 100)
+		N_livepoints = 20, empty_iterations = 100)
 ```
+If the tiling has a flow attached, the flow will be used to interpolate the metric and place the templates.
 
 Finally, you can generate some nice plots of the bank + tiling by calling the function `plot_tiles_templates`:
 

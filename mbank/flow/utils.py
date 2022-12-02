@@ -94,7 +94,7 @@ def plot_loss_functions(history, savefolder = None):
 	train_loss = history['train_loss']
 	validation_loss = history['validation_loss']
 	metric_mean, metric_std = history['valmetric_mean'], history['valmetric_std']
-	metric = history['valmetric_mean']
+	metric = history['valmetric_value']
 	validation_epoch = range(0, len(train_loss), history['validation_step'])
 	
 	plt.figure()

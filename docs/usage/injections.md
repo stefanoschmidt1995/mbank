@@ -11,9 +11,7 @@ Many options are in common with `mbank_run` and `mbank_place_templates`. The opt
 - `n-injs`: how many injections to perform? They will randomly placed in the space so that each tile will keep a number of injections proportional to the volume.
 - `seed`: random seed for the injections
 - `full-match`: whether to compute the full match, rather than just the metric approximation
-- `N-neigh-templates`: number of neighbours template (in euclidean distance) to compute the metric match with
-- `N-neigh-templates-full`: number of neighbours template (in metric distance) to compute the full match with.
-
+- `mchirp-window`: relative chirp mass window. For each injection, we compute the match only with the templates with a relative difference in chirp mass less than `mchirp-window`.
 
 ## Injections from command line
 Assuming you generated the bank normally, here's how an injection file [`my_first_precessing_injections.ini`](https://github.com/stefanoschmidt1995/mbank/tree/master/examples/my_first_precessing_injections.ini) could look like (but you're suggested to keep all the options in a single file):
@@ -21,27 +19,36 @@ Assuming you generated the bank normally, here's how an injection file [`my_firs
 ```ini
 [my_first_precessing_bank]
 
+	#General options
 variable-format: Mq_s1xz
 mm: 0.97
 run-dir: precessing_bank
+
+	#PSD options
 psd: ./aligo_O3actual_H1.txt
 ifo: H1
 asd: true
+
+	#Metric options
 approximant: IMRPhenomXP
 f-min: 15
 f-max: 1024
+
+	#Input files
+tiling-file: tiling_my_first_precessing_bank.npy
+flow-file: flow_my_first_precessing_bank.zip
+bank-file: bank_my_first_precessing_bank.xml.gz
+
+	#Injections options
+n-injs: 1000
+seed: 0
+mchirp-window: 0.1
+full-match: true
+
+	#Other options
 plot: true
 show: true
 use-ray: true
-
-tiling-file: tiling_my_first_precessing_bank.npy
-bank-file: bank_my_first_precessing_bank.xml.gz
-
-n-injs: 10000
-seed: 0
-N-neigh-templates: 1000
-N-neigh-templates-full: 80 
-full-match: false
 ```
 
 By running
@@ -69,24 +76,24 @@ After the imports,
 
 ```Python
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import compute_injections_match, compute_metric_injections_match
+from mbank.utils import compute_injections_match, compute_injections_metric_match
 from mbank.utils import load_PSD, plot_tiles_templates
 import numpy as np
 ```
 
-you need to load the bank, the tiling and to instantiate a variable handler:
+you need to load the bank, the tiling and the (optional) flow:
 
 ```Python
-bank = cbc_bank('Mq_s1xz', 'bank_my_first_precessing_bank.dat')
-t_obj = tiling_handler('tiling_my_first_precessing_bank.npy')
-var_handler = variable_handler()
+bank = cbc_bank('Mq_chi', 'bank.dat')
+t_obj = tiling_handler('tiling.npy')
+t_obj.load_flow('flow.zip') #optional step
 ```
 We then generate the injection sampling them from the tiling and compute the match with the bank:
 
 ```Python
 n_injs = 1000
 injs_3D = t_obj.sample_from_tiling(n_injs)
-stat_dict = compute_metric_injections_match(injs_3D, bank, t_obj, N_neigh_templates = 1000)
+stat_dict = compute_injections_metric_match(injs_3D, bank, t_obj)
 ```
 The function will return a dictionary with the injections statistics computed: note that since we are using the metric approximation to the match, it runs very fast. To know more about the entries of the dictionary, you can take a look at the documentation of `mbank.utils.compute_metric_injections_match`.
 The output dictionary also keeps the value of the injections in the full 12 dimensional BBH space, so that you don't need to worry to save them separately.
@@ -98,9 +105,9 @@ metric = cbc_metric(bank.variable_format,
 			PSD = load_PSD('aligo_O3actual_H1.txt', True, 'H1'),
 			approx = 'IMRPhenomD',
 			f_min = 10, f_max = 1024)
-templates_full = np.array(var_handler.get_BBH_components(bank.templates, bank.variable_format)).T
+templates_full = np.array(variable_handler().get_BBH_components(bank.templates, bank.variable_format)).T
 stat_dict = compute_injections_match(stat_dict, templates_full, metric,
-			N_neigh_templates = 100, symphony_match = False, cache = False)
+			mchirp_window = 0.1, symphony_match = False, cache = False)
 ```
 This will update some of the entries of the `stat_dict` with the unapproximated fitting factors: as the generation of many WFs is required, this will take a while.
 

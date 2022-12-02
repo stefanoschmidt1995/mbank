@@ -63,7 +63,7 @@ exclude_patterns = ["_build"]
 html_theme = "sphinxawesome_theme"
 
 	# This option is `True` by default
-html_awesome_code_headers = False
+#html_awesome_code_headers = False
 
 	#In case you want to add your logo
 #html_logo = "assets/auto_awesome.svg"
@@ -83,7 +83,7 @@ html_permalinks_icon = (
 html_theme_options = {
     "show_scrolltop": True,
     "extra_header_links": {
-        "Docs": "index",
+        "Install": "usage/install",
         "Usage": "usage/overview",
         "About": "about",
         "repository on GitHub": {

@@ -9,7 +9,8 @@ except ImportError:
 		raise ImportErorr("sphinx modules not found: impossibile to build the documents.\nTry: pip install -r docs/requirements.txt")
 
 required_packages =['scipy', 'numpy', 'matplotlib',
-	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow'] 
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow',
+	'seaborn', 'imageio', 'pandas'] #you will want to remove the last 3 dependencies
 #required_packages =[]
 
 with open("README.md", "r") as fh:

@@ -10,12 +10,13 @@ Generating a [bank](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.80.10
 
 This is exactly the purpose of `mbank`: thanks to a cheap approximation to the distance between templates, it provides a very fast bank generation method, which can be successfully employed for high dimensional bank generation. The approximation consist in replacing the complicated distance with a _metric_ distance (i.e. a bilinear form).
 
-The bank generation algorithm works in 4 steps:
+The bank generation algorithm works in 4+1 steps:
 
 1. Defining a metric approximation
 2. Computing the metric on a small set of points all around the space (a.k.a. tiling the space)
-3. Placing the templates according to the tiling
-4. Validate the bank by means of injections
+3. Optional: training a normalizing flow to interpolate the metric
+4. Placing the templates according to the tiling
+5. Validate the bank by means of injections
 
 `mbank` is the code that does all of this for you!
 
@@ -54,9 +55,11 @@ You will need to choose:
 - The WF FD approximant (it must be lal)
 - Maximum number of templates in each tile: this tunes the hierarchical tiling (`--template-in-tile` argument)
 - A coarse grid for tiling: the tiling can be parallelized and performed independently on each split (`--grid-size` argument)
-- The placing method `--placing-method` for the templates in each tile ('geometric', 'stochastic', 'pure_stochastic', 'uniform', 'iterative'). The geometric method is recommended.
+- The placing method `--placing-method` for the templates in each tile ('geometric', 'stochastic', 'pure_stochastic', 'uniform', 'iterative', 'random'). The 'stochastic' method is recommended.
 
-An example command to generate a simple precessing bank with precession placed only on one BH is:
+If you don't have a favourite PSD, you can download one with `wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt`.
+
+An example command to generate a simple non-precessing bank is:
 ```Bash
 mbank_run \
 	--run-name myFirstBank \
@@ -65,15 +68,15 @@ mbank_run \
 	--mm 0.97 \
 	--tile-tolerance 0.5 \
 	--max-depth 10 \
-	--psd examples/aligo_O3actual_H1.txt --asd \
+	--psd ./aligo_O3actual_H1.txt --asd \
 	--f-min 15 --f-max 1024 \
 	--mtot-range 20 75 \
 	--q-range 1 5 \
 	--s1-range 0.0 0.99 \
 	--s2-range -0.99 0.99 \
 	--plot \
-	--placing-method random \
-	--livepoints 100 \
+	--placing-method stochastic \
+	--empty-iterations 100 \
 	--approximant IMRPhenomPv2 \
 	--use-ray 
 ```
@@ -83,18 +86,17 @@ mbank_run --help
 ```
 This is how the output bank look like:
 
-![](https://github.com/stefanoschmidt1995/mbank/raw/master/docs/img/bank_README.png)
+![](docs/img/bank_README.png)
 
 You can also use the metric to estimate the fitting factor for a bunch of injections: 
 
 ```Bash
 mbank_injections \
 	--n-injs 10000 \
-	--N-neigh-templates 100 \
 	--variable-format Mq_s1z_s2z \
 	--tiling-file out_myFirstBank/tiling_myFirstBank.npy \
 	--bank-file out_myFirstBank/bank_myFirstBank.xml.gz \
-	--psd examples/aligo_O3actual_H1.txt --asd \
+	--psd ./aligo_O3actual_H1.txt --asd \
 	--approximant IMRPhenomPv2 \
 	--f-min 15 --f-max 1024 \
 	--plot
@@ -105,13 +107,13 @@ You can also throw some injection chosen from a file: you just need to set an in
 
 Here's the injection recovery:
 
-![](https://github.com/stefanoschmidt1995/mbank/raw/master/docs/img/injections_README.png)
+![](docs/img/injections_README.png)
 
 If you don't feel like typing all the options every time, you can add them to a text file `myFirstBank.ini` and pass it to the command: it will figure out by itself. You can find some example [ini files](https://github.com/stefanoschmidt1995/mbank/tree/master/examples) in the repo. To run them:
 
 ```Bash
-mbank_run myFirstBank.ini
-mbank_injections myFirstBank.ini
+mbank_run my_first_eccentric_bank.ini
+mbank_injections my_first_eccentric_bank.ini
 ```
 
 As you see, the same file can be used for different commands: each command will just ignore any option not relevant for it.

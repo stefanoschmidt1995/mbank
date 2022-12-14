@@ -592,7 +592,7 @@ if __name__ == '__main__':
 	injs_list_flow = ['precessing_bank/bank_paper_precessing_flow-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM_flow-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric_flow-injections_stat_dict.pkl']
 	
-	#plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
+	plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
 	
 	
 	quit()

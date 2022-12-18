@@ -331,7 +331,7 @@ It is straightforward to sample from $p^{\text{tiling}}$ using Gibb's sampling: 
 \end{algorithm}
 
 \subsection{Normalizing Flow} \label{sec:normalizing_flow}
-A normalizing flow model \cite{norm_flow} is a machine learning model widely used to reproduce complicated probability distributions.
+A normalizing flow model \cite{norm_flow, nflows_paper, 9089305, Papamakarios_thesis} is a machine learning model widely used to reproduce complicated probability distributions.
 Mathematically, a flow is an {\it invertible} parametric function $\phi_W$ which is trained to map samples $\theta$ from an arbitrary probability distribution $p(\theta)$ to samples $\mathbf{x}$ from a multivariate standard normal distribution.
 The paramters $W$ of the flow are trained in such a way that:
 \begin{equation}
@@ -352,7 +352,7 @@ The weights $W$ of the flow are set by miniziming the loss function $\mathcal{L}
 \end{align}
 The minimization is performed by gradient descent, using empirical samples from the target distribution $p(\theta)$ to provide a Monte-Carlo estimation of the loss function.
 
-The flow transformation $\phi_W$ is built by {\it composing} $n_\text{layers}$ simple (invertible) transformations, each called layer. Of course, depending on the application, a variety of layers is available in literature. We choose to build a layer by concatenating a linear transformation and a Masked Autoregresive Layer \cite{} with $n_\text{hidden}$ hidden features.
+The flow transformation $\phi_W$ is built by {\it composing} $n_\text{layers}$ simple (invertible) transformations, each called layer. Of course, depending on the application, a variety of layers is available in literature. We choose to build a layer by concatenating a linear transformation and a Masked Autoregresive Layer \cite{MADE, MAF,MAF_bis} with $n_\text{hidden}$ hidden features.
 
 To deal with a probability distribution bounded in the Rectangle $[\mathbf{m}, \mathbf{M}]$, we employ the following transformation $T_0(\theta)$ as the first layer of the flow:
 \begin{equation}

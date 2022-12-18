@@ -351,33 +351,32 @@ def plot_delta_M(file_list, savefile = None):
 		#ax.plot(x, kde_tiling.pdf(x), lw=1, label='tiling')
 		
 		nbins = int(np.sqrt(len(out_dict['deltaM_tiling'])))
+		perc = 1.
+		bins = np.linspace(*np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]), nbins)
 		hist_args = {
-			'bins': nbins,
+			'bins': bins,
 			'density': True,
 			'histtype': 'step'
 		}
 		
 		#next(ax._get_lines.prop_cycler)		
 		ax.hist(out_dict['logMratio_flow'], label = 'flow', **hist_args)
-		ax.hist(out_dict['logMratio_tiling'], label = 'tiling', **hist_args)
+		ax.hist(out_dict['logMratio_tiling'], label = 'no flow', **hist_args)
 		
-		#ax.set_ylim([1e-6,1.0])
 		ax.set_yscale('log')
-		#ax.set_xscale('log')
 
 		ax.tick_params(axis='both', which='major', labelsize=8)
 		ax.tick_params(axis='both', which='minor', labelsize=7)
 		
-		ax.yaxis.get_minor_locator().set_params(numticks = 100000)
+		#ax.yaxis.get_minor_locator().set_params(numticks = 100000)
 		
 		ax.set_title(out_dict['variable_format'], fontsize = 10)
-		perc = .001
-		ax.set_xlim(np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]))
+		#ax.set_xlim(np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]))
 		
 	axes[0].legend(loc = 'upper right', fontsize = 8)
 	#axes[-1].set_xlim([x_low_lim,1.001])
 		
-	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{|M|}{|M_{true}|}$", fontsize = 10)
+	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{{det}M}{{det} M_{true}}$", fontsize = 10)
 
 	plt.tight_layout()	
 
@@ -405,7 +404,7 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 			print(pkl_list[i], len(injs_dicts[-1]['theta_inj']))
 
 			#making the KDE with scipy
-		min_x = np.percentile(injs_dicts[0][keys[0]], .1)
+		min_x = np.percentile(injs_dicts[0][keys[0]], .01)
 		x = np.linspace(min_x, 1, 1000)
 
 		for inj_dict, key, label, color in zip(injs_dicts, keys, labels, c_list):
@@ -592,7 +591,7 @@ if __name__ == '__main__':
 	injs_list_flow = ['precessing_bank/bank_paper_precessing_flow-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM_flow-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric_flow-injections_stat_dict.pkl']
 	
-	plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
+	plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
 	
 	
 	quit()

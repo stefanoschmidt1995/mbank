@@ -34,7 +34,7 @@ import re
 
 class TanhTransform(Transform):
 	"""
-	Implements the Tanh transformation. This maps a Rectangle [low, high] into a R^D.
+	Implements the Tanh transformation. This maps a Rectangle [low, high] into R^D.
 	It is *very* recommended to use this as the last layer of every flow you will ever train on GW data.
 	"""
 	def __init__(self, D):
@@ -508,6 +508,8 @@ class STD_GW_Flow(GW_Flow):
 		transform_list = CompositeTransform(transform_list)
 		
 		super().__init__(transform=transform_list, distribution=base_dist)
+		self.n_layers = n_layers
+		self.hidden_features = hidden_features
 		return
 	
 	@classmethod

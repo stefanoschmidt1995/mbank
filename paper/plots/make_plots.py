@@ -96,7 +96,8 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	
 	
 	#plt.tight_layout()
-	if isinstance(savefile, str): plt.savefig(savefile)	
+	if isinstance(savefile, str): plt.savefig(savefile)
+	del bank
 	#plt.show()
 	#quit()
 
@@ -156,6 +157,8 @@ def plot_distance_vs_match(filenames, savefile = None):
 	#plt.show()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
 
+	del dict_list
+
 def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff = np.inf):
 	"Plot the metric accuracy plots"
 		#creating the figures
@@ -201,13 +204,13 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 			#ax.hist(out_dict[MM], bins = bins, histtype='step', density = True, label = MM if i ==1 else None)
 
 			ax.axvline(MM, c = 'k', ls = 'dashed', alpha = 0.5)
-			
-		ax.annotate(out_dict['variable_format'], xy = (.03,0.2), xycoords = 'axes fraction')
-		if i ==1 or i ==2: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1)
 		
-	axes[-1].set_xlabel('$\mathcal{M}$')
+		ax.annotate(out_dict['variable_format'], xy = (.03,0.2), xycoords = 'axes fraction')
+		if i ==1 or i ==2: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1, fontsize = 7)
+		
+	axes[-1].set_xlabel('$\mathcal{M}$', fontsize = 10)
 
-	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']])
+	axes[-1].set_xticks(out_dict['MM_list'], labels = [str(MM) for MM in out_dict['MM_list']], fontsize = 8)
 	axes[-1].tick_params(axis = 'x', labelleft = True)
 	min_MM_val = 0.9
 	axes[-1].set_xticks([min_MM_val+0.01*i for i in range(int((1-min_MM_val)*100))], labels = [], minor = True)
@@ -218,6 +221,9 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 	plt.tight_layout()
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)
+
+	del out_dict	
+	
 	
 def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 	id_N_templates = np.where(np.array(out_dict['MM_list'])==out_dict['MM_inj'])[0]
@@ -326,6 +332,7 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 			text_dict['rotation'] = 'vertical'
 			y_center = 10**np.mean(np.log10(axes[j,i].get_ylim()))
 			if i==0: axes[j,i].text(0.1, y_center, method, text_dict )
+			del out_dict
 
 	plt.tight_layout()
 	if savefile is not None: plt.savefig(savefile, transparent = True)	
@@ -373,16 +380,15 @@ def plot_delta_M(file_list, savefile = None):
 		ax.set_title(out_dict['variable_format'], fontsize = 10)
 		#ax.set_xlim(np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]))
 		
-	axes[0].legend(loc = 'upper right', fontsize = 8)
+	axes[1].legend(loc = 'upper right', fontsize = 8)
 	#axes[-1].set_xlim([x_low_lim,1.001])
 		
-	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{{det}M}{{det} M_{true}}$", fontsize = 10)
+	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{\mathrm{det}M}{\mathrm{det} M_{true}}$", fontsize = 10)
 
 	plt.tight_layout()	
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)
 		
-
 
 def plot_comparison_injections(files, labels, keys, title = None, c_list = None, MM = None, x_low_lim = 0.9, savefile = None):
 
@@ -401,6 +407,8 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 		for pkl_list in files:
 			with open(pkl_list[i], 'rb') as filehandler:
 				injs_dicts.append(pickle.load(filehandler))
+			injs_dicts[-1].pop('match_list', None)
+			injs_dicts[-1].pop('id_match_list', None)
 			print(pkl_list[i], len(injs_dicts[-1]['theta_inj']))
 
 			#making the KDE with scipy
@@ -434,6 +442,7 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 
 	if savefile is not None: plt.savefig(savefile, transparent = True)
 	#plt.show()
+	del injs_dicts
 
 
 def plot_bank_hist(bank_list, format_list, title = None, savefile = None):
@@ -507,6 +516,8 @@ def plot_injection_distance_hist(inj_pkl_list, variable_format_list, title = Non
 	if isinstance(savefile, str):
 		plt.savefig(savefile.format(t.replace(' ', '_')))
 
+	del inj_dict
+
 ########################################################################################################
 if __name__ == '__main__':
 	img_folder = '../tex/img/'
@@ -518,8 +529,9 @@ if __name__ == '__main__':
 				'metric_accuracy/paper_hessian_Mq_chi_iota.pkl']
 	metric_accuracy_parabolic_filenames = [m.replace('paper_hessian', 'paper_parabolic') for m in metric_accuracy_filenames]
 	#plot_metric_accuracy(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian.pdf', None, np.inf)
-	#plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.pdf')
+	
 		#old garbage
+	#plot_distance_vs_match(metric_accuracy_filenames, img_folder+'metric_accuracy_hessian_distance.pdf')
 	#plot_metric_accuracy(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic.pdf', None, np.inf)
 	#plot_distance_vs_match(metric_accuracy_parabolic_filenames, img_folder+'metric_accuracy_parabolic_distance.png')
 
@@ -536,7 +548,7 @@ if __name__ == '__main__':
 		# Validation of the tiling
 	tiling_validation_list = ['tiling_accuracy/out_dict_Mq_chi.json',
 			'tiling_accuracy/out_dict_Mq_s1xz.json', 'tiling_accuracy/out_dict_Mq_s1xz_s2z_iota.json']
-	plot_delta_M(tiling_validation_list, img_folder+'tiling_validation.pdf')
+	#plot_delta_M(tiling_validation_list, img_folder+'tiling_validation.pdf')
 
 		###
 		#Comparison with sbank - injections
@@ -547,8 +559,8 @@ if __name__ == '__main__':
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
-	#plot_comparison_injections(sbank_list_injs, mbank_list_injs, None, ('sbank', 'mbank'), ('match','match'), MM = 0.97, x_low_lim = 0.95, title = title, savefile = savefile)
 	
+	#plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 		###
 		#Bank case studies
@@ -591,7 +603,7 @@ if __name__ == '__main__':
 	injs_list_flow = ['precessing_bank/bank_paper_precessing_flow-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM_flow-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric_flow-injections_stat_dict.pkl']
 	
-	plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
+	#plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
 	
 	
 	quit()

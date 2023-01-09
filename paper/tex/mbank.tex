@@ -60,7 +60,7 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	We introduce a novel software to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders of magnitude faster than with existing techniques.
+	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders of magnitude faster than with existing techniques.
 	Our method applies to a variety of different manifolds of signals and is particularly suitable for covering high dimensional spaces, such as those associated with precessing and/or eccentric waveforms.
 	We compare our method with the state-of-the-art stochastic placement code and we find that our code slightly overcovers the space, while achieving similar efficiency in recovering signals. To demonstrate the capabilities of our code, we generate a precessing bank, an intermediate mass black hole bank with higher-order modes, and an eccentric bank, and show that they cover the space in a satisfactory way.
 	Our publicly released code \texttt{mbank} will enable searches of high dimensional regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
@@ -92,8 +92,9 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As gravitational waves (GWs) astronomy enters in a mature state, the parameter space of Binary Black Holes (BBH) being searched in the interferometer data by LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} Collaborations is constantly increasing. Besides standard searches of BBH \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there have been already searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in searches for precessing signals \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz}.
-All these searches need accurate template banks that covers the parameter space of interest. A template bank gathers a set of GW signals that will be searched in the data with matched filtering \cite{Owen:1998dk}. Their generation can be computationally expensive task and it is crucial for the outcome of state-of-the-art searches.
+As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz} or higher-order mode content~\cite{Chandra_hom, 2021PhRvD.103b4042M}.
+
+GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Owen:1998dk}. Accurate template banks that cover the parameter space of interest can be computationally expensive to create, but are crucial for ensuring sensitivity of state-of-the-art searches.
 
 The most widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014, sbank} - consists in scattering templates around the parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its ``distance" (more precisely mismatch) with all the proposed templates in the bank is larger than the user defined threshold.
 While this method is proven to work in many cases, it is computationally demanding, since it requires to generate a huge number of BBH waveforms template and to perform expensive match computations.
@@ -135,7 +136,7 @@ In symbols:
 \end{equation}
 where a signal model is parameterized by a vector of parameters $\theta$, which represents a GW signal $h(t;\theta)$.
 For any given observation time, a search aims to maximize the detection statistics with respect to $\theta$.
-The exact expression of $p(s = n+h(\theta)|d)$ and $p(s = n|d)$ is obtained under the assumption of stationary Gaussian noise and it depends on the quantities $\scalar{s}{h}$ and $\scalar{h}{h}$, where $\scalar{\cdot}{\cdot}$ a suitable scalar product (see below).
+The exact expression of $p(s = n+h(\theta)|d)$ and $p(s = n|d)$ is obtained under the assumption of stationary Gaussian noise and it depends on the quantities $\scalar{s}{h}$ and $\scalar{h}{h}$, where $\scalar{\cdot}{\cdot}$ is a suitable scalar product (see below).
 
 The generic eccentric BBH signal registered at detector is characterized by 17 quantities \cite{Sathyaprakash_2009}, grouped into \textit{intrinsic} and \textit{extrinsic} parameters.
 The twelve intrinsic parameters are needed to fully characterize the source: they consist in two BH masses ($m_1$, $m_2$), two 3 dimensional spins ($\mathbf{s}_1$, $\mathbf{s}_2$), the inclination angle $\iota$, the reference phase $\phi$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$.
@@ -331,7 +332,7 @@ It is straightforward to sample from $p^{\text{tiling}}$ using Gibb's sampling: 
 \end{algorithm}
 
 \subsection{Normalizing Flow} \label{sec:normalizing_flow}
-A normalizing flow model \cite{norm_flow, nflows_paper, 9089305, Papamakarios_thesis} is a machine learning model widely used to reproduce complicated probability distributions.
+A normalizing flow model \cite{norm_flow, Kobyzev_2021, nflows_paper, Papamakarios_thesis} is a machine learning model widely used to reproduce complicated probability distributions.
 Mathematically, a flow is an {\it invertible} parametric function $\phi_W$ which is trained to map samples $\theta$ from an arbitrary probability distribution $p(\theta)$ to samples $\mathbf{x}$ from a multivariate standard normal distribution.
 The paramters $W$ of the flow are set in such a way that:
 \begin{equation}
@@ -877,8 +878,8 @@ Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
 	&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}} \label{eq:H_ij_grad} 
 \end{align}
 
-Such expressions, togheter with Eq.~\eqref{eq:metric_expression} fully specify the metric computation.
-The gradients $\partial_i h$ of the waveform can be computed with an accurate finite difference scheme.
+Such expressions, together with Eq.~\eqref{eq:metric_expression} fully specify the metric computation.
+The gradients $\partial_i h$ of the waveform can be computed with any finite difference scheme.
 
 %\begin{equation*}
 %	\mathcal{M}(\theta_1,\theta_2) =  \max_{t} \left\lvert \int\limits_{f_\text{min}}^{f_\text{max}} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert^2

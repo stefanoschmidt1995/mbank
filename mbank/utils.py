@@ -2031,7 +2031,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, luminosity_
 
 		#ligolw_process.set_process_end_time(process)
 		xmldoc.childNodes[-1].appendChild(sim_inspiral_table)
-		lw_utils.write_filename(xmldoc, filename, gz=filename.endswith('.xml.gz'), verbose=False)
+		lw_utils.write_filename(xmldoc, filename, verbose=False)
 		xmldoc.unlink()
 
 		print("Saved {} injections to {}".format(i+1, filename))

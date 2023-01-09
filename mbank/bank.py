@@ -132,9 +132,9 @@ class cbc_bank():
 		"""
 		if filename.endswith('.npy'):
 			templates_to_add = np.load(filename)
-		if filename.endswith('.txt') or filename.endswith('.dat'):
+		elif filename.endswith('.txt') or filename.endswith('.dat'):
 			templates_to_add = np.loadtxt(filename)
-		if filename.endswith('.xml') or filename.endswith('.xml.gz'):
+		elif filename.endswith('.xml') or filename.endswith('.xml.gz'):
 
 			if self.var_handler.format_info[self.variable_format]['e']: warnings.warn("Currently loading from an xml file does not support eccentricity")
 				#reading the BBH components
@@ -142,7 +142,9 @@ class cbc_bank():
 		
 				#making the templates suitable for the bank
 			templates_to_add = self.var_handler.get_theta(BBH_components, self.variable_format) #(N,D)
-			
+		else:
+			raise ValueError("Type of file not recognized!")
+		
 		self.add_templates(templates_to_add)
 
 		return

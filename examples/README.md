@@ -1,6 +1,9 @@
 # Examples
 
-This folder keeps some example `ini` files. They can be used to generate a precessing bank or an eccentric bank and to perform injections.
+This folder keeps some example `ini` files. `my_first_eccentric_bank.ini` and `my_first_eccentric_bank.ini` provides a very simple example to generate a precessing bank or an eccentric bank and to perform injections: the bank generation and validation takes only a few minutes and can easily run on your laptop.
+Files `eccentric_paper.ini`, `HM_paper.ini` and `precessing_paper.ini` have been used to produce the case studies banks introduced in the paper: reproducing the results will most likely require you to use a high performance computer.
+
+## Get things done
 
 First things first, download your PSD:
 

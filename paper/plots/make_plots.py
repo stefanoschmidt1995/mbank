@@ -57,7 +57,7 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 	ysize = size[0]*1.5/4*bank.D + 0.3#if bank.D>3 else size[1]*1.6/4*bank.D
 	size = (size[0]*bank.D/4 + 1.5, ysize)
 	fig, axes = plt.subplots(D,D, figsize = size)
-	if isinstance(title, str): plt.suptitle(title)
+	if isinstance(title, str): plt.suptitle(title, fontsize = 15)
 	
 	for i,j in itertools.product(range(D), range(D)):
 		ax = axes[i,j]
@@ -584,7 +584,7 @@ if __name__ == '__main__':
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins high mass', 'Aligned spins low mass']#, 'Gstlal O3 bank']
 	
-	plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	#plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 		###
 		#Bank case studies
@@ -612,7 +612,7 @@ if __name__ == '__main__':
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}_flow.pdf'.format(t.replace(' ', '_'))
-		#corner_plot(b,f,t, savefile = filename)
+		corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')

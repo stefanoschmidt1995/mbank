@@ -14,6 +14,10 @@ plt.rcParams['figure.figsize']=(3.29,2.8)
 plt.rcParams['figure.dpi']= 100
 plt.rcParams['xtick.top'] = False
 plt.rcParams['ytick.right'] = False
+mpl.rcParams.update({
+	"text.usetex": True,
+	"font.family": "Times new Roman"
+})
 
 import matplotlib
 from matplotlib.lines import Line2D
@@ -36,20 +40,17 @@ import itertools
 ########################################################################################################
 
 def corner_plot(bank_file, variable_format, title = None, savefile = None):
+	#TODO: save the bank to pdf
 	#import corner
 	bank = cbc_bank(variable_format, bank_file)
 	vh = variable_handler()
 	bank_labels = vh.labels(variable_format, latex = True)
 	D = bank.D
 
-	#np.random.shuffle(bank.templates)
-	#bank.templates = bank.templates[:10000]
+	np.random.shuffle(bank.templates)
+	#bank.templates = bank.templates[:2000]
 
 	print("Bank size: ", bank.templates.shape[0])
-
-	#figure = corner.corner(bank.templates, labels = bank_labels, quantiles = None, show_titles=False)
-	#plt.show()
-	#quit()
 	
 	size = plt.rcParams.get('figure.figsize')
 	#size = (1.5**2*size[0]*bank.D/4., 1.5*size[1]*1.5/4*bank.D)
@@ -79,7 +80,26 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 			ax.spines.top.set_visible(False)
 		
 		if i>j:
-			ax.scatter(bank.templates[:,j], bank.templates[:,i], s = .09, edgecolors='none', alpha = 0.7)
+			#ax.scatter(bank.templates[:,j], bank.templates[:,i], s = .09, edgecolors='none', alpha = 0.7)
+
+			scatter_fig = plt.figure()
+			plt.gca().scatter(bank.templates[:,j], bank.templates[:,i], s = .21, edgecolors='none', alpha = 0.8)
+			plt.axis('off')
+			plt.tight_layout()
+			plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, hspace = 0, wspace = 0)
+			plt.margins(0,0)
+			plt.savefig('temp.png', bbox_inches='tight')
+			plt.close(scatter_fig)
+
+			im = plt.imread('temp.png') # insert local path of the image.
+			#lims = (np.min(bank.templates[:,j]), np.max(bank.templates[:,j]), np.min(bank.templates[:,i]), np.max(bank.templates[:,i]))
+			lims = (np.min(bank.templates[:,j]), np.max(bank.templates[:,j]), np.min(bank.templates[:,i]), np.max(bank.templates[:,i]))
+			ax.imshow(im, extent = lims,  aspect = 'auto')
+			#ax.set_xlim(np.min(bank.templates[:,j]), np.max(bank.templates[:,j]))
+			#ax.set_ylim(np.min(bank.templates[:,i]), np.max(bank.templates[:,i]))
+			
+			os.remove('temp.png')
+
 				
 				#setting labels
 		if j==0 and i!=0:
@@ -89,12 +109,15 @@ def corner_plot(bank_file, variable_format, title = None, savefile = None):
 			ax.set_yticklabels(empty_string_labels)
 		if i==D-1:
 			ax.set_xlabel(bank_labels[j])
+				#dirty but ok
+			ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: str(x) if x!=0.5 else ''))
 		else:
 			empty_string_labels = ['' for item in ax.get_xticklabels()]
 			ax.set_xticklabels(empty_string_labels)
-	
-	
-	
+		ax.xaxis.set_minor_locator(ticker.AutoMinorLocator(3))
+		ax.yaxis.set_minor_locator(ticker.AutoMinorLocator(3))
+		ax.tick_params(axis='both', which='minor', length = 1.5)
+
 	#plt.tight_layout()
 	if isinstance(savefile, str): plt.savefig(savefile)
 	del bank
@@ -146,7 +169,7 @@ def plot_distance_vs_match(filenames, savefile = None):
 		
 		ticks_y_formatter = ticker.FuncFormatter(lambda x, pos: '{:g}'.format(x) if (x in [1, 0.1, 1e-2]) else '') #formatter
 		ax.yaxis.set_major_formatter(ticks_y_formatter)
-		ax.annotate(out_dict['variable_format'], xy = (.97,0.2), xycoords = 'axes fraction', ha = 'right')
+		ax.annotate(r'$\texttt{'+out_dict['variable_format']+'}$', xy = (.97,0.2), xycoords = 'axes fraction', ha = 'right')
 		
 	axes[-1].set_xlabel(r'$||\Delta\theta||$')
 	#axes[-1].set_xlabel(r'$\sqrt{|M|}$')
@@ -205,7 +228,8 @@ def plot_metric_accuracy(filenames, savefile = None, title = None, dist_cutoff =
 
 			ax.axvline(MM, c = 'k', ls = 'dashed', alpha = 0.5)
 		
-		ax.annotate(out_dict['variable_format'], xy = (.03,0.2), xycoords = 'axes fraction')
+		str_label = r'$\texttt{'+out_dict['variable_format']+'}$'
+		ax.annotate(str_label, xy = (.03,0.2), xycoords = 'axes fraction')
 		if i ==1 or i ==2: ax.legend(loc = 'center right', handlelength = 1, labelspacing = .1, fontsize = 7)
 		
 	axes[-1].set_xlabel('$\mathcal{M}$', fontsize = 10)
@@ -287,8 +311,8 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 	ax.set_yscale('log')
 	ax.set_xscale('log')
 	#ax.axhline(out_dict['MM_inj'], c = 'r')
-	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_{tiles}$", fontsize = 12)
-	if set_labels in ['y', 'both']: label = ax.set_ylabel(r"$N_{templates}$", rotation = 270, fontsize = 12, labelpad=17)
+	if set_labels in ['x', 'both']: ax.set_xlabel(r"$N_\mathrm{tiles}$", fontsize = 12)
+	if set_labels in ['y', 'both']: label = ax.set_ylabel(r"$N_\mathrm{templates}$", rotation = 270, fontsize = 12, labelpad=17)
 	#ax.set_ylim((0.94,1.001))
 	if set_legend: ax.legend(loc = 'lower right', fontsize = 10)
 
@@ -328,7 +352,7 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 				label_position = None
 			plot_MM_study(axes[j,i], out_dict, label_position, False if (i,j)!=(0,1) else True)
 			text_dict = {'rotation':'horizontal', 'ha':'center', 'va':'center', 'fontsize':13, 'fontweight':'extra bold'}
-			if j==0: axes[j,i].set_title(variable_format, pad = 20, **text_dict)
+			if j==0: axes[j,i].set_title(r'$\texttt{'+variable_format+'}$', pad = 20, **text_dict)
 			text_dict['rotation'] = 'vertical'
 			y_center = 10**np.mean(np.log10(axes[j,i].get_ylim()))
 			if i==0: axes[j,i].text(0.1, y_center, method, text_dict )
@@ -377,13 +401,13 @@ def plot_delta_M(file_list, savefile = None):
 		
 		#ax.yaxis.get_minor_locator().set_params(numticks = 100000)
 		
-		ax.set_title(out_dict['variable_format'], fontsize = 10)
+		ax.set_title(r'$\texttt{'+out_dict['variable_format']+'}$', fontsize = 10)
 		#ax.set_xlim(np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]))
 		
 	axes[1].legend(loc = 'upper right', fontsize = 8)
 	#axes[-1].set_xlim([x_low_lim,1.001])
 		
-	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{\mathrm{det}M}{\mathrm{det} M_{true}}$", fontsize = 10)
+	axes[-1].set_xlabel(r"$\frac{1}{2}\log_{10} \frac{\mathrm{det}M^\mathrm{tiling}}{\mathrm{det} M}$", fontsize = 10)
 
 	plt.tight_layout()	
 
@@ -558,9 +582,9 @@ if __name__ == '__main__':
 		sbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_sbank.pkl'.format(ct))
 		mbank_list_injs.append('comparison_sbank_{}/injections_stat_dict_mbank.pkl'.format(ct))
 	savefile = img_folder+'sbank_comparison.pdf'
-	title = ['Nonspinning', 'Aligned spins', 'Aligned spins low mass']#, 'Gstlal O3 bank']
+	title = ['Nonspinning', 'Aligned spins high mass', 'Aligned spins low mass']#, 'Gstlal O3 bank']
 	
-	#plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
 	
 		###
 		#Bank case studies
@@ -573,7 +597,7 @@ if __name__ == '__main__':
 
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
-		filename = img_folder+'bank_scatter_{}.png'.format(t.replace(' ', '_'))
+		filename = img_folder+'bank_scatter_{}.pdf'.format(t.replace(' ', '_'))
 		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
@@ -587,15 +611,11 @@ if __name__ == '__main__':
 
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
-		filename = img_folder+'bank_scatter_{}_flow.png'.format(t.replace(' ', '_'))
+		filename = img_folder+'bank_scatter_{}_flow.pdf'.format(t.replace(' ', '_'))
 		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
-		#Plotting injection recovery
-	savefile = img_folder+'bank_injections.pdf'
-	#plot_comparison_injections( (injs_list, injs_list),('metric match', 'match'), ('metric_match','match'), c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list, savefile = savefile)
-	
 	
 		#Flow injection recovery
 	injs_list_noflow = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM-injections_stat_dict.pkl',
@@ -603,7 +623,7 @@ if __name__ == '__main__':
 	injs_list_flow = ['precessing_bank/bank_paper_precessing_flow-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM_flow-injections_stat_dict.pkl',
 		'eccentric_bank/bank_paper_eccentric_flow-injections_stat_dict.pkl']
 	
-	plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
+	#plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
 	
 	
 	quit()

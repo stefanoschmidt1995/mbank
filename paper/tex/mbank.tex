@@ -94,13 +94,13 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 
 As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz} or higher-order mode content~\cite{Chandra_hom, 2021PhRvD.103b4042M}.
 
-GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Owen:1998dk, Findchirp}. Accurate template banks that cover the parameter space of interest can be computationally expensive to create, but are crucial for ensuring sensitivity of state-of-the-art searches.
+GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Sathyaprakash:1991mt, Dhurandhar:1992mw, Owen:1998dk, Allen:2005fk, Babak:2006ty, Cokelaer:2007mv}. Accurate template banks that cover the parameter space of interest can be computationally expensive to create, but are crucial for ensuring sensitivity of state-of-the-art searches.
 
-One widely used approach to bank generation - the {\it stochastic} method \cite{PhysRevD.80.104014, sbank} - consists of randomly scattering templates in a defined parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its distance (or {\it mismatch}) with all the proposed templates in the bank is larger than the user-defined threshold.
+One widely used approach to bank generation - the {\it stochastic} method \cite{Harry:2009ea, PhysRevD.80.104014, Ajith:2012mn} - consists of randomly scattering templates in a defined parameter space with a rejection technique \cite{DalCanton:2017ala, Mukherjee:2018yra, Indik:2016qky, Lenon:2021zac}. A proposed template is included in the bank only if its distance (or {\it mismatch}) with all the proposed templates in the bank is larger than the user-defined threshold.
 While this method is proven to work in many cases, it is computationally demanding, since it requires the generation of a huge number of template waveforms and expensive match calculations.
 With the ever-growing hyper-volume of parameter space for BBH searches, current approaches will quickly become computationally intractable.
 
-Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks}, there has been recently an increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}.
+Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Keppel:2013uma}, there has been recently an increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}.
 Such methods rely on approximating the distance (or match) between two waveforms with a bilinear form. Despite being approximate, they allow for a faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 
 In this work, we develop a novel approach to template placing based on the metric approximation of the mismatch.
@@ -120,7 +120,7 @@ In the PyPI repository, the package is distributed under the name \texttt{\href{
 
 The rest of this paper is devoted to the presentation and description of our methods and package.
 In Sec.~\ref{sec:methods} we present the details of the bank generation algorithm.
-In Sec.~\ref{sec:validation} we assess the accuracy of the metric approximation and of the template placing methods and also compare our method with the widely-used stochastic placement code \texttt{sbank} \cite{sbank}.
+In Sec.~\ref{sec:validation} we assess the accuracy of the metric approximation and of the template placing methods and also compare our method with the widely-used stochastic placement code \texttt{sbank} \cite{Ajith:2012mn}.
 To demonstrate the capabilities of \texttt{mbank}, in Sec.~\ref{sec:bank_generation}, we present three large banks covering ``exotic" regions of parameter space: a precessing bank, an IMBH bank with higher-order modes and an eccentric bank.
 Finally, in Sec.~\ref{sec:conclusion} we conclude with some remarks on future prospects.
 
@@ -144,8 +144,8 @@ The five extrinsic parameters characterize the position of the source with respe
 One is able to maximize $\Lambda(\theta)$ analytically over the extrinsic parameters and, depending on the scope of the search, over many of the intrinsic parameters\footnote{
 In the case of a non-precessing BBH, where we neglect the higher-order modes, the parameter space to search by brute force has only 4 dimensions (two masses and the two z-components of the spins).
 }.
-For the other quantities, a brute force approach is required, where $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee_2021}.
-A GW search filters the data with all the templates of a bank and computes the detection statistic for template as a function of time. This is the process of {\it matched filtering}, implemented by several pipelines to successfully search for GW signals \cite{Usman:2015kfa,PhysRevD.95.042001,gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
+For the other quantities, a brute force approach is required, where $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
+A GW search filters the data with all the templates of a bank and computes the detection statistic for template as a function of time. This is the process of {\it matched filtering}, implemented by several pipelines to successfully search for GW signals \cite{Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
 
 It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$, embedded in a large 12 dimensional manifold $\mathcal{B}$. Each point of the manifold corresponds to a GW signal. The number of dimensions $D$ depends on the BBH variables under consideration.
 As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful default value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the full manifold $\mathcal{B}$.
@@ -179,7 +179,7 @@ $\scalar{\cdot}{\cdot}$ between two gravitational waveforms $h(\theta_1)$ and $h
 \end{equation}
 where $\tilde{h}(\cdot; \theta)$ denotes the frequency-domain waveform evaluated at the point $\theta$ on the manifold.
 
-\stefano{Write this part again! The matter is not trivial at all and I wanted to keep things as short as possible. An easy way out would be to define $\scalar{h(\theta_1)}{h(\theta_2)}$ in terms of the plus polarization only (that's what we do) but this would result in a very non-standard definition as the PnP review pointed out. How to solve this?}
+\stefano{Write this part again! The matter is not trivial at all and I wanted to keep things as short as possible. An easy way out would be to define $\scalar{h(\theta_1)}{h(\theta_2)}$ in terms of the plus polarization only (that's what we do) but this would result in a very non-standard definition as the PnP review pointed out. How to solve this?\\Also define HM here}
 For non-precessing circular BBHs, $h(f; \theta) = A(f; \theta) e^{i\phi(f; \theta)} = h_+ + i h_\times$ \textcolor{red}{Add reference for this and maybe say why it has this form}. This however is not valid in the more general case of a precessing and/or eccentric binary \textcolor{red}{also HOMs or other complex signals?}. In this case, the form of the likehood changes \cite{Harry:2016ijz, PhysRevD.97.023004, Harry:2016ijz}, depending on physical assumptions about the signal, yielding in principle a different form for the scalar product. Here, however, we neglect this fact and we consider only the physical content of the plus polarization \textcolor{red}{Can you say a bit more about this? Where are we headed with this approximation? What is the goal we are working toward? Why is it okay?}\footnote{
 We note incidentally that our assumption is equivalent to considering only signals coming at the interferometer with a zero right ascension and polarization angle.}:
 $h = A(f; \theta) e^{i\phi(f; \theta)} = h_+$ \textcolor{red}{does this need to show f, $\theta$ dependency too?}. We defer to future studies the discussion of a more general scalar product.
@@ -302,13 +302,13 @@ This condition makes sure that the volume element $\sqrt{|\text{det}M(\theta)|}$
 %Function \texttt{SplitTile} is described in Alg.~\ref{alg:tiling}.
 
 The tiling generation algorithm iteratively splits an initial tile $\mathcal{T}_{0}$ which covers the space of interest, until all the tiles satisfy the condition above.
-To prevent the algorithm from running indefinitely, we may also impose an (optional) threshold \texttt{max-depth} on the number of ``generations of tiles". Since at each generation each tile is divided in three, setting this threshold limits the number of tiles to $3^{\texttt{max-depth}}$.
+To prevent the algorithm from running indefinitely, we may also impose an (optional) threshold max-depth on the number of ``generations of tiles". Since at each generation each tile is divided in three, setting this threshold limits the number of tiles to $3^{\textrm{max-depth}}$.
 
 As we limit to rectangular tiles, \texttt{mbank} is not able to deal with a non rectangular boundaries for the parameter space. This is of course a strict limitation, as the typical user may want to impose arbitrary boundaries. However, to overcome this limitation, one could generate a bank on a larger domain and imposing any non-linear boundary as a post processing step.
 
-The tiling defines a {\it fast} approximation $M^{\text{tiling}}_{ij}(\theta)$ to the true metric $M_{ij}(\theta)$ in Eq.~\eqref{eq:metric_expression}:
+The tiling defines a {\it fast} approximation $M^{\text{tiling}}_{ij}(\theta)$ to the metric $M_{ij}(\theta)$ in Eq.~\eqref{eq:metric_expression}:
 \begin{equation}\label{eq:metric_tiling}
-	M^{\text{tiling}}_{ij}(\theta) = \sum_{k} \mathbf{1}_{R_k}(\theta) M^{k}_{ij}
+	M^\text{tiling}_{ij}(\theta) = \sum_{k} \mathbf{1}_{R_k}(\theta) M^{k}_{ij}
 \end{equation}
 where $\mathbf{1}_{R_k}(\theta)$ is the indicator function on the rectangle $R_k$ of the k-th tile and the sum runs over all the tiles $\mathcal{T}_k$ of the tiling. The matrix $M^{k}_{ij}$ is the metric evaluated at the center $\theta_k$ of the rectangle $R_k$ as in Eq.~\eqref{eq:tile}.
 
@@ -435,7 +435,7 @@ The method is inspired by \cite{PhysRevD.80.104014}, a large difference being th
 %Moreover, in \cite{PhysRevD.80.104014} for each proposal only the templates in the vicinity of the proposal are considered for distance computation \textcolor{red}{This is actually something that can be set; you can choose to check over the whole bank if you want}.
 \\
 Some proposals are randomly drawn as above and they are accepted as templates if their minimum metric distance from {\it all} the previously added templates is greater than  $\sqrt{1-MM}$; otherwise they are rejected.
-Whenever a maximum number of proposals $N_{max}$ is consecutively rejected the procedure will stop. For distance computation, we use the metric approximation provided by the tiling.
+Whenever a maximum number of proposals $N_\text{max}$ is consecutively rejected the procedure will stop. For distance computation, we use the metric approximation provided by the tiling.
 \\
 This method provides good coverage since it checks for the mutual distance between templates; however it can be quite slow to run, especially in a large number of dimensions.
 
@@ -474,9 +474,9 @@ If the metric is close to being degenerate (Case 4), the placing methods (especi
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
-In this section we study the performance of different parts of our method. In Sec.~\ref{sec:metric_accuracy}, we assess the quality of the metric approximation to the match. In Sec.~\ref{sec:tiling_accuracy}, we evaluate how well the tiling approximates the true metric, with and without a normalizing flow.
+In this section we study the performance of different parts of our method. In Sec.~\ref{sec:metric_accuracy}, we assess the quality of the metric approximation to the match. In Sec.~\ref{sec:tiling_accuracy}, we evaluate how well the tiling approximates the metric, with and without a normalizing flow.
 In Sec.~\ref{sec:placing_accuracy}, we compare the different placing methods and assess their performance on several tilings.
-Finally in Sec.~\ref{sec:sbank_comparison}, we compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{sbank} on a selected set of banks.
+Finally in Sec.~\ref{sec:sbank_comparison}, we compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{Ajith:2012mn} on a selected set of banks.
 
 \textcolor{red}{you use the term injection earlier and some other ideas related to this method. I think it is good to keep its description here so maybe just be careful what ideas you use earlier in the paper.}
 \textcolor{blue}{Now the term injection is only used in section II.E, which we need to rethink completely.}
@@ -503,7 +503,7 @@ Of course, the latter is faster to compute but less accurate. In what follows we
 \begin{figure}[t]
 	\centering
 	\includegraphics{tiling_validation}
-	\caption{Histogram of the log ratio between volume elements of the tiling approximated metric and the true one for three different manifolds. Each histogram is generated with $50000$ points. The tiling approximated metric does (label ``flow") and does not (label ``no flow") use the normalizing flow interpolation scheme.}
+	\caption{Histogram of the log ratio between the volume element approximated by the tiling $\sqrt{\text{det}M^\text{tiling}}$ and the un-approximated one. Each histogram is generated with $50000$ points. The tiling approximated metric does (label ``flow") and does not (label ``no flow") use the normalizing flow interpolation scheme.}
 	\label{fig:tiling_validation}
 \end{figure}
 
@@ -519,7 +519,7 @@ Of course, the latter is faster to compute but less accurate. In what follows we
 
 As the bank generation method relies on the assumption that the metric match provides a good approximation to the match, it is crucial to have a quantitative estimation of the goodness of this assumption.
 
-To do this, we choose 4 different manifolds of templates $\mathcal{B}$ which cover different physical quantities of interests. For each manifold, we uniformly draw $15000$ samples on the manifold \textcolor{red}{uniformly draw them how? How have you distributed extrinsic parameters? It is common to do this uniform on the sky.}\textcolor{blue}{There are no extrinsic parameters involved here, as the injections are sampled from the manifold, which does not cover the sky location. Is that fine? I added a footnote above to clarify this point.} and we compute the metric at each point.
+To do this, we choose 4 different manifolds of templates $\mathcal{B}$ which cover different physical quantities of interests. For each manifold, we uniformly draw $15000$ samples on the manifold \textcolor{red}{uniformly draw them how? How have you distributed extrinsic parameters? It is common to do this uniform on the sky.}\textcolor{blue}{There are no extrinsic parameters involved here, as the injections are sampled from the manifold, which does not cover the sky location. Is that fine? I added a footnote above to clarify this point.} \textcolor{red}{If you compute the match with Eq. 5, do you not generate the waveforms? If you do, what is the complete set of waveform parameters?}and we compute the metric at each point.
 For each point $\theta_C$, we pick a random point (again inside the manifold) at a constant metric match $\mathcal{M}_{\text{metric}}$ with respect to $\theta_C$\footnote{
 This amounts to draw a point on the constant (metric) match ellipsoid centered in
 $\theta_C$: $\{\theta \; | \; d_{\text{metric}}(\theta,\theta_C) \leq 1-\mathcal{M}_{\text{metric}} \}$.
@@ -530,12 +530,12 @@ We repeat the experiment for $\mathcal{M}_{\text{metric}} = 0.95, 0.97, 0.99, 0.
 The experiment is performed on the following manifolds:
 \begin{itemize}
 	\item \texttt{Mq\_nonspinning} with coordinates $M = m_1+m_2, q = m_1/m_2>1$ in the rectangle $[20, 50] M_\odot \times [1,5]$ \textcolor{red}{maybe make these a bit more clear as to what variables these are. Also, are these all "rectangles"? Maybe should be hyperrectangles?}\textcolor{blue}{How about a "convention setup" section, to explain the meaning of all the variables? I did that in the text at beginning of section II but probably it can be highlighted more. I am using (this has just changed) all around the paper the term rectangle instead of hyperrectangle (the meaning seems obvious and it reads nicer). I'm happy to change this everywhere if you think it's the case.}
-	\item \texttt{Mq\_chi} with coordinates $M, q, \chi = s_{1z} = s_{2z}$ in the rectangle $[20, 50] M_\odot \times [1,5] \times [-0.99, 0.99]$
-	\item \texttt{Mq\_s1xz\_iota} with coordinates $M, q, s_{1}, \theta_1, \iota$ in the rectangle $[20, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi]  \times [0,\pi]$, where $s_1, \theta_1$ are the polar coordinates of $(s_{1x}, s_{1z})$
+	\item \texttt{Mq\_chi} with coordinates $M, q, \chi = s_\text{1z} = s_\text{2z}$ in the rectangle $[20, 50] M_\odot \times [1,5] \times [-0.99, 0.99]$
+	\item \texttt{Mq\_s1xz\_iota} with coordinates $M, q, s_\text{1}, \theta_1, \iota$ in the rectangle $[20, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi]  \times [0,\pi]$, where $s_1, \theta_1$ are the polar coordinates of $(s_\text{1x}, s_\text{1z})$
 	\item \texttt{Mq\_chi\_iota} with coordinates $M, q, \chi, \iota$ in the rectangle $[20, 50] M_\odot \times [1,5] \times [-0.99, 0.99] \times [0,\pi]$. We employ an higher-order-mode approximant
 \end{itemize}
 
-For the first two manifolds we use the approximant \texttt{IMRPhenomD} \cite{PhysRevD.93.044006, PhysRevD.93.044007}, whereas for the latter two we use \texttt{IMRPhenomPv2} \cite{PhysRevLett.113.151101} and \texttt{IMRPhenomXPHM} \cite{PhysRevD.103.104056} respectively. The frequency range for the metric computation is always $[10, 1024]Hz$.
+For the first two manifolds we use the approximant \texttt{IMRPhenomD} \cite{PhysRevD.93.044006, PhysRevD.93.044007}, whereas for the latter two we use \texttt{IMRPhenomPv2} \cite{PhysRevLett.113.151101} and \texttt{IMRPhenomXPHM} \cite{PhysRevD.103.104056} respectively. \textcolor{blue}{what stopping criteria and max-depth?}The frequency range for the metric computation is always $[10, 1024]Hz$.
 The results are reported in Fig.~\ref{fig:metric_accuracy}.
 
 %\begin{figure}[t]
@@ -544,21 +544,22 @@ The results are reported in Fig.~\ref{fig:metric_accuracy}.
 %	}
 %	\label{fig:metric_accuracy_distance}
 %\end{figure}
-We first consider the first three manifolds, covered with a non-HM approximant.
+\textcolor{red}{We need to talk about the conclusions drawn here. I am not sure I completely understand.}
+We first consider the first three manifolds covered with a non-HM approximant.
 By looking at the results in Fig.~\ref{fig:metric_accuracy}, we note that all the histograms are very broad, showing a large discrepancy between the match and its metric approximation: this seems to challenge the accuracy of the metric match.
 %
-However, as discussed above, the metric approximation  Eq.~\eqref{eq:metric_definition} to the match  Eq.~\eqref{eq:match} comes from a Taylor expansion and it is guaranteed to be valid whenever the higher-order terms of the expansion are small (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$).
+However, as discussed above, the metric approximation  (Eq.~\eqref{eq:metric_definition}) to the match (Eq.~\eqref{eq:match}) comes from a Taylor expansion and it is guaranteed to be valid whenever the higher-order terms of the expansion are small (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$).
 To quantify this, one should compute the full Taylor expansion, which is expensive and out of the scope of the work.
 We can limit ourselves to note that higher order terms tend to become negligible as $||\Delta\theta||$ becomes smaller.
 %
 %To clarify this point, in Fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The trend is clear: for increasingly larger values of $||\Delta\theta||$, the higher order terms become more important, hence the accuracy of the metric approximation degrades.
 
-As will be shown in Sec.~\ref{sec:placing_accuracy}, the template placing does not seem to be affected by the large inacuracy of the metric match.
+As will be shown in Sec.~\ref{sec:placing_accuracy}, the template placing does not seem to be affected by the large inacxcuracy of the metric match.
 
 The picture changes by inspecting the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM).
 The metric approximation consistently {\it underestimates} the match, provides a lower limit.
 %This does not depend on the coordinate distance $||\Delta\theta||$ between points.
-This bias is consistent with the injection study for the HM bank generated in Sec.~\ref{sec:HM_bank}, which shows a large discrepancy between metric match and match.
+As we will see, this bias is consistent with the injection study for the HM bank generated in Sec.~\ref{sec:HM_bank}, which shows a large discrepancy between metric match and match.
 The reason for such different qualitative behaviour is unknown at the moment and requires more investigation. 
 
 
@@ -581,10 +582,10 @@ The reason for such different qualitative behaviour is unknown at the moment and
 	 Nonspinning & \begin{tabular}{@{}l@{}} $M\in [30,50] M_\odot$ \\ $q\in [1,5]$   \\ \end{tabular}  &
 	 		396 & 371 & $O(\text{hours})$ & $O(\text{seconds})$ \\
 	 \cdashline{1-6}
-	 Aligned spin & \begin{tabular}{@{}l@{}} $M\in [30,50]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
+	 Aligned spin & \begin{tabular}{@{}l@{}} $M\in [30,50]$ \\ $q\in [1,5]$ \\ $s_\text{1z}, s_\text{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
 	 	3275 & 4117 & $O(\text{days})$ & $O(\text{minutes})$ \\
 	 \cdashline{1-6}
-	 Aligned spin low mass & \begin{tabular}{@{}l@{}} $M\in [10,30]$ \\ $q\in [1,5]$ \\ $s_{1z}, s_{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
+	 Aligned spin low mass & \begin{tabular}{@{}l@{}} $M\in [10,30]$ \\ $q\in [1,5]$ \\ $s_\text{1z}, s_\text{2z}\in [-0.99,0.99]$  \\ \end{tabular}  &
 	 	62009 & 80524 & $O(\text{months})$ &  $O(\text{hours})$\\
 	 \hline
 	 \end{tabular}
@@ -598,23 +599,23 @@ The reason for such different qualitative behaviour is unknown at the moment and
 
 \subsection{Tiling accuracy} \label{sec:tiling_accuracy}
 
-In this section, we evaluate the accuracy of approximation of the metric provided by the tiling. To measure the discrepancy between the approximated metric $M$ and the true metric $M_\text{true}$ Eq.~\eqref{eq:metric_expression}, we look at the ratio between volume elements $0.5\log_{\textrm{10}}\frac{\text{det} M}{\text{det}M_\text{true}}$, similar to Eq.~\eqref{eq:stop_tiling}.
-The metric approximated by the tiling is computed both with normalizing flow Eq.~\eqref{eq:metric_flow} and without normalizing flow Eq.~\eqref{eq:metric_tiling}.
+In this section, we evaluate the accuracy of the tiling approximation to the metric. To measure the discrepancy between the metric $M_{ij}$ Eq.~\eqref{eq:metric_expression} and its approximation $M^\text{tiling}_{ij}$, we look at the ratio between volume elements $0.5\log_{\textrm{10}}\frac{\text{det} M^\text{tiling}}{\text{det}M}$, similar to Eq.~\eqref{eq:stop_tiling}.
+The metric approximated by the tiling is computed both with normalizing flow (Eq.~\eqref{eq:metric_flow}) and without normalizing flow (Eq.~\eqref{eq:metric_tiling}).
 
 We consider three different manifolds:
 \begin{itemize}
 	\item \texttt{Mq\_chi} with coordinates $M, q, \chi $ in the rectangle $[40, 50] M_\odot \times [1,5] \times [-0.99, 0.99]$
 	\item \texttt{Mq\_s1xz} with coordinates $M, q, s_{1}, \theta_1$ in the rectangle $[40, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi]$
-	\item \texttt{Mq\_s1xz\_s2z\_iota} with coordinates $M, q, s_{1}, \theta_1, s_{2z}, \iota$ in the rectangle $[40, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi] \times [-0.99, 0.99] \times [0, \pi]$
+	\item \texttt{Mq\_s1xz\_s2z\_iota} with coordinates $M, q, s_{1}, \theta_1, s_\text{2z}, \iota$ in the rectangle $[40, 50] M_\odot \times [1,5] \times [0, 0.99] \times [0,\pi] \times [-0.99, 0.99] \times [0, \pi]$
 \end{itemize}
 For the first manifold we use the approximant \texttt{IMRPhenomD}, while we use \texttt{IMRPhenomPv2} for the others.
-For each manifold, we generate a tiling with stopping criteria $\epsilon = 0.1$ and \texttt{max-depth} $= 10$.
-To compute the metric, we use the PSD for Handford measured on the first three months of the third observing run (O3), as publicly released by the LVK collaboration \cite{O3a_PSDs}. We consider a frequency window between $10Hz$ and $1024Hz$.
-We then randomly draw $50000$ points from the tiling, at each point we compute the true metric and its approximation given by the tiling (with and without normalizing flow) and we finally compute the ratio between volume elements. We present our results in Fig.~\ref{fig:tiling_validation}.
-
+For each manifold, we generate a tiling with stopping criteria $\epsilon = 0.1$ and max-depth $= 10$.
+To compute the metric, we use the PSD for Handford measured on the first three months of the third observing run (O3), as publicly released by the LVK collaboration \cite{O3a_PSDs}. We consider a frequency window of $[10, 1024]Hz$.
+We then randomly draw $50000$ points from the tiling, at each point we compute the metric and its approximation given by the tiling (with and without normalizing flow) and we finally compute the ratio between volume elements. We present our results in Fig.~\ref{fig:tiling_validation}.
+\textcolor{red}{We should discuss these conclusions.}
 First of all, we note that all the histograms peak around $0$, as expected.
 Moreover, the normalizing flow interpolation provides more accurate results, proving shorter tails in the ratio of volume elements.
-Finally, all the histograms are not symmetric around their peak at $0$. This means that the tiling approximation to the metric is more likely to {\it overestimate} the value of the volume element. When it comes to template placing, this translates translates into having {\it over-dense} regions.
+Finally, all the histograms are not symmetric around their peak at $0$. This means that the tiling approximation to the metric is more likely to {\it overestimate} the value of the volume element. When it comes to template placing, this translates  into having {\it over-dense} regions.
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
@@ -622,11 +623,11 @@ Here we compare the properties of different placing methods: \textit{uniform}, \
 This will be helpful to understand their ranges of applicability and possible limitations in their use.
 
 We consider the three manifolds described above: \texttt{Mq\_chi}, \texttt{Mq\_s1xz} and \texttt{Mq\_s1xz\_s2z\_iota}.
-For each manifold, we generate several tilings with a different number of tiles (obtained setting a different value of \texttt{max-depth}) and we generate a bank with $0.97$ minimum match.
+For each manifold, we generate several tilings with a different number of tiles (obtained setting a different value of max-depth) and we generate a bank with $0.97$ minimum match.
 We will {\it not} use a normalizing flow model to interpolate the metric.
 
 We report the histogram of the fitting factors for both the match and the metric match, computed on a set of $1000$ injections.
-For the stochastic placement we set the parameter $N_{max} = 200$, while for the random method we employ $10000$ livepoints.
+We stop the stochastic placement algorithm after $N_\text{max} = 200$ iterations with no new templates, while for the random method we employ $10000$ livepoints.
 The results are shown in Fig.~\ref{fig:placing_validation}.
 
 According to Eq.~\eqref{eq:N_templates}, the number of templates $N_{\text{templates}}$ placed by the {\it uniform} method is a measure of the volume of the space. For this reason, it is interesting to look how the number of templates placed by the {\it uniform} method depends on the number of tiles.
@@ -637,11 +638,11 @@ In the low dimensional manifolds \texttt{Mq\_chi} ($D=3$) and \texttt{Mq\_s1xz} 
 
 The situation changes for the manifold \texttt{Mq\_s1xz\_s2z\_iota} ($D=6$), where the three methods show similar properties. The best performance is achieved by the {\it random} method, once again, at the cost of a large number of templates.
 This is obtained thanks to the iterative control of the bank coverage, made by means of livepoints. On the other hand, since there is no control of the mutual distance between a proposal and the rest of the bank, it is very likely that some regions will be overcovered (i.e. some templates will be too close to each other).
-The {\it uniform} method provides a more realistic number of templates than in the other examples. Moreover, it shows similar features as the {\it stochastic} method, both in terms of templates number and injection recovery.
+Unlike the other examples, the {\it uniform} method shows similar features as the {\it stochastic} method, both in terms of template number and injection recovery.
 
-The key observation is that in high dimensions, the control over the spacing of the templates performed by the {\it stochastic} method is not crucial anymore and provides only moderate improvement (or no improvement at all) over {\it uniform} or {\it random} methods. As discussed before, this is a well known features \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr} of high dimensional template banks and it makes the {\it random} (and similarly the {\it uniform}) method very appealing to cover a high dimensional region of the parameter space.
+The key observation is that in high dimensions, the control over the spacing of the templates performed by the {\it stochastic} method is not crucial anymore and provides only moderate improvement (or no improvement at all) over {\it uniform} or {\it random} methods. As discussed before, this is a well-known feature \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr} of high dimensional template banks and it makes the {\it random} (and similarly the {\it uniform}) method very appealing to cover a high dimensional region of the parameter space.
 
-As a final remark, we note that the fitting factors computed with the metric match are widely consistent with those computed with the ``true" match. This shows the robustness of the metric approximation, despite the problems highlighted in Sec.~\ref{sec:metric_accuracy}.
+As a final remark, we note that the fitting factors computed with the metric match are widely consistent with the un-approximated ones. This shows the robustness of the metric approximation, despite the problems highlighted in Sec.~\ref{sec:metric_accuracy}. \textcolor{red}{okay, this is a very nice result; I want to understand better how this is possible despite the problems.} \stefano{We discussed it with Bhooshan, we can dive more into that}
 
 %An analysis of the different methods shows that the {\it uniform} placing method has a poor performance for the low dimensional manifolds \texttt{Mq\_chi} and \texttt{Mq\_s1xz}, while still provides acceptable injection recovery for the large dimensional manifold \texttt{Mq\_s1xz\_s2z\_iota}. This was widely expcted. In low dimenensional manifolds, Eq.~\eqref{eq:N_templates} undestimates the number of templates and, since it does not check for boundaries, it provides poor coverage. This changes for high dimensional manifold, where the number of templates placed is consistent with the other methods and the coverage is satisfying, As discussed before, this is a well known features \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr} of high dimensional template banks and it makes the unform (and similarly the random) method very appealing to cover quickly a high dimensional region of the parameter space.
 
@@ -671,21 +672,21 @@ As a final remark, we note that the fitting factors computed with the metric mat
 
 \subsection{Comparison with \texttt{sbank} }\label{sec:sbank_comparison}
 
-\texttt{sbank} \cite{sbank} is a very common tool used by the LIGO Scientific, Virgo and Kagra Collaborations (LVK) to generate large template banks for analysis and, as such, it has been successfully used in the past three observing runs by several pipelines.
+The stochastic template placement code \texttt{sbank} \cite{Ajith:2012mn} is a very common tool used by the LIGO Scientific, Virgo and Kagra Collaborations (LVK) to generate large template banks for analysis and, as such, it has been successfully used in the past three observing runs by several search pipelines for compact binary coalescence \cite{Usman:2015kfa, Mukherjee:2018yra, Aubin:2020goo} \textcolor{blue}{More references?}.
 For this reason, it is very important to compare the performance of our code against \texttt{sbank}. The comparison is based on the size, speed and effectualness of the banks generated.
 
-We generate three non-precessing template banks with both codes:
+We generate three non-precessing template banks with both \texttt{sbank} and \texttt{mbank}:
 \begin{itemize}
-	\item A {\it non spinning} bank
-	\item An {\it aligned spins} bank
-	\item An {\it aligned spins low mass} bank
+	\item A {\it non-spinning} bank
+	\item An {\it aligned-spin high-mass} bank
+	\item An {\it aligned-spin low-mass} bank
 \end{itemize}
 The ranges of the parameter space covered by the three banks are reported in Tab.~\ref{tab:sbank_comparison}. All the banks cover the frequency range $f\in [15,1024] Hz$ and are generated using the PSD measured during the whole second observing run (O2).
-For all the three banks, templates are placed with the {\it stochastic} method, with a parameter $N_{max}=300$ and we will {\it not} use a normalizing flow model to interpolate the metric. In Fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pairs of banks.
+For all the three banks, \texttt{mbank} templates are placed with the {\it stochastic} method, with $N_\text{max}=300$ and without the use of a normalizing flow model to interpolate the metric. In Fig.~\ref{fig:sbank_comparison}, we report the result of an injection study on the three pairs of banks.
 
-The first striking feature we observe is that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}, in the two aligned spins banks. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed up in the generation.
+By looking at the banks' size in Tab.~\ref{tab:sbank_comparison}, we observe that \texttt{mbank} consistently places around 30\% more templates than \texttt{sbank}, in the two aligned spins banks. This means that the metric template placement tends to \textit{overcover} the space: it is a known feature (also observed in \cite{Coogan:2022qxs}) and it is inherent to the use of a metric approximation: it is the price to pay for a huge speed-up in the generation.
 
-Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_comparison}, we note the fitting factor distribution of \texttt{sbank} and \texttt{mbank} are similar in their shape, even though \texttt{sbank} shows a slightly better performance than \texttt{mbank}. This suggests that, at least in this simple non-precessing parameter space, \texttt{mbank} is able to match the state-of-the-art performance in covering.
+Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_comparison}, we note the fitting factor distribution of \texttt{sbank} and \texttt{mbank} are similar in their shape, even though \texttt{sbank} shows a slightly better performance than \texttt{mbank} in two cases. This suggests that, at least in this simple non-precessing parameter space, \texttt{mbank} is able to match the state-of-the-art performance in covering, in a fraction of the computing time.
 
 %When considering the generation times, we see that \texttt{mbank} is {\it orders of magnitude} faster than \texttt{sbank}. This huge speed up is precisely what makes \texttt{mbank} convenient, especially to cover very large volumes: it may overcover the space but it provides a substantial speed-up, making feasible the covering of new regions of the parameter space.
 
@@ -707,19 +708,19 @@ Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_co
 	 } \\
 	 \hline
 	 Precessing & \begin{tabular}{@{}l@{}} $M\in [25,100] M_\odot$ \\ $q\in [1,5]$  \\ $s_1\in [0,0.99]$ \\$\theta_1\in [0, \pi]$ \\ $f\in [15,1024] Hz$ \end{tabular}  &
-	 \begin{tabular}{@{}l@{}} IMRPhenomPv2 \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 10 \\ $N_{max} = 200$ \\ $n_\text{layers} = 6$ \\ $n_\text{hidden} = 6$ \end{tabular}  &
+	 \begin{tabular}{@{}l@{}} IMRPhenomPv2 \\ $\epsilon = 0.1$ \\ max-depth: 10 \\ $N_\text{max} = 200$ \\ $n_\text{layers} = 6$ \\ $n_\text{hidden} = 6$ \end{tabular}  &
 	 33774 & 54923 & 51953\\
 	 \cdashline{1-6}
 	 IMBH HM & \begin{tabular}{@{}l@{}} $M\in [50, 600] M_\odot$ \\ $q\in [1,5]$  \\ $\chi \in [0,0.99]$ \\ $f\in [10,1024] Hz$ \\ \end{tabular}  &
-	 	 \begin{tabular}{@{}l@{}} IMRPhenomXPHM \\ $\epsilon = 0.2 $ \\ \texttt{max-depth}: 8 \\ $N_{max} = 100$\\ $n_\text{layers} = 6$ \\ $n_\text{hidden} = 6$ \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} IMRPhenomXPHM \\ $\epsilon = 0.2 $ \\ max-depth: 8 \\ $N_\text{max} = 100$\\ $n_\text{layers} = 6$ \\ $n_\text{hidden} = 6$ \end{tabular}  &
 	 	33792 & 168010 & 134326\\
 	 \cdashline{1-6}
 	 Nonspinning eccentric & \begin{tabular}{@{}l@{}} $M\in [10,75] M_\odot$ \\ $q\in [1,5]$ \\ $e \in [0,0.3]$ \\ $f\in [15,1024] Hz$ \\ \end{tabular}  &
-	 	 \begin{tabular}{@{}l@{}} EccentricFD \\ $\epsilon = 0.1$ \\ \texttt{max-depth}: 9 \\ $N_{max} = 100$\\ $n_\text{layers} = 2$ \\ $n_\text{hidden} = 4$ \end{tabular}  &
+	 	 \begin{tabular}{@{}l@{}} EccentricFD \\ $\epsilon = 0.1$ \\ max-depth: 9 \\ $N_\text{max} = 100$\\ $n_\text{layers} = 2$ \\ $n_\text{hidden} = 4$ \end{tabular}  &
 	 	4238 & 115748 & 104210\\
 	 \hline
 	 \end{tabular}
-	 \caption{Summary of three case study banks generate with \texttt{mbank}. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and \texttt{max-depth} used for the tiling generation as well as the bank size $N_{\text{templates}}$, the number of tiles $N_{\text{tiles}}$ and the architecture of the normalizing flow used. Results of an injection study are shown in Fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in Fig.~\ref{fig:bank_scatter}.}
+	 \caption{Summary of three case study banks generate with \texttt{mbank}. For each bank generated, we report the variables being sampled and their ranges. We also report the approximant and the hyperparameters $\epsilon$ and max-depth used for the tiling generation as well as the bank size $N_{\text{templates}}$, the number of tiles $N_{\text{tiles}}$ and the architecture of the normalizing flow used. Results of an injection study are shown in Fig.~\ref{fig:bank_injections}. The templates distribution of the three banks is reported in Fig.~\ref{fig:bank_scatter}.}
  	 \label{tab:casestudy_banks}
 \end{table*}
 
@@ -728,7 +729,7 @@ Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_co
 	\includegraphics[scale = 0.7]{bank_scatter_Precessing}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_IMBH_HM}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_Nonspinning_eccentric}
-	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, {\it without} using normalizing flow interpolation. }
+	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, {\it without} using normalizing flow interpolation. \textcolor{red}{Explain the axes' labels in the caption}}
 	\label{fig:bank_scatter}
 \end{figure*}
 
@@ -743,14 +744,13 @@ Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_co
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bank generation: three case studies} \label{sec:bank_generation}
 
-To demonstrate the capabilities of our method, we use \texttt{mbank} to generate three large banks, covering interesting regions of the parameter space.
-They are:
+To demonstrate the capabilities of our method, we use \texttt{mbank} to generate three large banks, covering interesting regions of the parameter space:
 	\begin{itemize}
-		\item A precessing bank
-		\item An Intermediate Mass BH (IMBH) bank with Higher Order Modes
-		\item A nonspinning eccentric bank
+		\item A precessing BBH bank
+		\item An IMBH bank with HMs
+		\item A nonspinning BBH eccentric bank
 	\end{itemize}
-We generate two versions of each bank, one with normalizing flow interpolation (``flow" bank) of the metric and one without (``no flow" bank).
+We generate two versions of each bank, one with normalizing flow interpolation of the metric (``flow" bank) and one without (``no flow" bank).
 %Generating these banks with a standard approach is extremely costly and they represent the ideal situation where \texttt{mbank} is useful.
 
 For each bank, we perform an injection study with $75000$ injections: the results are reported in Fig.~\ref{fig:bank_injections}. We also plot the templates of the banks in Fig.~\ref{fig:bank_scatter} (without normalizing flow interpolation) and in Fig.~\ref{fig:bank_scatter_flow} (with normalizing flow interpolation).
@@ -770,14 +770,14 @@ Another possible source of discontinuity can be traced back to numerical noise i
 The normalizing flow interpolation removes the discontinuities in the template densities. Moreover, it generates a bank with a smaller number of templates, arguably due to a reduction of overcoverage around the boundaries of each tile. This feature is consistent across all the other two banks generated.
 
 The injection recovery (Fig.~\ref{fig:bank_injections}) is satisfying for both the precessing banks, with less than $10\%$ of the $75000$ injections performed having a recovery less than the target match $MM = 0.97$ (for the ``no flow" case). The ``flow" case show a consistent histogram.
-We also note that the true fitting factors and the ones approximated by the match are consistent between each other.
-The bank coverage can be straightforwardly improved by setting a more stringent termination requirement $N_{max}$, which will add more templates with an improvement in injection recovery.
+We also note that the fitting approximated by the metric are consistent between with the un-approximates ones.
+The bank coverage can be straightforwardly improved by setting a more stringent termination requirement $N_\text{max}$, which will add more templates with an improvement in injection recovery.
 
 \subsection{An IMBH HM bank}\label{sec:HM_bank}
 
-We generate a bank, covering the Intermediate Mass Black Hole (IMBH) region, that includes Higher Order Modes (HMs). As HMs are more important in the strong gravity regime, they affect mostly the late inspiral and the merger part of the waveform.
+We generate a bank, covering part of the IMBH region, that includes Higher Order Modes. As HMs are more important in the strong gravity regime, they affect mostly the late inspiral and the merger part of the waveform.
 For this reason, it is interesting to search HM data in the IMBH region, characterized by a total mass $M>50 M_\odot$. An IMBH signal spends only a small time ($O(ms)$) in the detector's frequency band and thus an accurate HM template is crucial for better detection.
-We include in the bank the variables $\log M, q, \chi, \iota$, where $\chi=s_{1z}=s_{s2z}$ is the effective spin parameter and $\iota$ is the inclination angle.
+We include in the bank the variables $\log M, q, \chi, \iota$, where $\chi=s_\text{1z}=s_\text{s2z}$ is the effective spin parameter and $\iota$ is the inclination angle.
 As before in Tab.~\ref{tab:sbank_comparison}, we report the ranges for each of this quantities. We use the modern HM approximant \texttt{IMRPhenomXPHM}.
 
 The inclusion of HM makes the bank much larger (in other words the volume of the space is larger): for reference, a non HM bank, covering the masses and $\chi$ ranges (of course, without $\iota$) has $\sim 1000$ templates: that is a 2 orders of magnitude difference!

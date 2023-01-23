@@ -92,7 +92,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz} or higher-order mode content~\cite{Chandra_hom, 2021PhRvD.103b4042M}.
+As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, PhysRevD.97.023004, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz}, eccentricity \cite{LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, PhysRevD.97.023004, Chandra_hom, 2021PhRvD.103b4042M}.
 
 GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Sathyaprakash:1991mt, Dhurandhar:1992mw, Owen:1998dk, Allen:2005fk, Babak:2006ty, Cokelaer:2007mv}. Accurate template banks that cover the parameter space of interest can be computationally expensive to create, but are crucial for ensuring sensitivity of state-of-the-art searches.
 
@@ -172,27 +172,25 @@ The metric distance on the manifold of templates $\mathcal{B}_D$ provides a a fa
 
 Under the assumption of Gaussian noise \cite{Creighton_book}, it is natural to introduce a complex \textit{scalar product}\footnote{
 Technically, this is a scalar product on the $L^2$ space of the waveforms $h$.}
-$\scalar{\cdot}{\cdot}$ between two gravitational waveforms $h(\theta_1)$ and $h(\theta_2)$, evaluated at different points:
+$\scalar{\cdot}{\cdot}$ between two templates $h(\theta_1)$ and $h(\theta_2)$, evaluated at different points:
 
 \begin{equation} \label{eq:scalar_product}
 	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta_1) \tilde{h}(f;\theta_2)}{S_n(f)}
 \end{equation}
-where $\tilde{h}(\cdot; \theta)$ denotes the frequency-domain waveform evaluated at the point $\theta$ on the manifold.
+where $\tilde{h}(f; \theta)$ denotes the frequency-domain template, used to filter the data, evaluated at the point $\theta$ on the manifold.
 
-\stefano{Write this part again! The matter is not trivial at all and I wanted to keep things as short as possible. An easy way out would be to define $\scalar{h(\theta_1)}{h(\theta_2)}$ in terms of the plus polarization only (that's what we do) but this would result in a very non-standard definition as the PnP review pointed out. How to solve this?\\Also define HM here}
-For non-precessing circular BBHs, $h(f; \theta) = A(f; \theta) e^{i\phi(f; \theta)} = h_+ + i h_\times$ \textcolor{red}{Add reference for this and maybe say why it has this form}. This however is not valid in the more general case of a precessing and/or eccentric binary \textcolor{red}{also HOMs or other complex signals?}. In this case, the form of the likehood changes \cite{Harry:2016ijz, PhysRevD.97.023004, Harry:2016ijz}, depending on physical assumptions about the signal, yielding in principle a different form for the scalar product. Here, however, we neglect this fact and we consider only the physical content of the plus polarization \textcolor{red}{Can you say a bit more about this? Where are we headed with this approximation? What is the goal we are working toward? Why is it okay?}\footnote{
-We note incidentally that our assumption is equivalent to considering only signals coming at the interferometer with a zero right ascension and polarization angle.}:
-$h = A(f; \theta) e^{i\phi(f; \theta)} = h_+$ \textcolor{red}{does this need to show f, $\theta$ dependency too?}. We defer to future studies the discussion of a more general scalar product.
-
-%It is important to note that the parameters $\theta$ may not fully specify the BBH parameter space: in this case, the expression $h(\theta)$ assumes that the waveform is generated at some default constant paramters for the quantities not constrained by $\theta$. Eq.~\eqref{eq:scalar_product} is a measure of the detection statistics $\Lambda(\theta_1)$ that is measured when a signal $h(t; \theta_2)$ is present in the data.
-
-A waveform $h(\theta)$ can be normalized using the scalar product above:
+A template $h(\theta)$ can be normalized using the scalar product above:
 \begin{equation} \label{eq:normalization}
 	\hat{h}(\theta) = \frac{h(\theta)}{\scalar{h(\theta)}{h(\theta)}}.
 \end{equation}
 
+For non-precessing circular BBHs, the two polarization are related by the symmetry relation ${\tilde{h}_+ = i \, \tilde{h}_\times}$ and the template takes a simple expression in terms of the two polarizations: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$.
+For a more general case, the data needs to be filtered with a more complicated template, which takes into account the additional information brought by the cross polarization.
+In this work however, we neglect this fact and we will always approximate the template $\tilde{h}$ with just the plus polarization: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$.
+\stefano{Here I would be a bit uncorfortable defending the need for this approximation}
+
 %We can use the scalar product to define the sought for distance between signals.
-We define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized waveforms as:
+We define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized templates as:
 \begin{align}\label{eq:overlap}
 	\mathcal{O}(\theta_1,\theta_2, t) &= \left\lvert \int\limits_{0}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert \nonumber\\
 	&= \lvert \scalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}} \rvert
@@ -480,7 +478,8 @@ Finally in Sec.~\ref{sec:sbank_comparison}, we compare our code \texttt{mbank} w
 
 \textcolor{red}{you use the term injection earlier and some other ideas related to this method. I think it is good to keep its description here so maybe just be careful what ideas you use earlier in the paper.}
 \textcolor{blue}{Now the term injection is only used in section II.E, which we need to rethink completely.}
-In much of what follows we will need to measure the coverage of a bank. To do so, we follow a very standard procedure. We randomly extract a number of signals (usually called injections). Unless otherwise specified, we extract them from the PDF defined by the tiling\footnote{Note that in this case, we do not set the extrinsic parameters, as we only consider points lying on the manifold.} Eq.~\eqref{eq:tiling_pdf}.
+In much of what follows we will need to measure the coverage of a bank. To do so, we follow a very standard procedure. We randomly extract a number of signal templates (usually called injections). Unless otherwise specified, we extract them from the PDF defined by the tiling Eq.~\eqref{eq:tiling_pdf}: this amounts to setting all the intrisic parameters not constrained by $\theta$ to zero.
+Moreover, we never consider here the extrinsic parameters (such as sky-localization or polarization).
 %
 For each injection at a given point on the manifold $\theta$, we compute the fitting factor $FF$, defined as the best match the injection has with the templates of the bank:
 \begin{equation}\label{eq:FF}
@@ -544,23 +543,19 @@ The results are reported in Fig.~\ref{fig:metric_accuracy}.
 %	}
 %	\label{fig:metric_accuracy_distance}
 %\end{figure}
-\textcolor{red}{We need to talk about the conclusions drawn here. I am not sure I completely understand.}
 We first consider the first three manifolds covered with a non-HM approximant.
-By looking at the results in Fig.~\ref{fig:metric_accuracy}, we note that all the histograms are very broad, showing a large discrepancy between the match and its metric approximation: this seems to challenge the accuracy of the metric match.
+By looking at the results in Fig.~\ref{fig:metric_accuracy}, we note that all the histograms are very broad, showing a large discrepancy between the match and its metric approximation: the metric approximation does {\it not} provide a reliable estimation of the match. 
+However, as will be shown in Sec.~\ref{sec:placing_accuracy}, such inaccuracy does not affect the quality of the generated template banks. Indeed, the primary quantity of interest for template placement is not the metric distance but the volume element $\sqrt{\text{det}M}$ of the manifold, which controls the template density. Clearly, the metric does not approximate well a single value for the distance but it is able to approximate the number of templates that should lay in a given volume, still providing reliable template banks.
+In other words, the relative orientation of the eigenvectors of the metric (which determines the metric match) may be off but the magitude of the eigenvalues of the metric provides meaningful information, which is used by the template placing methods.
+\stefano{Is this part better now?}
 %
-However, as discussed above, the metric approximation  (Eq.~\eqref{eq:metric_definition}) to the match (Eq.~\eqref{eq:match}) comes from a Taylor expansion and it is guaranteed to be valid whenever the higher-order terms of the expansion are small (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$).
-To quantify this, one should compute the full Taylor expansion, which is expensive and out of the scope of the work.
-We can limit ourselves to note that higher order terms tend to become negligible as $||\Delta\theta||$ becomes smaller.
+%However, as discussed above, the metric approximation  (Eq.~\eqref{eq:metric_definition}) to the match (Eq.~\eqref{eq:match}) comes from a Taylor expansion and it is guaranteed to be valid whenever the higher-order terms of the expansion are small (e.g. at third order $H^{(3)}_{ijk}\Delta\theta_i\Delta\theta_j\Delta\theta_k$). To quantify this, one should compute the full Taylor expansion, which is expensive and out of the scope of the work. We can limit ourselves to note that higher order terms tend to become negligible as $||\Delta\theta||$ becomes smaller.
 %
-%To clarify this point, in Fig.~\ref{fig:metric_accuracy_distance} we plot, for each of the $15000$ pairs of points considered, the mis-match $1-\mathcal{M}$ against the coordinate distance $||\Delta\theta||$. We consider only pairs of points with constant metric distance $\mathcal{M}_{\text{metric}} = 0.97$. The trend is clear: for increasingly larger values of $||\Delta\theta||$, the higher order terms become more important, hence the accuracy of the metric approximation degrades.
 
-As will be shown in Sec.~\ref{sec:placing_accuracy}, the template placing does not seem to be affected by the large inacxcuracy of the metric match.
-
-The picture changes by inspecting the manifold \texttt{Mq\_chi\_iota}, which includes Higher Order Modes (HM).
-The metric approximation consistently {\it underestimates} the match, provides a lower limit.
-%This does not depend on the coordinate distance $||\Delta\theta||$ between points.
+The picture changes by inspecting the manifold \texttt{Mq\_chi\_iota}, which includes HMs.
+The metric approximation consistently {\it underestimates} the match, providing a lower limit.
 As we will see, this bias is consistent with the injection study for the HM bank generated in Sec.~\ref{sec:HM_bank}, which shows a large discrepancy between metric match and match.
-The reason for such different qualitative behaviour is unknown at the moment and requires more investigation. 
+The reason for such different qualitative behaviour, whenever HMs are included, is unknown and requires more investigation. 
 
 
 \begin{table*}[t!]
@@ -611,11 +606,13 @@ We consider three different manifolds:
 For the first manifold we use the approximant \texttt{IMRPhenomD}, while we use \texttt{IMRPhenomPv2} for the others.
 For each manifold, we generate a tiling with stopping criteria $\epsilon = 0.1$ and max-depth $= 10$.
 To compute the metric, we use the PSD for Handford measured on the first three months of the third observing run (O3), as publicly released by the LVK collaboration \cite{O3a_PSDs}. We consider a frequency window of $[10, 1024]Hz$.
-We then randomly draw $50000$ points from the tiling, at each point we compute the metric and its approximation given by the tiling (with and without normalizing flow) and we finally compute the ratio between volume elements. We present our results in Fig.~\ref{fig:tiling_validation}.
-\textcolor{red}{We should discuss these conclusions.}
-First of all, we note that all the histograms peak around $0$, as expected.
-Moreover, the normalizing flow interpolation provides more accurate results, proving shorter tails in the ratio of volume elements.
-Finally, all the histograms are not symmetric around their peak at $0$. This means that the tiling approximation to the metric is more likely to {\it overestimate} the value of the volume element. When it comes to template placing, this translates  into having {\it over-dense} regions.
+We then randomly draw $50000$ points from the tiling, at each point we compute the metric and its approximation given by the tiling (with and without normalizing flow) and we finally compute the ratio between volume elements.
+
+We present our results in Fig.~\ref{fig:tiling_validation}.
+First of all, we note that all the histograms peak around $0$, as expected: this means that for the majority of points in the manifold, the tiling is able to provide an accurate approximation (within a order of magnitude) to the volume element.
+Second, we see that all the histograms are not symmetric around their peak at $0$: the tiling approximation to the metric is more likely to {\it overestimate} the value of the volume element. When it comes to template placing, this translates into being more likely to have {\it over-dense} regions, which does not affect the recovery of the template bank but only its size.
+Finally, the normalizing flow interpolation provides slightly more accurate results, yielding shorter tails in the ratio of volume elements: it is then useful to leverage the normalizing flow interpolation to achieve better performance.
+
 
 \subsection{Placing methods accuracy} \label{sec:placing_accuracy}
 
@@ -729,7 +726,7 @@ Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_co
 	\includegraphics[scale = 0.7]{bank_scatter_Precessing}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_IMBH_HM}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_Nonspinning_eccentric}
-	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, {\it without} using normalizing flow interpolation. \textcolor{red}{Explain the axes' labels in the caption}}
+	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, {\it without} using normalizing flow interpolation. The masses of each template are parametrized with total mass $M$ and mass ratio $q>1$. In the precessing bank, the spin of the first BH is described by its magnitude $s_1$ and the in-plane angle $\theta_1$. In the HM bank, the templates are described by the effective spin parameter $\chi = s_\text{1z} = s_\text{2z}$ and by the inclination angle $\iota$. In the eccentric bank, besides the masses, we only consider the eccentricity $e$ of the system.}
 	\label{fig:bank_scatter}
 \end{figure*}
 
@@ -737,7 +734,7 @@ Looking at the injections fitting factor distributions in Fig.~\ref{fig:sbank_co
 	\includegraphics[scale = 0.7]{bank_scatter_Precessing_flow}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_IMBH_HM_flow}\hfill
 	\includegraphics[scale = 0.7]{bank_scatter_Nonspinning_eccentric_flow}
-	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, using normalizing flow interpolation.}
+	\caption{Corner plots showing the templates for the three banks described in Tab.~\ref{tab:casestudy_banks}, using normalizing flow interpolation. The templates are parametrized in the same way of Fig.~\ref{fig:bank_scatter}.}
 	\label{fig:bank_scatter_flow}
 \end{figure*}
 

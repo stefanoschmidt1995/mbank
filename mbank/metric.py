@@ -106,6 +106,7 @@ class cbc_metric(object):
 
 		#####Tackling the PSD
 		#FIXME: do you really need to store the PSD and the frequency grid all the way to zero? It seems like an useless waste of memory/computational time
+		#TODO: allow for the PSD to be None!
 		self.f_grid = PSD[0]
 		self.delta_f = self.f_grid[1]-self.f_grid[0]
 			#checking that grid is equally spaced
@@ -539,6 +540,13 @@ class cbc_metric(object):
 				#trimming the WF to the proper PSD (this amounts to enforcing the high frequency cutoff)
 			hp = hp.data.data[:self.PSD.shape[0]]
 			hc = hc.data.data[:self.PSD.shape[0]]
+
+			if not True:
+					#Gram-Schmidt process: https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process
+				hpc = np.vdot(hc,hp).real/np.vdot(hp,hp).real
+				h = 0.5*(hp+1j*(hc-hpc*hp))
+				print("Orthogonalizing templates | hpc = {}".format(hpc))
+				hp = h
 
 			if plus_cross: WF_list.append((hp, hc))
 			else: WF_list.append(hp)

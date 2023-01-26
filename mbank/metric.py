@@ -14,6 +14,7 @@ The explicit expression for the metric is a complicated expression of the gradie
 """
 
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import scipy.optimize
 import itertools
@@ -541,11 +542,13 @@ class cbc_metric(object):
 			hp = hp.data.data[:self.PSD.shape[0]]
 			hc = hc.data.data[:self.PSD.shape[0]]
 
-			if not True:
+			if int(os.getenv('ORTHO') if os.getenv('ORTHO') else 0):
+					#FIXME: Do we need to orthogonalize the templates?
+					#Hack to use the normalized template to filter the data: needed?
 					#Gram-Schmidt process: https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process
 				hpc = np.vdot(hc,hp).real/np.vdot(hp,hp).real
 				h = 0.5*(hp+1j*(hc-hpc*hp))
-				print("Orthogonalizing templates | hpc = {}".format(hpc))
+				#print("Orthogonalizing templates | hpc = {}".format(hpc))
 				hp = h
 
 			if plus_cross: WF_list.append((hp, hc))

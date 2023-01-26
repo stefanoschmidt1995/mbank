@@ -67,7 +67,7 @@ superscriptaddress,10pt]{revtex4-2}
 \end{abstract}
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
-	\title{Metric template placement for high dimensional regions of compact binary mergers}
+	\title{Metric template placement for high dimensional regions of compact binary mergers \stefano{We should remove any mention to "high dimensional"}}
 	\author{Stefano \surname{Schmidt}}
 		\email{s.schmidt@uu.nl}
         \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
@@ -134,7 +134,7 @@ Given some observed data $d(t)$, the detection statistic $\Lambda$ is then a mea
 	\Lambda(\theta) = \log\frac{p(s = n+h(\theta)|d)}{p(s = n|d)}
 \end{equation}
 where a signal model is parameterized by a vector of parameters $\theta$, which represents a GW signal $h(t;\theta)$.
-For any given observation time, a search aims to maximize the detection statistics with respect to $\theta$.
+For any given observation time, a search aims to maximize with respect to $\theta$ the detection statistics, also called signal-to-noise ratio (SNR).
 The exact expressions of $p(s = n+h(\theta)|d)$ and $p(s = n|d)$ are obtained under the assumption of stationary Gaussian noise and  depend on the quantities $\scalar{s}{h}$ and $\scalar{h}{h}$, where $\scalar{\cdot}{\cdot}$ is a noise-weighted scalar product described in more detail in Sec.~\ref{sec:metric}.
 
 A generic eccentric BBH signal detected by LIGO or Virgo will be characterized by 17 quantities \cite{Sathyaprakash_2009}, grouped into \textit{intrinsic} and \textit{extrinsic} parameters.
@@ -177,19 +177,15 @@ $\scalar{\cdot}{\cdot}$ between two templates $h(\theta_1)$ and $h(\theta_2)$, e
 \begin{equation} \label{eq:scalar_product}
 	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta_1) \tilde{h}(f;\theta_2)}{S_n(f)}
 \end{equation}
-where $\tilde{h}(f; \theta)$ denotes the frequency-domain template, used to filter the data, evaluated at the point $\theta$ on the manifold.
+where $\tilde{h}(f; \theta)$ denotes the frequency-domain template, evaluated at the point $\theta$ on the manifold.
 
 A template $h(\theta)$ can be normalized using the scalar product above:
 \begin{equation} \label{eq:normalization}
-	\hat{h}(\theta) = \frac{h(\theta)}{\scalar{h(\theta)}{h(\theta)}}.
+	\hat{h}(f; \theta) = \frac{h(f; \theta)}{\scalar{h(\theta)}{h(\theta)}}.
 \end{equation}
 
-For non-precessing circular BBHs, the two polarization are related by the symmetry relation ${\tilde{h}_+ = i \, \tilde{h}_\times}$ and the template takes a simple expression in terms of the two polarizations: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$.
-For a more general case, the data needs to be filtered with a more complicated template, which takes into account the additional information brought by the cross polarization.
-In this work however, we neglect this fact and we will always approximate the template $\tilde{h}$ with just the plus polarization: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$.
-\stefano{Here I would be a bit uncorfortable defending the need for this approximation}
+%For non-precessing circular BBHs, the two polarization are related by the symmetry relation ${\tilde{h}_+ = i \, \tilde{h}_\times}$ and the template takes a simple expression in terms of the two polarizations: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$. For a more general case, the data needs to be filtered with a more complicated template, which takes into account the additional information brought by the cross polarization. In this work however, we neglect this fact and we will always approximate the template $\tilde{h}$ with just the plus polarization: ${\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)}$.
 
-%We can use the scalar product to define the sought for distance between signals.
 We define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized templates as:
 \begin{align}\label{eq:overlap}
 	\mathcal{O}(\theta_1,\theta_2, t) &= \left\lvert \int\limits_{0}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert \nonumber\\
@@ -197,15 +193,25 @@ We define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized tem
 \end{align}
 where $\hat{h}(\theta)e^{i 2\pi ft}$ is the waveform $\hat{h}(\theta)$ translated by a constant time $t$ and $\lvert \cdot \rvert$ denotes the absolute value of a complex number.
 
-We can use the overlap compute the scalar product between $h(\theta_1)$ and $h(\theta_2)$, maximized over a constant time shift between the two. This is defined as the {\it match}:
+We can use the overlap to compute the scalar product between $h(\theta_1)$ and $h(\theta_2)$, maximized over a constant time shift between the two. This is defined as the {\it match}:
 \begin{equation}\label{eq:match}
 	\mathcal{M}&(\theta_1,\theta_2) = \max_t \mathcal{O}(\theta_1,\theta_2, t). \\
 	%&= \max_t \sqrt{ \rescalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}}^2 + \imscalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i2\pi ft}}^2 }  \nonumber 
 \end{equation}
 %
-which takes values in the range $[0,1]$. Trivially $\mathcal{M}(\theta,\theta) = 1$.
+which has values in $[0,1]$. Trivially $\mathcal{M}(\theta,\theta) = 1$.
 
-We are now ready to define a {\it distance} $d(\theta_1,\theta_2)$ \footnote{
+The expression for the overlap is motivated by the analytical form of the {\it maximised} likelihood Eq.~\eqref{eq:LL} in the case of non-precessing circular BBHs, for which ${\tilde{h}_+ \propto i \, \tilde{h}_\times}$ \cite[Eq.~(14)]{Harry:2016ijz}.
+In this case, the template $\tilde{h}(f; \theta)$, used to filter the data, is simply:
+\begin{equation} \label{eq:template}
+	\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)
+\end{equation}
+where the cross polarization is not considered, as it does not add any information with respect to $h_+$.
+In this special case, the overlap has a straightforward interpretation: it amounts to the fraction of SNR lost when filtering a signal $h(\theta_1)$ with a template $h(\theta_1)$.
+For a more general situation, the maximisation of the search likelihood yields a different expression \cite{Harry:2016ijz, PhysRevD.97.023004} and the overlap above loses its physical meaning. The general search likelihood, however, cannot be used to motivate another simple {\it symmetric} expression for the match. For this reason, in this work, we will always use the templates in Eq.~\eqref{eq:template}, together with Eq.~\eqref{eq:overlap}, even if a generic search will use different templates and a more complicated statistics.
+Thus, in the general precessing and/or eccentric case, our definition of match does not have the usual direct link with the output of a matched filter pipeline and should be intended purely as a convenient measure of similarity between templates.
+
+Having defined the match, we are ready to define a {\it distance} $d(\theta_1,\theta_2)$ \footnote{
 From a strict geometrical point of view, this is not a distance since it does not satisfy triangular inequality. However, this does not affect its effectiveness in measuring the ``dissimilarity" between two waveforms and it will be used regardless.}
 on the D-manifold $\mathcal{B}_D$:
 \begin{align}\label{eq:distance}
@@ -229,8 +235,7 @@ The disagreement between the two expressions around a point $\theta$ can be enco
 	\mathcal{L}_\theta(M^\prime_{ij}) = \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_\mathrm{target}\}} \hspace{-3.8em}
 		\dvol{\theta^\prime}{D}  \left[ d^2(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j \right]^2
 \end{equation}
-where the integration extends on a D-ball with radius $d_\mathrm{target}$ centered around $\theta$.
-The value $d_\mathrm{target}$ is a tunable parameter which controls the range of validity of the approximation.
+where the integration extends on a D-ball with radius $d_\mathrm{target}$ centered around $\theta$ and $d_\mathrm{target}$ is a tunable parameter, which controls the validity of the approximation.
 
 At any given point $\theta$, the components $M_{ij}(\theta)$ of the metric are selected by minimizing the above loss:
 \begin{equation} \label{eq:metric_optmization}
@@ -247,7 +252,7 @@ The final expression depends on the gradients $\partial_i h(\theta)$ of the wave
 	M_{ij}(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
 \end{equation}
 where $H(\theta)$ is the Hessian of the overlap Eq.~\eqref{eq:overlap}, a $D+1$ square matrix.
-Note that the metric is positive definite. The details of the computation of the Hessian in terms of the gradients of the waveform are presented in appendix \ref{app:metric}. The full expression is given in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
+Note that the metric is positive definite. The details of the computation of the Hessian in terms of the gradients of the waveform are presented in Appendix \ref{app:metric}. The full expression is given in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 
 For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, such gradients are available analytically.
 
@@ -446,10 +451,8 @@ The outcome of the {\it random} placement is set as a seed bank for the {\it sto
 
 \subsection{Limitations} \label{sec:limitations}
 
-\stefano{Is this section needed? The discussion here is rather vague and I don't have good quantitive observations to support the statements here. It was meant to give some intuition on what I've learnt exploring the metric behaviour but it is not rigourous or formal. Do we keep it and extend their scope? Or do we just remove it? Maybe we can only mention the things that could go wrong, without the discussion after the bullet point. Moreover, this text heavily relies on the concept of injection, not introduced yet.}
-
 In some regions of parameter space, template placings can perform poorly and the resulting template banks will not cover the space optimally.
-In general, this can happen in several situations:
+As a result of our practical experience with the method, we list below some situations where such failures can happen:
 
 \begin{enumerate}
 	\item {\it The quadratic approximation fails}. In this case, Eq.~\eqref{eq:metric_definition} ceases to be a good approximation for the match. Whenever this happens, there is no guarantee for the template placement to be optimal.
@@ -459,15 +462,11 @@ In general, this can happen in several situations:
 	%When this happens, the metric approximation loses accuracy as it predict a small value of the match also at large coordinate distance where the limit $\Delta\theta \lesssim 1$ (and the metric approximation) is not valid anymore.
 \end{enumerate}
 
-In general, it is hard to realize when the placement fails and there is not a single recipe for this.
-%
-As a rule of thumb, to detect the failure of the metric approximation (Case 1), the user should compare the match with the metric match and measure their discrepancies\footnote{To ease the study of metric accuracy in a given point in space, the script \texttt{mbank\_validate\_metric} is provided together with the \texttt{mbank} package.}.
-
-On the other hand, a large injection study \textcolor{red}{This would be a good place to go into the method of using injections to test banks} should be able to discover regions of the parameter space where the metric changes rapidly (Case 2). Such regions will be over/under-densely populated with templates, giving a small/large injection recovery factor.
-
-Whenever the metric is not numerically stable (Case 3) and there is a diverging metric determinant, an unphysically large number of templates are placed in a small region. This creates a large discontinuity in the template density, which should be easily detectable by plotting a corner plots of the templates \textcolor{red}{Maybe you want to put something more quantitative here. Looking at plots can sometimes be deceiving. Maybe something like a discontinuity tracker?}.
-
-If the metric is close to being degenerate (Case 4), the placing methods (especially {\it uniform} and {\it random}) will provide poor coverage \textcolor{red}{actually, I am not sure you've described coverage yet? Is that defined earlier in the paper?}\textcolor{blue}{Added a sentence about coverage at the beginning of the section.}. This can be easily recognized from a poor metric injection recovery. This happens especially at low masses or low mass ratios, where the discrepancy between the first and the last metric eigenvalue can be very large. Problems related to Case 4 should arise for low values of total mass $M<15 M_{\odot}$ \textcolor{red}{It might be good to put some evidence for this statement, or a plot demonstrating why you think this is true}.
+%In general, it is hard to realize when the placement fails and there is not a single recipe for this.
+%As a rule of thumb, to detect the failure of the metric approximation (Case 1), the user should compare the match with the metric match and measure their discrepancies\footnote{To ease the study of metric accuracy in a given point in space, the script \texttt{mbank\_validate\_metric} is provided together with the \texttt{mbank} package.}.
+%On the other hand, a large injection study \textcolor{red}{This would be a good place to go into the method of using injections to test banks} should be able to discover regions of the parameter space where the metric changes rapidly (Case 2). Such regions will be over/under-densely populated with templates, giving a small/large injection recovery factor.
+%Whenever the metric is not numerically stable (Case 3) and there is a diverging metric determinant, an unphysically large number of templates are placed in a small region. This creates a large discontinuity in the template density, which should be easily detectable by plotting a corner plots of the templates \textcolor{red}{Maybe you want to put something more quantitative here. Looking at plots can sometimes be deceiving. Maybe something like a discontinuity tracker?}.
+%If the metric is close to being degenerate (Case 4), the placing methods (especially {\it uniform} and {\it random}) will provide poor coverage \textcolor{red}{actually, I am not sure you've described coverage yet? Is that defined earlier in the paper?}\textcolor{blue}{Added a sentence about coverage at the beginning of the section.}. This can be easily recognized from a poor metric injection recovery. This happens especially at low masses or low mass ratios, where the discrepancy between the first and the last metric eigenvalue can be very large. Problems related to Case 4 should arise for low values of total mass $M<15 M_{\odot}$ \textcolor{red}{It might be good to put some evidence for this statement, or a plot demonstrating why you think this is true}.
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
@@ -476,18 +475,19 @@ In this section we study the performance of different parts of our method. In Se
 In Sec.~\ref{sec:placing_accuracy}, we compare the different placing methods and assess their performance on several tilings.
 Finally in Sec.~\ref{sec:sbank_comparison}, we compare our code \texttt{mbank} with the state-of-the-art code \texttt{sbank} \cite{Ajith:2012mn} on a selected set of banks.
 
-\textcolor{red}{you use the term injection earlier and some other ideas related to this method. I think it is good to keep its description here so maybe just be careful what ideas you use earlier in the paper.}
-\textcolor{blue}{Now the term injection is only used in section II.E, which we need to rethink completely.}
-In much of what follows we will need to measure the coverage of a bank. To do so, we follow a very standard procedure. We randomly extract a number of signal templates (usually called injections). Unless otherwise specified, we extract them from the PDF defined by the tiling Eq.~\eqref{eq:tiling_pdf}: this amounts to setting all the intrisic parameters not constrained by $\theta$ to zero.
-Moreover, we never consider here the extrinsic parameters (such as sky-localization or polarization).
-%
+In much of what follows we will need to measure the coverage of a bank. To do so, we randomly extract a number of signal templates (usually called injections).
 For each injection at a given point on the manifold $\theta$, we compute the fitting factor $FF$, defined as the best match the injection has with the templates of the bank:
 \begin{equation}\label{eq:FF}
 	FF(\theta) = \max_{\theta^\prime \in \text{bank}} \mathcal{M}(\theta, \theta^\prime)
 \end{equation}
 where the match $\mathcal{M}$ above can be either computed with Eq.~\eqref{eq:match} or with its metric approximation Eq.~\eqref{eq:metric_definition} (metric match), as defined by the tiling.
-Of course, the latter is faster to compute but less accurate. In what follows we will perform many injection studies, using both the match and the metric match.
+Of course, the latter is faster to compute but less accurate.
 
+Unless otherwise specified, we extract our injections from the PDF defined by the tiling Eq.~\eqref{eq:tiling_pdf}: this amounts to setting all the intrisic parameters not constrained by $\theta$ to zero.
+Moreover, we never consider here the extrinsic parameters (such as sky-localization or polarization).
+
+Note that our definition of fitting factor is non standard for precessing, eccentric or HM signals. In this case, we would need to use a different expression, if we wanted to measure, as usual, the fraction of SNR lost by filtering a signal with a given template. However, as the metric is built upon the match Eq.~\eqref{eq:match}, we will use the latter to compute the fitting factor, even if we lose its usual physical interpretation. Indeed, our primary concern is to measure our ability to cover a manifold with templates in a way consistent with the distance defined.
+\stefano{I added this part, after our discussion: is it any clearer now?}
 
 \subsection{Metric accuracy} \label{sec:metric_accuracy}
 
@@ -839,9 +839,10 @@ This will allow for optimal resource allocation to search for signature of prece
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% APPENDIX
 %\newpage
 \appendix
+
 \section{Details of the metric computation}\label{app:metric}
 
-In this appendix we report the details of the derivation of the Eq.~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap Eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
+In this Appendix we report the details of the derivation of the Eq.~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap Eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
 In what follows, we define $\rescalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2}$ to be respectively the real and imaginary part of $\scalar{h_1}{h_2}$.
 
 We begin by expanding the quantity $\mathcal{M}(\theta,\theta +\Delta\theta)$ for $\Delta\theta$ around $0$. Since the $\mathcal{M}(\theta,\theta +\Delta\theta)$ has a maximum for $\Delta\theta = 0$, the leading term is quadratic in $\Delta\theta$.

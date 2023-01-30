@@ -542,9 +542,11 @@ class cbc_metric(object):
 			hp = hp.data.data[:self.PSD.shape[0]]
 			hc = hc.data.data[:self.PSD.shape[0]]
 
-			if int(os.getenv('ORTHO') if os.getenv('ORTHO') else 0):
+			#if int(os.getenv('ORTHO') if os.getenv('ORTHO') else 0):
+			if False:
 					#FIXME: Do we need to orthogonalize the templates?
 					#Hack to use the normalized template to filter the data: needed?
+					#Definetely not! As the overlap between orthogonalized templates does not have physical significance
 					#Gram-Schmidt process: https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process
 				hpc = np.vdot(hc,hp).real/np.vdot(hp,hp).real
 				h = 0.5*(hp+1j*(hc-hpc*hp))

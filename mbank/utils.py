@@ -529,7 +529,7 @@ def compute_injections_match(inj_dict, templates, metric_obj, mchirp_window = 0.
 		out_dict: dict
 			The output dictionary with the updated matches
 	"""
-	
+	#TODO: make the injection function ready for the symphony match (use get_random_pattern_values)
 	old_format = metric_obj.variable_format
 	if metric_obj.variable_format != 'm1m2_fullspins_emeanano_iotaphi':
 		metric_obj.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
@@ -1361,8 +1361,8 @@ def place_random(minimum_match, tiling, N_livepoints, tolerance = 0.01, verbose 
 			log_pdf_centers = tiling.flow.log_prob(tiling.get_centers().astype(np.float32)).numpy()
 	proposal_list, proposal_ids_, log_pdf_theta_list = [], [], []
 	
-	bar_str = '{} templates placed'
-	if verbose: it = tqdm(dummy_iterator(), desc = bar_str.format(len(new_templates)), leave = True)
+	bar_str = '{} templates placed ({} % livepoints alive)'
+	if verbose: it = tqdm(dummy_iterator(), desc = bar_str.format(len(new_templates), 100), leave = True)
 	else: it = dummy_iterator()
 	
 	for _ in it: 
@@ -1406,7 +1406,8 @@ def place_random(minimum_match, tiling, N_livepoints, tolerance = 0.01, verbose 
 		livepoints = np.delete(livepoints, ids_kill, axis = 0)
 
 		new_templates.append(np.array(proposal, dtype = np.float64))
-		if len(new_templates) %100 ==0 and verbose: it.set_description(bar_str.format(len(new_templates)))
+		if len(new_templates) %100 ==0 and verbose:
+			it.set_description(bar_str.format(len(new_templates), round(100*len(livepoints)/N_livepoints, 1)))
 
 
 	new_templates = np.array(new_templates)
@@ -1860,6 +1861,59 @@ def split_boundaries(boundaries, grid_list, use_plawspace = True):
 	lower_boxes, upper_boxes = get_boundary_box(grid_list)
 	boundaries_list = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
 	return boundaries_list
+
+##########################################################################################
+
+def get_random_pattern_values(N = None, seed = None):
+	"""
+	Returns a random value for the antenna pattern functions :math:`F_+, F_\\times`. They are defined in terms of the sky location :math:`\\alpha, \delta` and the polarization angle :math:`\Psi`:
+	
+	.. math::
+	
+		F_+ = - \\frac{1}{2}(1 + \cos(\\theta^2)) \cos(2\\alpha) cos(2\Psi) - \cos(\\theta)\sin(2\\alpha)\sin(2\Psi)
+		
+		F_\\times = \\frac{1}{2}*(1 + \cos(\\theta^2)) \cos(2\\alpha) sin(2\Psi) - \cos(\\theta)\sin(2\\alpha)\cos(2\Psi) 
+	
+	where :math:`\\theta = \\frac{\pi}{2} - \\delta`.
+	
+	The values for the sky location are randomly drawn uniformly across the sky and the polarization angle is uniformly extracted in the range :math:`[-\pi,\pi]`.
+	
+	Parameters
+	----------
+		N: int
+			Number of pattern values to be extracted
+			If `None`, one value will be extraced and the returned arrays will be one dimensional.
+		
+		seed: int
+			A random seed for the sky location and polarization angles
+
+	Returns
+	-------
+		F_p: :class:`~numpy:numpy.ndarray`
+			shape: (N,)/() -
+			Values for the plus antenna pattern
+		
+		F_c: :class:`~numpy:numpy.ndarray`
+			shape: (N,)/() -
+			Values for the cross antenna pattern
+	"""
+	
+	squeeze = (N is None)
+	if squeeze: N = 1
+	
+	if isinstance(seed, int): np.random.seed(seed)
+	psi = np.random.uniform(0, 2*np.pi, N)
+	delta = np.arccos(np.random.uniform(-1,1, N))
+	alpha = np.random.uniform(-np.pi, np.pi, N)
+
+	theta = np.pi/2 - delta
+	
+	F_p = - 0.5*(1 + np.cos(theta)**2)* np.cos(2*alpha)* np.cos(2*psi) - np.cos(theta)* np.sin(2*alpha)* np.sin(2*psi) 
+	F_c = 0.5*(1 + np.cos(theta)**2)* np.cos(2*alpha)* np.sin(2*psi) - np.cos(theta)* np.sin(2*alpha)* np.cos(2*psi) 
+	
+	if squeeze: F_p, F_c = np.squeeze(F_p), np.squeeze(F_c)
+	
+	return F_p, F_c
 
 ##########################################################################################
 #TODO: use this function every time you read an xml!!!

@@ -551,7 +551,7 @@ def compute_injections_match(inj_dict, templates, metric_obj, mchirp_window = 0.
 		######
 		# Creating the mapping table
 	
-	desc = 'Computing the injection-template mapping table'.format('symphony' if symphony_match else 'std')
+	desc = 'Generating an injection-template mapping table'.format('symphony' if symphony_match else 'std')
 	
 	inj_template_mapping = lil_array((injs.shape[0], templates.shape[0]), dtype = int)
 	
@@ -565,6 +565,10 @@ def compute_injections_match(inj_dict, templates, metric_obj, mchirp_window = 0.
 		######
 		# Computing the match between injections and templates
 	injs_WFs = metric_obj.get_WF(injs, plus_cross = symphony_match)
+		#Getting the polarization and extracting antenna patterns
+	if symphony_match:
+		hp_injs, hc_injs = injs_WFs
+		F_p, F_c = get_random_pattern_values(len(injs))
 
 	if worker_id is None: desc = 'Computing the {} match: loop on the templates'.format('symphony' if symphony_match else 'std')
 	else: desc = 'Worker {} - Computing the {} match: loop on the templates'.format(worker_id, 'symphony' if symphony_match else 'std')
@@ -573,7 +577,12 @@ def compute_injections_match(inj_dict, templates, metric_obj, mchirp_window = 0.
 		ids_injs, _ = inj_template_mapping[:, [i]].nonzero()
 		if len(ids_injs)>0:
 			template_WF = metric_obj.get_WF(templates[i], plus_cross = symphony_match)
-			current_match_injs = metric_obj.WF_match(injs_WFs[ids_injs], template_WF)
+			
+			if symphony_match:
+				current_match_injs = metric_obj.WF_symphony_match(template_WF, (hp_injs[ids_injs], hc_injs[ids_injs]),
+						overlap = False, F_p = F_p[ids_injs], F_c = F_c[ids_injs])
+			else:
+				current_match_injs = metric_obj.WF_match(injs_WFs[ids_injs], template_WF)
 			#print(current_match_injs)
 			
 			matches_injs_old = inj_dict['match'][ids_injs]

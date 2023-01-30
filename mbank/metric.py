@@ -1119,7 +1119,7 @@ class cbc_metric(object):
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
 		
 			#whithening and normalizing
-		s_WN = F_p*h2[0] + F_c*h2[1] #depends on the antenna pattern
+		s_WN = (F_p*h2[0].T + F_c*h2[1].T).T #depends on the antenna pattern
 		h1p_WN = (h1[0]/np.sqrt(self.PSD)) #whithened WF
 		h1c_WN = (h1[1]/np.sqrt(self.PSD)) #whithened WF
 		s_WN = (s_WN/np.sqrt(self.PSD)) #whithened WF

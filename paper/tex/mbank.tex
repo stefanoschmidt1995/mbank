@@ -23,8 +23,6 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage{layouts}
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage[utf8]{inputenc}
-\usepackage{algorithm}
-\usepackage{algpseudocode}
 \usepackage{rotating}
 \usepackage[bookmarks]{hyperref}
 %\usepackage{ragged2e}
@@ -60,9 +58,9 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders-of-magnitude faster than with existing techniques.
+	We introduce a novel method to generate a bank of gravitational-waveform templates of binary Black Hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data. Unlike the standard approach, our method relies on a numerical metric approximation of the distance between templates, which makes the template placement orders-of-magnitude faster than with existing techniques.
 	Our method applies to a variety of different manifolds of signals and is particularly suitable for covering high-dimensional spaces, such as those associated with precessing and/or eccentric waveforms.
-	We compare our method with the state-of-the-art stochastic placement code and find that our code slightly overcovers the space, while achieving similar efficiency in recovering signals. To demonstrate the capabilities of our code, we generate a bank for precessing black holes, a bank for intermediate-mass black holes with higher-order modes, and an eccentric bank, and show that they cover the space in a satisfactory way.
+	We compare our method with the state-of-the-art stochastic placement code and find that our code slightly overcovers the space, while achieving similar efficiency in recovering signals. To demonstrate the capabilities of our code, we generate a bank for precessing Black Holes, a bank for intermediate-mass Black Holes with higher-order modes, and an eccentric bank, and show that they cover the space in a satisfactory way.
 	Our publicly released code \texttt{mbank} will enable searches of high-dimensional regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
 \end{abstract}
 	
@@ -71,7 +69,8 @@ superscriptaddress,10pt]{revtex4-2}
  %\title{Fast metric-based template placement for gravitational-waves from novel compact binary mergers}
  %\title{Mbank: fast metric-based template banks for gravitational wave searches for exotic compact binaries}
  %\title{Template banks for exotic compact binaries}
- \title{Template banks for novel compact binaries}
+ %\title{Template banks for novel compact binaries}
+ \title{Gravitational-wave template banks for novel compact binaries}
 	\author{Stefano \surname{Schmidt}}
 		\email{s.schmidt@uu.nl}
         \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
@@ -96,7 +95,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz}, eccentricity \cite{LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M}.
+As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary Black Hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass Black Holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz}, eccentricity \cite{LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M}.
 
 GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Sathyaprakash:1991mt, Dhurandhar:1992mw, Owen:1998dk, Allen:2005fk, Babak:2006ty, Cokelaer:2007mv}. Accurate template banks that cover the parameter space of interest can be computationally expensive to create, but are crucial for ensuring sensitivity of state-of-the-art searches.
 
@@ -328,23 +327,6 @@ Moreover, a tiling provides an approximation $p^{\text{tiling}}$ to the uniform 
 \end{equation}
 It is straightforward to sample from $p^{\text{tiling}}$ using Gibb's sampling: this amouts to randomly choosing a tile with a probability proportional to its volume and drawing a point within the chosen tile.
 
-	%the [H] option is mandatory for revtex4-2: otherwise it throws errors
-%\begin{algorithm}[H]
-%	\centering
-%	\caption{Tile splitting function}\label{alg:tiling}
-%	\flushleft
-%	\hspace*{\algorithmicindent} \textbf{Input}: A tile $\mathcal{T} = \left(R, M\right)$ \\
-%	\hspace*{\algorithmicindent} \textbf{Output}: Three new tiles
-%	\begin{algorithmic}
-		%\Procedure{SplitTile}{$\mathcal{T}$}
-%		\State $d \gets $ smaller (metric) dimension of $R$
-%		\State $R_\text{left}, R_\text{center}, R_\text{right} \gets $ 3 equal volume rectangles generated splitting $R$ along dimension $d$ 
-%		\State $M_\text{left}, M_\text{center}, M_\text{right} \gets $ metric evaluated at the center of each rectangle
-%		\State\Return{$\mathcal{T}_\text{left}$, $\mathcal{T}_\text{center}$, $\mathcal{T}_\text{right}$}
-		%\EndProcedure
-%	\end{algorithmic}
-%\end{algorithm}
-
 \subsection{Interpolation and sampling on the tiling} \label{sec:normalizing_flow}
 %\textcolor{red}{This section seems a bit out of place. Maybe you could start with a few intro sentences on what this "alternative" method is going to do. And perhaps you could change the Sect. name to be "Alternative tiling method" or something like that?}\textcolor{blue}{I tried to add some context. I'm not sure I like the new title. Any better suggestion?}
 
@@ -425,11 +407,10 @@ Nevertheless, due to its speed, it is useful to provide a rough estimation of th
 
 \subsubsection{Random}\label{par:random}
 While the method originally appeared in \cite{Messenger:2008ta}, the addition of the livepoints as a method to provide a Monte Carlo estimation of $\eta$ first appeared in \cite{Coogan:2022qxs}. Unlike \cite{Coogan:2022qxs} which does importance sampling, we use the tiling to sample from the uniform distribution over the parameter space.
+This methods is similar to the {\it Uniform} method, but provides a better stopping criterium, to estimate the total number of templates.
 \\
-This methods is similar to the {\it Uniform} method, but provides a better mechanism to estimate the total number of points inside the bank.
 The relevant space is covered with $N_\mathrm{livepoints}$ points, called {\it livepoints}.
-\\
-At each iteration, one template is drawn from $p^{\text{tiling}}(\theta)$ using Eq.~\eqref{eq:tiling_pdf} (or from $p^{\text{flow}}_W(\theta)$ using Eq.~\eqref{eq:p_flow}) and added to the bank. All the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ from the template (i.e. within the template volume) will be removed from the set of livepoints (killed). The iteration goes on until only a small fraction (usually called $\eta$) of $1\%$ of the original livepoints is ``alive". A good rule of thumb to set $N_\mathrm{livepoints} = 10000$ \cite{Coogan:2022qxs}.
+At each iteration, one template is drawn from $p^{\text{tiling}}(\theta)$ using Eq.~\eqref{eq:tiling_pdf} (or from $p^{\text{flow}}_W(\theta)$ with Eq.~\eqref{eq:p_flow}) and added to the bank. All the livepoints falling at a metric distance $d_M<\sqrt{1-MM}$ from the template (i.e. within the template volume) are removed from the set of livepoints (killed). The iteration goes on until only a small fraction (usually called $\eta$) of $1\%$ of the original livepoints is ``alive". A good rule of thumb is to set $N_\mathrm{livepoints} = 10000$ \cite{Coogan:2022qxs}.
 \\
 Although the method does not check for distances between templates and can overcover, it is very fast and provides a reliable bank at a cheap computational and memory cost.
 Moreover, as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, for a large number of dimensions, the banks generated by the random method provide close to optimal performance.
@@ -813,20 +794,19 @@ As in all other cases, the normalizing flow interpolation effectively removes th
 
 \section{Final remarks and future prospects} \label{sec:conclusion}
 
-We present a novel method to generate template banks to cover a high dimensional manifold of (possibly) precessing/HM/eccentric BBH signals.
-We rely on the metric approximation to the match in Eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling, we are able to implement several strategies to place templates to cover the space with a given minimum match target.
+We present a novel method to generate template banks covering a high dimensional manifold of (possibly) precessing/HM/eccentric BBH signals.
+We rely on the metric approximation to the match in Eq.~\eqref{eq:metric_definition} to compute distances between points and we set up an algorithm to create a tiling of the manifold. Given a tiling, we are able to implement several strategies to place templates, covering the space with a minimum match target.
 A normalizing flow model can be optionally used to interpolate the metric, providing more efficient coverage.
 The code implementing our method is publicly available as a package \texttt{mbank} and it comes with a number of tools to make the bank generation and validation easy.
 
 To validate our method, we compare the output of our code to the the state-of-the-art stochastic placement code \texttt{sbank}. We find that mbank is able to faithfully cover the space, although with a larger number of templates when compared with \texttt{sbank}.
 To demonstrate the capabilities of our code, we generated three banks covering some interesting and mostly unexplored regions of the parameter space and we found that \texttt{mbank} is able to provide faithful coverage.
-To do so, we used an expression for the match which is only valid for non-precessing, circular BBHs; future work will validate such banks with a more suitable match definition \cite{Harry:2017weg}.
-The banks generated are ready to be employed in real GW searches.
-
+To do so, we used an expression for the match which is only valid for non-precessing, circular BBHs; future work will validate such banks with a more suitable match definition \cite{Harry:2017weg}. The banks generated are ready to be employed in real GW searches.
+Future work should also demonstrate the validity of \texttt{mbank} in the case of Neutron Star binaries and/or Black Hole Neutron Star binaries.
 
 \texttt{mbank} is orders-of-magnitude faster than the non-metric state-of-the-art bank generation codes.
 %\textcolor{red}{I just realized that you don't put any timing information in the paper, which is kind of one of the key parts. Is there data in the paper that states how fast it can run and on which processor?}.
-This makes our code particularly suitable for a large dimensional parameter space and makes feasible the generation of banks for which the template placing was hitherto unfeasible, due to computational limitations.
+This makes our code particularly suitable for a large dimensional parameter space and allows the generation of banks which were hitherto unfeasible, due to computational limitations.
 This was possible thanks to three innovative features:
 \begin{itemize}
 	\item The metric is used consistently everywhere throughout the package
@@ -839,9 +819,9 @@ Our work can be improved and extended in several directions:
 	\item {\it Improving the metric computation}. As discussed in Sec.~\ref{sec:metric_accuracy}, the metric accuracy may not be optimal, especially for large coordinate distance $||\Delta\theta||$. While this has not been shown to negatively affect the template placing, it would still be desirable to have a better estimation of the match. Future developments can work in this direction by solving the problem in Eq.~\eqref{eq:metric_optmization} or even departing from the bilinear approximation\footnote{
 Although this latter strategy may sound tempting, it would cease to provide a meaningful estimation of volume, which may be problematic for template placement.} of Eq.~\eqref{eq:metric_definition}.
 	
-	\item {\it Investigate the performance for HM}. We observed in Sec.~\ref{sec:HM_bank} that the metric placement overcovers the space, due to the fact that the metric underestimates the match. This is puzzling and requires more investigation.
+	\item {\it Investigate the performance in the HM/eccentric case}. We observed in Sec.~\ref{sec:HM_bank} and Sec.~\ref{sec:eccentric_bank} that the metric placement overcovers the space, due to the fact that the metric underestimates the match. This is puzzling and requires more investigation.
 	
-	\item {\it Post-process the bank}. Regardless of the placing method, the templates in a bank may not be placed optimally, creating over(under)dense regions. This is especially true for the {\it random} placing method. It may be good to add a post-processing step to move or remove some templates. The overall result can be a smaller bank with better coverage. \cite{Indik:2017vqq}.
+	\item {\it Post-process the bank}. Regardless of the placing method, the templates in a bank may not be placed optimally, creating over(under)-dense regions. This is especially true for the {\it random} placing method. It may be good to add a post-processing step to move or remove some templates. The overall result can be a smaller bank with better coverage. \cite{Indik:2017vqq}.
 \end{itemize}
 
 As a final remark, we emphasize that our work enables the GW community to run searches on novel regions of the BBH signal parameter space. By cutting the bank generation and validation time by orders of magnitude, the computational cost of searching new regions of the parameter space will be dominated by the actual cost of the analysis rather than the cost of prior steps.

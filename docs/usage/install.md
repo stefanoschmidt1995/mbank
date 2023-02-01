@@ -8,7 +8,7 @@ Of course, you have several options to install the package: the recommended way 
 You can get the latest distributed version from the [PyPI](https://pypi.org/project/gw-mbank/) archives.
 To do this, you just need to type:
 
-```
+```Bash
 pip install gw-mbank
 ```
 

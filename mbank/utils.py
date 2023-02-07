@@ -1073,7 +1073,7 @@ def get_cube_corners(boundaries):
 
 def plawspace(start, stop, exp, N_points):
 	"""
-	Generates a grid which is `power law distributed`. It has almost the same behaviour as :func:`numpy.logspace`.
+	Generates a grid which is `power law distributed`. It has almost the same behaviour as :func:`~numpy:numpy.logspace`.
 	Helpful for a nice grid spacing in the mass sector.
 	
 	Parameters

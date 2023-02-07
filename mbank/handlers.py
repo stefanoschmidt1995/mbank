@@ -178,6 +178,8 @@ class variable_handler(object):
 				'mass1':(0, np.inf), 'mass2':(0, np.inf),
 				'chi': (-self.MAX_SPIN, self.MAX_SPIN), 
 				's1z': (-self.MAX_SPIN, self.MAX_SPIN), 's2z': (-self.MAX_SPIN, self.MAX_SPIN),
+				#FIXME: you should think VERY VERY carefully on the way you treat the spin variables.
+				#At the moment, mbank cannot cover the negative s1x region in for spin format s1xz
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
 				'theta1':(0., np.pi), 'phi1':(-np.pi, np.pi),
 				'theta2':(0., np.pi), 'phi1':(-np.pi, np.pi),

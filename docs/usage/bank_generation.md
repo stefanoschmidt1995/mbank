@@ -4,7 +4,7 @@ How to generate a bank
 To generate a bank, you need to specify some of the following options to the command `mbank_run`:
 
 - `run-name`: a label for the run. All the output files will be named accordingly.
-- `variable-format`: the coordinates to include in the bank. See [here](../package_reference/handlers.rst) the available formats.
+- `variable-format`: the coordinates to include in the bank. See [here](variable_handler) the available formats.
 - `mm`: minimum match requirement for the bank. It sets the average distance between templates
 - `run-dir`: run directory. All the output will be stored here. Unless stated otherwise, all the inputs is understood to be located in this folder.
 - `psd`: a psd file. If the option `asd` is set, the is understood to keep an ASD. The `ifo` option controls the interferometer to read the PSD of

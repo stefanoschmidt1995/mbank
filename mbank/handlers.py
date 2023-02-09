@@ -3,9 +3,10 @@ mbank.handlers
 ==============
 
 Two two important handlers class for ``mbank``:
-	
+
+- :class:`tile`: represents a tile (i.e. a pair `(Rectangle, Metric)`)
+- :class:`tiling_handler`: provides an interface to the tiling (i.e. a set of tiles) of the space.
 - :class:`variable_handler`: takes care of the BBH parametrization
-- :class:`tiling_handler`: takes care of the tiling of the space
 	
 The handlers are used extensively throughout the package
 """

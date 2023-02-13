@@ -1,0 +1,173 @@
+#!/usr/bin/env python
+from ezdag import Argument, DAG, Option, Layer, Node
+from mbank.utils import read_xml, save_injs, updates_args_from_ini
+from mbank import variable_handler
+from ligo.lw import lsctables
+
+import argparse
+import configparser
+import os
+import shutil
+import subprocess
+import numpy as np
+import glob
+
+####################################################################
+def clean_dag():
+	cmd = 'rm -fr files injection_jobs results mbank_injections_dag* *sub logs'
+	process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
+	if process.returncode != 0:
+		print("Failed to clean the DAG with the following error message: ")
+		print(process.stderr.decode("utf-8"))
+	return
+
+
+####################################################################
+
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--n-jobs", type = int, default = None, required = False,
+	help="Number of parallel jobs running 'mbank_injections'. Each job will work on a small part of the whole injection set.")
+parser.add_argument(
+	"--inj-file", type = str, default = None,
+	help="An xml injection file to load the injections from. The injection will be split and spread over multiple istances of 'mbank_injections'")
+parser.add_argument(
+	"--clean", action='store_true', default = False,
+	help="If the option is set, the dag and its generated files will be removed and the program will quit.")
+
+
+args, filenames = parser.parse_known_args()
+if args.clean:
+	clean_dag()
+	quit()
+assert len(filenames) == 1, "Exactly one file needs to be specified"
+
+	#updating from the ini file(s), if it's the case
+for f in filenames:
+	args = updates_args_from_ini(f, args, parser)
+
+assert args.n_jobs, "Argument --n-jobs must be specified!"
+assert args.inj_file, "Argument --inj-file must be specified!"
+
+	####
+	# Making some folders
+working_dir = os.getcwd()
+#jobs_dir = '{}/injection_jobs/'.format(working_dir)
+jobs_dir = 'injection_jobs/'.format(working_dir)
+if not os.path.isdir(jobs_dir): os.mkdir(jobs_dir)
+file_dir = 'files/'
+if not os.path.isdir(file_dir): os.mkdir(file_dir)
+results_dir = 'results/'
+if not os.path.isdir(results_dir): os.mkdir(results_dir)
+if not os.path.isdir('logs'): os.mkdir('logs')
+
+	####
+	#Some configs must be read from the ini file
+config = configparser.ConfigParser()
+config.read(filenames)
+ini_info = dict(config[config.sections()[0]])
+approximant = ini_info.pop('approximant', 'IMRPhenomPv2')
+f_min = float(ini_info.pop('f-min', 10.))
+f_max = float(ini_info.pop('f-min', 1024.))
+variable_format = ini_info.pop('variable-format', None)
+input_files = {k:ini_info.pop(k, None) for k in ['psd', 'flow-file', 'tiling-file', 'bank-file']}
+
+	#Reading run dir: some useful files may be located there...
+run_dir = ini_info.pop('run-dir', '.')
+if not run_dir.endswith('/'): run_dir += '/'
+
+if isinstance(args.inj_file, str):
+	if args.inj_file.find('/') <0: args.inj_file = run_dir+args.inj_file
+
+	###
+	# Storing all the interesting files in a single directory: each job will load them from here
+for k, f in input_files.items():
+	if f is None: continue
+	if f.find('/') <0: f = run_dir + f
+		#Shall I put an absolute path here?
+	new_name = file_dir+os.path.basename(f)
+	shutil.copy(f, new_name)
+	input_files[k] = new_name
+
+	###
+	# Preparing the job folders, each with a split injection file
+	
+vh = variable_handler()
+injs, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable)
+
+chirp_masses = vh.get_mchirp(injs[:,:2], 'Mq_nonspinning')
+ids_sort = np.argsort(chirp_masses)
+injs_per_job = int(injs.shape[0]/args.n_jobs)
+job_dirs, inj_files, pkl_files = [], [], []
+
+	#Pay attention to the files! Maybe you shouldn't transfer files
+	#Do you always work with absolute paths?
+
+for i in range(args.n_jobs):
+	current_job_dir = jobs_dir+'job_{}/'.format(i)
+	current_inj_file = current_job_dir+'injections_{}.xml'.format(i)
+	pkl_file = current_job_dir+'stat_dict_{}.pkl'.format(i)
+	#pkl_file = 'stat_dict_{}.pkl'.format(i)
+	
+	if not os.path.isdir(current_job_dir): os.mkdir(current_job_dir)
+	
+	ids_inj_to_use = ids_sort[i*injs_per_job:(i+1)*injs_per_job] if i<args.n_jobs-1 else ids_sort[i*injs_per_job:]
+
+	save_injs(current_inj_file, injs[ids_inj_to_use], 0, 10*len(ids_inj_to_use), time_step = 10,
+			approx = approximant,
+			sky_locs = sky_locs[ids_inj_to_use], luminosity_distance = 100,
+			f_min = f_min, f_max = f_max)
+
+	job_dirs.append(current_job_dir)
+	inj_files.append(current_inj_file)
+	pkl_files.append(pkl_file)
+
+	###
+	# Create the DAG
+	# A DAG consists in n_jobs runs of mbank_injections
+	
+dag = DAG()
+
+	# define job requirements
+requirements = {"request_cpus": 2, "request_memory": 2000, "getenv": True}
+
+	#Creating an match computation layer
+#FIXME: what shall I put under universe?
+injections_layer = Layer("mbank_injections", name = "match_computation",
+		universe = 'vanilla', retries = 2, transfer_files = False, requirements=requirements)
+for i in range(args.n_jobs):
+	args = [Option('run-dir', job_dirs[i]), Option('inj-file', inj_files[i])]
+	#args = [Option('run-dir', '.'), Option('inj-file', inj_files[i])]
+	
+		#Input files must be among the inputs, since they need to be transfered
+	inputs = [Argument("input", filenames[0])]
+	for k, f in input_files.items():
+		if f is None: continue
+		inputs.append(Option(k, f))
+
+	injections_layer += Node(
+		arguments = args,
+		inputs = inputs, # config.ini
+		outputs = Option("stat-dict", pkl_files[i])
+	)
+
+	# add layer to DAG
+dag.attach(injections_layer)
+
+		#Creating a merge layer
+merge_layer = Layer("mbank_merge", name = "merge_products",
+		universe = 'vanilla', retries = 2, transfer_files = False, requirements=requirements)
+args = [Option('injection-stat'), Option('plot'), Option('variable-format', variable_format)]
+
+merge_layer += Node(
+	arguments = args,
+	inputs = Argument("input", pkl_files),
+	outputs = Option('out-name', results_dir+'stat_dict.pkl')
+)
+
+dag.attach(merge_layer)
+
+# write DAG to disk
+dag.write_dag("mbank_injections_dag.dag")
+dag.write_script("mbank_injections_dag.sh")
+

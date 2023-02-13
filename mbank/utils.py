@@ -670,6 +670,57 @@ def get_ellipse(metric, center, dist, **kwargs):
 
 	return ellipse	
 
+def plot_match_histogram(matches_metric, matches = None, mm = None, bank_name = None, save_folder = None):
+	"""
+	Makes a simple histogram of the injection recovery.
+	
+	Parameters
+	----------
+		matches_metric: :class:`~numpy:numpy.ndarray`
+			shape: (N,) -
+			Values for the matches computed by the metric.
+		
+		matches: :class:`~numpy:numpy.ndarray`
+			shape: (N,) -
+			Values for the true matches, if any.
+		
+		mm: float
+			Minimum match requirement used to create the bank. Used for visualization purposes.
+		
+		bank_name: str
+			Name of the bank tested. Used to set a title.
+		
+		save_folder: str
+			Folder where to save the plots
+			If `None`, no plots will be saved
+	"""
+	fs = 15
+	plt.figure(figsize = (15,15))
+	if bank_name: plt.title("Injection recovery for bank {}".format(bank_name), fontsize = fs+10)
+	N_bins = int(np.sqrt(len(matches_metric)))
+	plt.gca().tick_params(axis='x', labelsize=fs)
+	plt.gca().tick_params(axis='y', labelsize=fs)
+	#logbins = np.logspace(np.log10(np.percentile(matches_metric, .5)),np.log10(max(matches_metric)), N_bins)
+	nbins = int(np.sqrt(len(matches_metric)))
+	plt.hist(matches_metric, bins = nbins, density = True, cumulative = True,
+				color = 'blue',	label = 'metric match',
+				histtype = 'step')
+	if matches is not None:
+		#logbins = np.logspace(np.log10(np.percentile(matches, .5)),np.log10(max(matches)), N_bins)
+		plt.hist(matches, bins = nbins, histtype='step', cumulative = True,
+				density = True, color = 'orange', label = 'match')
+	
+	if isinstance(mm, (float, int)): plt.axvline(x = mm, c = 'r') #DEBUG
+	plt.legend(fontsize = fs+3)
+	plt.yscale('log')
+	plt.xlabel(r"$\mathcal{M}$")
+	plt.ylabel("Cumulative fraction")
+
+	if save_folder:
+		if not save_folder.endswith('/'): save_folder = save_folder+'/'
+		plt.savefig(save_folder+'FF_hist.png', transparent = False)
+
+	return 
 
 def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False):
 	"""

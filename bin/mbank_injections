@@ -33,7 +33,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc
 from mbank.utils import updates_args_from_ini, read_xml
 
 from itertools import combinations, permutations
@@ -49,7 +49,10 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
 	"--n-injs", type = int, default = None,
-	help="Number of injections. If inj-file is specified, they will be read from it; otherwise they will be randomly drawn from the tiling. If None, all the injections will be read from inj-file and it will throw an error if such file is not provided.")
+	help="Number of injections. If inj-file is specified, they will be read from it; otherwise they will be randomly drawn from the tiling and saved to file. If None, all the injections will be read from inj-file and it will throw an error if such file is not provided.")
+parser.add_argument(
+	"--sky-loc", type = str, default = '0,pi/2,pi/2',
+	help="Sky localization and polarization angles for the signal injections (if they are randomly generated from the tiling). They must be in the format 'latitude,longitude,latitude'. Default is '0,pi/2,pi/2', so that Fp, Fc = (1,0). If 'uniform' is given, they will be uniformly drawn from the sky.")	
 parser.add_argument(
 	"--inj-file", type = str, default = None,
 	help="An xml injection file to load the injections from. If not provided, the injections will be performed at random in each tile (injs-per-tile). If no path to the file is provided, it is understood it is located in run-dir.")
@@ -78,9 +81,6 @@ parser.add_argument(
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
 	help="Whether to use ray package to parallelize the match computation")
-parser.add_argument(
-	"--cache", action='store_true', default = False,
-	help="Whether to cache the computation of the (full) match. It may fill the memory.")
 
 ###########
 parser.add_argument(
@@ -101,6 +101,9 @@ parser.add_argument(
 parser.add_argument(
 	"--show", action='store_true',
 	help="Whether to show the plots. (It authomatically sets the --plot option)")
+parser.add_argument(
+	"--verbose", action='store_true',
+	help="Whether to print the output.")
 parser.add_argument(
 	"--run-dir", default = None,
 	help="Output directory in which the output will be saved. If None, it will be the same folder of --bank-file. Unless explicitly stated, every input file will be understood to be in this run-dir")
@@ -170,7 +173,7 @@ if args.full_match or args.full_symphony_match: #in this case we need to load th
 	#	Loading the bank and instatianting a variable handler
 	######
 bank = cbc_bank(args.variable_format, args.bank_file)
-print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
+if args.verbose: print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
 
 	#Loading the flow, if it's the case
 t_obj = tiling_handler(args.tiling_file)
@@ -190,17 +193,42 @@ if args.inj_file is None:
 	
 	injections_full = np.array(var_handler.get_BBH_components(projected_injs, args.variable_format)).T
 	del projected_injs #storing projected_injs is a waste of memory that can scale super badly
+	
+		#dealing with sky location
+	
+		#Storing injections to file
+	inj_filename = args.run_dir+'injections.xml'
+	
+	if args.sky_loc.lower() == 'uniform':
+		sky_locs = np.stack([*get_random_sky_loc(args.n_injs, args.seed)], axis = 1)
+	else:
+		sky_loc_str = args.sky_loc
+		sky_loc_str = sky_loc_str.replace('pi', 'np.pi')
+		sky_locs = sky_loc_str.split(',')[:3]
+		
+		for i, sl in enumerate(sky_locs):
+			try:
+				sky_locs[i] = eval(sl)
+			except (SyntaxError, NameError):
+				raise ValueError("Wrong format for the fixed sky location given. It must be a string 'latitude,longitude,latitude'")
+		sky_locs = np.array(sky_locs)
+	save_injs(inj_filename, injections_full, 0, 10*args.n_injs, time_step = 10,
+			approx = args.approximant,
+			sky_locs = sky_locs, luminosity_distance = 100,
+			f_min = args.f_min, f_max = args.f_max)
 else:
 		#loading injections from file and projecting them on the bank manifold
 		#The injection fle can be either xml or json
 	if args.inj_file.endswith('xml') or args.inj_file.endswith('xml.gz'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
 		
-		injections_full = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
+		injections_full, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
 		args.n_injs = injections_full.shape[0]
 		
 	elif args.inj_file.endswith('json'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
+		
+		raise NotImplementedError("json format cannot currently load sky localization!")
 		
 		injections_full = []
 		with open(args.inj_file) as f:
@@ -219,13 +247,13 @@ else:
 	else:
 		raise ValueError("Format for the input file for the injections must be either xml or json")
 	
-	print("Loaded {} injections from file: {}".format(args.n_injs, args.inj_file))
+	if args.verbose: print("Loaded {} injections from file: {}".format(args.n_injs, args.inj_file))
 
 	######
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, verbose = True)
+injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, verbose = args.verbose)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
@@ -238,16 +266,17 @@ if args.full_match or args.full_symphony_match:
 		#The function returns an updated version of injection_stat_dict
 	metric.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
 
-	#best_matches_metric = np.array(injection_stat_dict['match'])
+	antenna_patterns = None
+	if sky_locs is not None: antenna_patterns = get_antenna_patterns(*sky_locs.T)
 
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
-				mchirp_window = args.mchirp_window,
-				symphony_match = args.full_symphony_match, cache = args.cache)
+				antenna_patterns = antenna_patterns, mchirp_window = args.mchirp_window,
+				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	else:
 		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
-				mchirp_window = args.mchirp_window,
-				symphony_match = args.full_symphony_match, cache = args.cache)
+				antenna_patterns = antenna_patterns, mchirp_window = args.mchirp_window,
+				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	metric.set_variable_format(args.variable_format)
 
 	######
@@ -255,6 +284,7 @@ if args.full_match or args.full_symphony_match:
 	######
 save_name = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.pkl'
 
+#TODO: move everything to json!
 with open(args.run_dir+save_name, 'wb') as filehandler:
 	pickle.dump(injection_stat_dict, filehandler)
 	

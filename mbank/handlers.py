@@ -194,7 +194,7 @@ class variable_handler(object):
 	def is_theta_ok(self, theta, variable_format, raise_error = False):
 		"""
 		Given a value of theta, it checks whether it is an acceptable value for the given spin format.
-		It calls `get_BBH_components` internally.
+		It calls :func:`get_BBH_components` internally.
 		
 		Parameters
 		----------
@@ -584,9 +584,8 @@ class variable_handler(object):
 				k += 1
 			else:
 				vars_to_assign.append(np.zeros(m1.shape))
-		
 		e, meanano, iota, phi = vars_to_assign
-	
+
 			#setting spins to zero, if they need to be
 		def set_zero_spin(s):
 			ids_ = np.where(np.abs(s)<1e-10)[0]
@@ -804,7 +803,7 @@ class variable_handler(object):
 	
 	def get_chiP_BBH_components(self, BBH_components, chiP_type = 'chiP'):
 		"""
-		Given a set of BBH components (in the output format of ``get_BBH_components``) it returns the components of the same BBH in the precessing spin parameter approximation.
+		Given a set of BBH components (in the output format of :func:`get_BBH_components`) it returns the components of the same BBH in the precessing spin parameter approximation.
 		This implements a mapping between the 4 dimensional in-plane spin parameter (s1x, s1y, s2x, s2y) onto a smaller space. Several options are available:
 		
 		- ``chiP``: performs the mapping described in eq (4.1) of arxiv/1408.1810, where the only non-zero componennt is s1x

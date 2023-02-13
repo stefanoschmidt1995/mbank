@@ -476,7 +476,7 @@ class cbc_metric(object):
 		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(theta, self.variable_format)
 		#print("mbank pars - {}: ".format(self.variable_format),m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
 		#warnings.warn("Set non-zero spins!"); s1z = s1z + 0.4; s2z = s2z -0.7
-		
+
 		try:
 			hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
                         m2*lalsim.lal.MSUN_SI,
@@ -1078,7 +1078,7 @@ class cbc_metric(object):
 
 		return metric
 	
-	def WF_symphony_match(self, h1, h2, overlap = False, F_p = 1., F_c = 0.):
+	def WF_symphony_match(self, signal, template_plus, template_cross, overlap = False):
 		"""
 		Computes the match element by element between two set of frequency domain WFs, using the `symphony` match.
 		The symphony match is defined in eq (13) of `1709.09181 <https://arxiv.org/abs/1709.09181>`_
@@ -1089,23 +1089,27 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		h1: tuple
-			(:class:`~numpy:numpy.ndarray`, :class:`~numpy:numpy.ndarray`) (N,K) -
-			First WF: tuple (hp, hc)
+		signal: tuple
+			:class:`~numpy:numpy.ndarray` (N,K) -
+			Frequency domain WF for the signal to filter
 
-		h1: tuple
-			(:class:`~numpy:numpy.ndarray`, :class:`~numpy:numpy.ndarray`) (N,K) -
-			Second WF: tuple (hp, hc)
+		template_plus: tuple
+			:class:`~numpy:numpy.ndarray` (N,K) -
+			Plus polarization of the template to filter the signal with
+
+		template_cross: tuple
+			:class:`~numpy:numpy.ndarray` (N,K) -
+			Cross polarization of the template to filter the signal with
 		
 		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 		
 		F_p: float
-			Value for the :math:`F_+` antenna pattern function. Used to build the signal at ifo
+			Value for the :math:`F_+` antenna pattern function. Used to build the signal at ifo for the symphony match. See :func:`get_antenna_patterns`
 
 		F_c: float
-			Value for the :math:`F_\\times` antenna pattern function. Used to build the signal at ifo			
+			Value for the :math:`F_\\times` antenna pattern function. Used to build the signal at ifo for the symphony match. See :func:`get_antenna_patterns`
 		
 		Returns
 		-------
@@ -1115,14 +1119,13 @@ class cbc_metric(object):
 			Array containing the symphony match of the given WFs
 			
 		"""
-		#TODO: insert the zero padding to the frequency series also here (if it makes sense...)
+		#TODO: maybe there should be two entries, template_plus and template_cross?
 		sigmasq = lambda WF: np.sum(np.multiply(np.conj(WF), WF), axis = -1)
 		
 			#whithening and normalizing
-		s_WN = (F_p*h2[0].T + F_c*h2[1].T).T #depends on the antenna pattern
-		h1p_WN = (h1[0]/np.sqrt(self.PSD)) #whithened WF
-		h1c_WN = (h1[1]/np.sqrt(self.PSD)) #whithened WF
-		s_WN = (s_WN/np.sqrt(self.PSD)) #whithened WF
+		h1p_WN = (template_plus/np.sqrt(self.PSD)) #whithened WF
+		h1c_WN = (template_cross/np.sqrt(self.PSD)) #whithened WF
+		s_WN = (signal/np.sqrt(self.PSD)) #whithened WF
 		
 		h1p_WN = (h1p_WN.T/np.sqrt(sigmasq(h1p_WN))).T #normalizing WF
 		h1c_WN = (h1c_WN.T/np.sqrt(sigmasq(h1c_WN))).T #normalizing WF
@@ -1154,12 +1157,10 @@ class cbc_metric(object):
 
 		return match
 	
-	def WF_match(self, h1, h2, overlap = False):
+	def WF_match(self, signal, template, overlap = False):
 		"""
-		Computes the match element by element between two set of frequency domain WFs. The WFs shall be evaluated on the custom grid.
+		Computes the match element by element between a set of signal WFs and template WFs. The WFs shall be evaluated on the custom grid.
 		No checks will be perfomed on the inputs
-		
-		The
 		
 		Parameters
 		----------
@@ -1190,8 +1191,8 @@ class cbc_metric(object):
 			# kmin = int(self.f_min / self.delta_f)
 		
 			#whithening and normalizing	
-		h1_WN = (h1/np.sqrt(self.PSD)) #whithened WF
-		h2_WN = (h2/np.sqrt(self.PSD)) #whithened WF
+		h1_WN = (signal/np.sqrt(self.PSD)) #whithened WF
+		h2_WN = (template/np.sqrt(self.PSD)) #whithened WF
 		
 		h1_WN = (h1_WN.T/np.sqrt(sigmasq(h1_WN))).T #normalizing WF
 		h2_WN = (h2_WN.T/np.sqrt(sigmasq(h2_WN))).T #normalizing WF
@@ -1215,19 +1216,32 @@ class cbc_metric(object):
 	
 	
 	#@do_profile(follow=[])
-	def match(self, theta1, theta2, symphony = False, overlap = False):
+	def match(self, theta_signal, theta_template, symphony = False, overlap = False, antenna_patterns = None):
 		"""
-		Computes the elementwise match between waveforms defined by theta1 and theta2
+		Computes the elementwise match between a signal :math:`s` and a template :math:`h`.
+		The template is evaluated at point :math:`\\theta_\\mathrm{template}` of the manifold, whereas the signal :math:`s` is evaluated at point :math:`\\theta_\\mathrm{signal}` of the manifold.
+		The signal is constructed as 
 		
-		If ``symphony==False``, the match is the standard non-precessing one 
 		.. math::
 		
-			|<h1p|h2p>|^2
+			s = F_+ h_+(\\theta_\\mathrm{signal}) + F_\\times h_\\times(\\theta_\\mathrm{signal})
+			
+		where :math:`F_+, F_\\times` are the antenna pattern functions (see :func:`get_antenna_patterns`), provided from the argument ``antenna_patterns``.
+		
+		If ``symphony==False``, the match is the standard non-precessing one
+		
+		.. math::
+		
+			|<s|h_+>|^2
 			
 		If ``symphony==True``, it returns the symphony match (as in `1709.09181 <https://arxiv.org/abs/1709.09181>`_)
+		
 		.. math::
 
-			[(s|h1p)^2+(s|h1c)^2 - 2 (s|h1p)(s|h1c)(h1c|h1p)]/[1-(h1c|h1p)^2]
+			\\frac{(s|h_+)^2+(s|h_\\times)^2 - 2 (s|h_+)(s|h_\\times)(h_+|h_\\times)}{1-(h_+|h_\\times)^2}
+		
+		where :math:`(\cdot|\cdot)` is the real part of the standard complex scalar product :math:`<\cdot|\cdot>`.
+		In the equations above, :math:`h_+, h_\\times` always refers to the polarizations of :math:`h(\\theta_\\mathrm{template})`.
 		
 		The computation is done in batches, if the input array are too large to be stored in memory.
 		
@@ -1249,6 +1263,11 @@ class cbc_metric(object):
 			Whether to compute the overlap between WFs (rather than the match)
 			In this case, the time maximization is not performed
 		
+		antenna_patterns: tuple
+			Tuple of float/:class:`~numpy:numpy.ndarray` (:math:`F_+`, :math:`F_\\times`) for the two antenna patterns.
+			If given, it is used to build the signal :math:`s`, starting from :math:`h(\\theta_1)`; if ``None``, :math:`s = h_+(\\theta_\\mathrm{template})`. See :func:`get_antenna_patterns`.
+			If ``symphony = True``, the antenna patterns cannot be ``None``.
+		
 		Returns
 		-------
 		
@@ -1258,15 +1277,29 @@ class cbc_metric(object):
 			
 		"""
 		#FIXME: the atleast_2d shouldn't be necessary...
-		theta1 = np.asarray(theta1)
-		theta2 = np.asarray(theta2)
+		theta1 = np.asarray(theta_signal)
+		theta2 = np.asarray(theta_template)
 		squeeze = ((theta1.ndim == 1) and (theta2.ndim == 1))
 		theta1 = np.atleast_2d(theta1)
 		theta2 = np.atleast_2d(theta2)
 		
+		plus_cross = symphony or (antenna_patterns is not None)
+		
+		if antenna_patterns is not None:
+			try:
+				F_p, F_c = antenna_patterns
+			except:
+				raise ValueError("Antenna patterns must be a tuple")
+			F_p, F_c = np.atleast_1d(F_p), np.atleast_1d(F_c)
+			if theta1.shape[0]>F_p.shape[0]:
+				F_p = np.repeat(F_p[0], theta1.shape[0])
+				F_c = np.repeat(F_c[0], theta1.shape[0])
+		else:
+			if symphony: raise ValueError("The antenna patterns must be given if the symphony match is used!")
+		
 			#checking for shapes
 		if theta1.shape != theta2.shape:
-			if theta1.shape[-1] != theta1.shape[-1]:
+			if theta1.shape[-1] != theta2.shape[-1]:
 				raise ValueError("Last dimension of the two imputs should be the same!")
 
 			# The computation is performed in batches, to make it less memory intensive...
@@ -1280,15 +1313,20 @@ class cbc_metric(object):
 		N = max(theta1.shape[0], theta2.shape[0])
 		match = []
 		
-		h1_ = self.get_WF(theta1, self.approx, plus_cross = symphony) if N>theta1.shape[0] else None
+		h1_ = self.get_WF(theta1, self.approx, plus_cross = plus_cross) if N>theta1.shape[0] else None
 		h2_ = self.get_WF(theta2, self.approx, plus_cross = symphony) if N>theta2.shape[0] else None
 		
 		for i in range(0, N, N_batch):
-			h1 = self.get_WF(theta1[i:i+N_batch], self.approx, plus_cross = symphony) if h1_ is None else h1_
+			h1 = self.get_WF(theta1[i:i+N_batch], self.approx, plus_cross = plus_cross) if h1_ is None else h1_
 			h2 = self.get_WF(theta2[i:i+N_batch], self.approx, plus_cross = symphony) if h2_ is None else h2_
 
+			if plus_cross:
+				h1 = (h1[0].T * F_p[i:i+N_batch] + h1[1].T * F_c[i:i+N_batch]).T
+				#FIXME: there's a problem with that! The match won't be 1 if the 2 WFs are the same
+				# 	But this is consistent with pycbc, so fuck that!
+
 			if symphony:
-				match.extend(self.WF_symphony_match(h1, h2, overlap))
+				match.extend(self.WF_symphony_match(h1, *h2, overlap))
 			else:
 				match.extend(self.WF_match(h1, h2, overlap))
 

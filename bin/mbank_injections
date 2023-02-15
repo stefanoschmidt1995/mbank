@@ -273,16 +273,13 @@ if args.full_match or args.full_symphony_match:
 		#The function returns an updated version of injection_stat_dict
 	metric.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
 
-	antenna_patterns = None
-	if sky_locs is not None: antenna_patterns = get_antenna_patterns(*sky_locs.T)
-
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
-				antenna_patterns = antenna_patterns, mchirp_window = args.mchirp_window,
+				sky_locs = sky_locs, mchirp_window = args.mchirp_window,
 				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	else:
 		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
-				antenna_patterns = antenna_patterns, mchirp_window = args.mchirp_window,
+				sky_locs = sky_locs, mchirp_window = args.mchirp_window,
 				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	metric.set_variable_format(args.variable_format)
 

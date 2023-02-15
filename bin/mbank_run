@@ -21,8 +21,6 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import pickle
-import lal.series
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank

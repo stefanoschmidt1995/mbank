@@ -28,7 +28,6 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import pickle
 from scipy.spatial import Rectangle
 import warnings
 from tqdm import tqdm

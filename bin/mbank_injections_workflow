@@ -14,7 +14,7 @@ import glob
 
 ####################################################################
 def clean_dag():
-	cmd = 'rm -fr files injection_jobs results mbank_injections_dag* *sub logs'
+	cmd = 'rm -fr files match_jobs results mbank_injections_dag* *sub logs'
 	process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 	if process.returncode != 0:
 		print("Failed to clean the DAG with the following error message: ")
@@ -55,8 +55,8 @@ assert args.inj_file, "Argument --inj-file must be specified!"
 	####
 	# Making some folders
 working_dir = os.getcwd()
-#jobs_dir = '{}/injection_jobs/'.format(working_dir)
-jobs_dir = 'injection_jobs/'.format(working_dir)
+#jobs_dir = '{}/match_jobs/'.format(working_dir)
+jobs_dir = 'match_jobs/'.format(working_dir)
 if not os.path.isdir(jobs_dir): os.mkdir(jobs_dir)
 file_dir = 'files/'
 if not os.path.isdir(file_dir): os.mkdir(file_dir)
@@ -101,7 +101,7 @@ injs, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs
 chirp_masses = vh.get_mchirp(injs[:,:2], 'Mq_nonspinning')
 ids_sort = np.argsort(chirp_masses)
 injs_per_job = int(injs.shape[0]/args.n_jobs)
-job_dirs, inj_files, pkl_files = [], [], []
+job_dirs, inj_files, stat_files = [], [], []
 
 	#Pay attention to the files! Maybe you shouldn't transfer files
 	#Do you always work with absolute paths?
@@ -109,8 +109,8 @@ job_dirs, inj_files, pkl_files = [], [], []
 for i in range(args.n_jobs):
 	current_job_dir = jobs_dir+'job_{}/'.format(i)
 	current_inj_file = current_job_dir+'injections_{}.xml'.format(i)
-	pkl_file = current_job_dir+'stat_dict_{}.pkl'.format(i)
-	#pkl_file = 'stat_dict_{}.pkl'.format(i)
+	stat_file = current_job_dir+'stat_dict_{}.json'.format(i)
+	#stat_file = 'stat_dict_{}.json'.format(i)
 	
 	if not os.path.isdir(current_job_dir): os.mkdir(current_job_dir)
 	
@@ -123,7 +123,7 @@ for i in range(args.n_jobs):
 
 	job_dirs.append(current_job_dir)
 	inj_files.append(current_inj_file)
-	pkl_files.append(pkl_file)
+	stat_files.append(stat_file)
 
 	###
 	# Create the DAG
@@ -151,7 +151,7 @@ for i in range(args.n_jobs):
 	injections_layer += Node(
 		arguments = args,
 		inputs = inputs, # config.ini
-		outputs = Option("stat-dict", pkl_files[i])
+		outputs = Option("stat-dict", stat_files[i])
 	)
 
 	# add layer to DAG
@@ -164,8 +164,8 @@ args = [Option('injection-stat'), Option('plot'), Option('variable-format', vari
 
 merge_layer += Node(
 	arguments = args,
-	inputs = Argument("input", pkl_files),
-	outputs = Option('out-name', results_dir+'stat_dict.pkl')
+	inputs = Argument("input", stat_files),
+	outputs = Option('out-name', results_dir+'stat_dict.json')
 )
 
 dag.attach(merge_layer)

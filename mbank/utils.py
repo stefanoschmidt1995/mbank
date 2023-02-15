@@ -1953,6 +1953,7 @@ def read_xml(filename, table, N = None):
 	"""
 	Read an xml file in the ligo.lw standard and extracts the BBH parameters
 	
+	
 	Parameters
 	----------
 		filename: str

@@ -16,9 +16,9 @@ To merge 3 tiling you can type:
 
 	mbank_merge --tiling --out-name merged_tiling.npy tiling_1.npy tiling_2.npy tiling_3.npy
 
-To merge 3 injection statistics files you can type:
+To merge 3 injection statistics files (either json or pkl) you can type:
 
-	mbank_merge --tiling --out-name merged_injections_stat.npy stat_1.pkl stat_2.pkl stat_3.pkl
+	mbank_merge --tiling --out-name merged_injections_stat.npy stat_1.pkl stat_2.json stat_3.pkl
 
 Make sure that the mbank is properly installed.
 To know which options are available:
@@ -31,8 +31,7 @@ import sys
 import warnings
 
 from mbank import cbc_bank, tiling_handler, variable_handler
-from mbank.utils import plot_match_histogram, plot_tiles_templates
-import pickle
+from mbank.utils import plot_match_histogram, plot_tiles_templates, save_inj_stat_dict, load_inj_stat_dict
 
 import argparse
 import os
@@ -78,7 +77,7 @@ if args.tiling:
 	input_file_type = 'tiling'
 	tiling = tiling_handler()
 if args.injection_stat:
-	if args.out_name is None: args.out_name = 'merged_injections_stat_dict.pkl'
+	if args.out_name is None: args.out_name = 'merged_injections_stat_dict.json'
 	input_file_type = 'injection statistics'
 	stat_dict_list = []
 
@@ -99,8 +98,7 @@ for f in filenames:
 		del temp_tiling
 		print("Merged tiling has {} templates".format(len(tiling)))
 	if args.injection_stat:
-		with open(f, 'rb') as buffer:
-			stat_dict_list.append( pickle.load(buffer))
+		stat_dict_list.append( load_inj_stat_dict(f))
 
 save_dir = os.path.dirname(args.out_name)
 
@@ -118,8 +116,7 @@ if args.injection_stat:
 				merged_stat_dict[k] = np.concatenate([merged_stat_dict[k], v], axis = 0)
 			else:
 				merged_stat_dict[k] = v
-	with open(args.out_name, 'wb') as f:
-		pickle.dump(merged_stat_dict, f)
+	save_inj_stat_dict(args.out_name, merged_stat_dict)
 
 
 	#Making plots

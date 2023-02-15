@@ -21,7 +21,6 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import pickle
 
 from mbank import cbc_bank, tiling_handler, variable_handler
 from mbank.utils import plot_tiles_templates, parse_from_file, avg_dist

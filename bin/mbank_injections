@@ -23,8 +23,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches
 import sys
-import pickle
-import json
 import warnings
 
 from ligo.lw import utils as lw_utils
@@ -33,7 +31,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict
 from mbank.utils import updates_args_from_ini, read_xml
 
 from itertools import combinations, permutations
@@ -58,7 +56,7 @@ parser.add_argument(
 	help="An xml injection file to load the injections from. If not provided, the injections will be performed at random in each tile (injs-per-tile). If no path to the file is provided, it is understood it is located in run-dir.")
 parser.add_argument(
 	"--stat-dict", type = str, default = None,
-	help="The name of the pkl file in which the results of the injection study will be saved. If None, a suitable default will be provided.")
+	help="The name of the file in which the results of the injection study will be saved (either json or pkl). If None, a suitable default will be provided.")
 parser.add_argument(
 	"--bank-file", required = False, type = str,
 	help="Path to the file of a bank. If no path to the file is provided, it is understood it is located in run-dir.")
@@ -153,7 +151,7 @@ if isinstance(args.inj_file, str):
 if isinstance(args.stat_dict, str):
 	if args.stat_dict.find('/') <0: args.stat_dict = args.run_dir+args.stat_dict
 else:
-	args.stat_dict = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.pkl'
+	args.stat_dict = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.json'
 if isinstance(args.flow_file, str):
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
 if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
@@ -286,13 +284,7 @@ if args.full_match or args.full_symphony_match:
 	######
 	#	Writing to file
 	######
-#TODO: move everything to json!
-with open(args.stat_dict, 'wb') as filehandler:
-	pickle.dump(injection_stat_dict, filehandler)
-	
-	#to load... keeping the snippet just in case :D
-#with open(args.stat_dict, 'rb') as filehandler:
-#	injection_stat_dict = pickle.load( filehandler)
+save_inj_stat_dict(args.stat_dict, injection_stat_dict)
 
 	######
 	#	Making some plots & printing percentiles

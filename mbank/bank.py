@@ -261,6 +261,7 @@ class cbc_bank():
 		
 		return
 	
+	@property
 	def BBH_components(self):
 		"""
 		Returns the BBH components of the templates in the bank.

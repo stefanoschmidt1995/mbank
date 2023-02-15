@@ -37,7 +37,6 @@ def int_tuple_type(strings):
 	mapped_int = map(int, strings.split(","))
 	return tuple(mapped_int)
 
-
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(

@@ -504,7 +504,7 @@ class variable_handler(object):
 
 	def get_BBH_components(self, theta, variable_format):
 		"""
-		Given ``theta``, it returns the components suitable for lal
+		Given ``theta``, it returns the components of the BBH suitable for lal
 		
 		Parameters
 		----------

@@ -32,6 +32,9 @@ parser.add_argument(
 	"--inj-file", type = str, default = None,
 	help="An xml injection file to load the injections from. The injection will be split and spread over multiple istances of 'mbank_injections'")
 parser.add_argument(
+	"--n-injs", type = int, default = None,
+	help="Number of injections to read from inj-file. If None, all the injection in the fille wil be used.")
+parser.add_argument(
 	"--clean", action='store_true', default = False,
 	help="If the option is set, the dag and its generated files will be removed and the program will quit.")
 
@@ -93,7 +96,7 @@ for k, f in input_files.items():
 	# Preparing the job folders, each with a split injection file
 	
 vh = variable_handler()
-injs, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable)
+injs, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
 
 chirp_masses = vh.get_mchirp(injs[:,:2], 'Mq_nonspinning')
 ids_sort = np.argsort(chirp_masses)

@@ -43,14 +43,15 @@ import os
 class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 	pass
 
+##################################
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
 parser.add_argument(
 	"--n-injs", type = int, default = None,
 	help="Number of injections. If inj-file is specified, they will be read from it; otherwise they will be randomly drawn from the tiling and saved to file. If None, all the injections will be read from inj-file and it will throw an error if such file is not provided.")
 parser.add_argument(
-	"--sky-loc", type = str, default = '0,pi/2,pi/2',
-	help="Sky localization and polarization angles for the signal injections (if they are randomly generated from the tiling). They must be in the format 'latitude,longitude,latitude'. Default is '0,pi/2,pi/2', so that Fp, Fc = (1,0). If 'uniform' is given, they will be uniformly drawn from the sky.")	
+	"--fixed-sky-loc-polarization", type = float, nargs = 3, default = None,
+	help="Sky localization and polarization angles for the signal injections. They must be a tuple of float in the format (longitude,latitude,polarization). If None, the angles will be loaded from the injection file, if given, or uniformly drawn from the sky otherwise.")
 parser.add_argument(
 	"--inj-file", type = str, default = None,
 	help="An xml injection file to load the injections from. If not provided, the injections will be performed at random in each tile (injs-per-tile). If no path to the file is provided, it is understood it is located in run-dir.")
@@ -203,20 +204,11 @@ if args.inj_file is None:
 	
 		#Storing injections to file
 	inj_filename = args.run_dir+'injections.xml'
-	
-	if args.sky_loc.lower() == 'uniform':
-		sky_locs = np.stack([*get_random_sky_loc(args.n_injs, args.seed)], axis = 1)
+	if args.fixed_sky_loc_polarization:
+		sky_locs = np.array(args.fixed_sky_loc_polarization)
 	else:
-		sky_loc_str = args.sky_loc
-		sky_loc_str = sky_loc_str.replace('pi', 'np.pi')
-		sky_locs = sky_loc_str.split(',')[:3]
-		
-		for i, sl in enumerate(sky_locs):
-			try:
-				sky_locs[i] = eval(sl)
-			except (SyntaxError, NameError):
-				raise ValueError("Wrong format for the fixed sky location given. It must be a string 'latitude,longitude,latitude'")
-		sky_locs = np.array(sky_locs)
+		sky_locs = np.stack([*get_random_sky_loc(args.n_injs, args.seed)], axis = 1)
+
 	save_injs(inj_filename, injections_full, 0, 10*args.n_injs, time_step = 10,
 			approx = args.approximant,
 			sky_locs = sky_locs, luminosity_distance = 100,
@@ -227,8 +219,10 @@ else:
 	if args.inj_file.endswith('xml') or args.inj_file.endswith('xml.gz'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
 		
-		injections_full, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
+		injections_full, sky_locs_xml = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs)
 		args.n_injs = injections_full.shape[0]
+			#the sky_locs are read only if args.sky_loc_polarization is not set
+		sky_locs = np.array(args.fixed_sky_loc_polarization) if args.fixed_sky_loc_polarization else sky_locs_xml
 		
 	elif args.inj_file.endswith('json'):
 		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')

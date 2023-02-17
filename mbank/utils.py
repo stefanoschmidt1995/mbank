@@ -171,7 +171,7 @@ def updates_args_from_ini(ini_file, args, parser):
 	for k, v in ini_info.items():
 		if v.lower() != 'false': #if it's a bool var, it is always store action
 				#transforming 'pi' into an actual number and evaluating the expression
-			if k.find('range')>=0 and v.find('pi')>=0:
+			if (k.find('range')>=0 or k.find('fixed-sky-loc-polarization')>=0) and v.find('pi')>=0:
 				v = v.replace('pi', 'np.pi')
 				v = ' '.join([str(eval(v_)) for v_ in v.split(' ')])
 			args_to_read.extend('--{} {}'.format(k,v).split(' '))
@@ -488,6 +488,8 @@ def compute_injections_match(inj_dict, templates, metric_obj, sky_locs = None, m
 			F_c = np.repeat(F_c[0], chirp_injs.shape[0])
 	else:
 		if symphony_match: raise ValueError("The sky localization must be given if the symphony match is used!")
+
+	print("Sky locs: ",sky_locs, F_p, F_c)
 
 		######
 		# Creating the mapping table

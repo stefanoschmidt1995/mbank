@@ -1991,9 +1991,15 @@ def read_xml(filename, table, N = None):
 	for i, row in enumerate(table):
 		if i>=N: break
 		#FIXME: read e and meanano properly!!
+		if isinstance(table, lsctables.SnglInspiralTable):
+			iota, phi = row.alpha3, row.alpha5
+		else:
+			iota, phi = row.inclination, row.coa_phase
+			
 		BBH_components.append([row.mass1, row.mass2, #masses
 			row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, #spins
-			0, 0, row.alpha3, row.alpha5]) #e, meananano, iota, phi
+			0, 0, iota, phi]) #e, meananano, iota, phi
+		
 		if isinstance(table, lsctables.SimInspiralTable):
 			sky_locs.append([row.longitude, row.latitude, row.polarization])
 		

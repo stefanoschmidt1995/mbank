@@ -31,7 +31,7 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict, initialize_inj_stat_dict
 from mbank.utils import updates_args_from_ini, read_xml
 
 from itertools import combinations, permutations
@@ -135,10 +135,16 @@ for f in filenames:
 
 var_handler = variable_handler()
 
-if (args.bank_file is None) or (args.tiling_file is None) or (args.variable_format is None):
-	raise ValueError("The arguments bank-file, tiling-file and variable_format must be set!")
+if (args.bank_file is None) or (args.variable_format is None):
+	raise ValueError("The arguments bank-file and variable_format must be set!")
+if (args.tiling_file is None) and (args.inj_file is None):
+	raise ValueError("If the argument --tiling-file is not set, you must provide an injection file through argument --inj-file")
 
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+
+	#Defining some convenience variables
+full_match = args.full_match or args.full_symphony_match
+metric_match = isinstance(args.tiling_file, str)
 
 	#FIXME: understand whether you want the default --run-dir to be './'
 if args.run_dir is None: args.run_dir = args.bank_file.replace(os.path.basename(args.bank_file), '')
@@ -155,18 +161,18 @@ else:
 	args.stat_dict = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.json'
 if isinstance(args.flow_file, str):
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
-if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
+if metric_match:
+	if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
 if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
 if isinstance(args.psd, str): args.psd = args.run_dir+args.psd if args.psd.find('/') <0 else args.psd
 
 plot_folder = None
 if args.plot: plot_folder = args.run_dir
 
-
 	######
 	#	Loading PSD, and creating an istance of metric (if it applies)
 	######
-if args.full_match or args.full_symphony_match: #in this case we need to load the PSD and instantiate the metric
+if full_match: #in this case we need to load the PSD and instantiate the metric
 		#load PSD
 	f, PSD = load_PSD(args.psd, args.asd, args.ifo)
 
@@ -182,8 +188,9 @@ bank = cbc_bank(args.variable_format, args.bank_file)
 if args.verbose: print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
 
 	#Loading the flow, if it's the case
-t_obj = tiling_handler(args.tiling_file)
-if isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)
+if metric_match:
+	t_obj = tiling_handler(args.tiling_file)
+	if isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)
 
 	######
 	#	Generating injections
@@ -225,53 +232,40 @@ else:
 		sky_locs = np.array(args.fixed_sky_loc_polarization) if args.fixed_sky_loc_polarization else sky_locs_xml
 		
 	elif args.inj_file.endswith('json'):
-		warnings.warn('When loading injections from an xml file, eccentricity and meanano are currently not supported')
-		
-		raise NotImplementedError("json format cannot currently load sky localization!")
-		
-		injections_full = []
-		with open(args.inj_file) as f:
-			inj_json = json.load(f)
-		
-		if args.n_injs is None: args.n_injs = len(inj_json['items'])
-		if args.n_injs > len(inj_json['items']): args.n_injs = len(inj_json['items'])
-		
-		for i, row in enumerate(inj_json['items']):
-			if i >= args.n_injs: break
-			injections_full.append([row['m1'], row['m2'],
-					row['s_1x'], row['s_1y'], row['s_1z'], row['s_2x'], row['s_2y'], row['s_2z'],
-					0.,0., row['inclination'], 0.]) 
-
-		injections_full = np.asarray(injections_full) #(N,12)		
+		raise NotImplementedError("json format not implemented yet")
 	else:
-		raise ValueError("Format for the input file for the injections must be either xml or json")
+		raise ValueError("Format for the input file for the injections must be an xml")
 	
 	if args.verbose: print("Loaded {} injections from file: {}".format(args.n_injs, args.inj_file))
+
+if not full_match: sky_locs = None
 
 	######
 	#	Computing tiling_injections with metric approximation
 	#	Here injections are projected to the bank manifold
 	######
-injection_stat_dict = compute_injections_metric_match(injections_full, bank,  t_obj, verbose = args.verbose)
+injection_stat_dict = initialize_inj_stat_dict(injections_full, sky_locs)
+
+if metric_match: 
+	injection_stat_dict = compute_injections_metric_match(injection_stat_dict, bank, t_obj, verbose = args.verbose)
 
 	######
 	#	Recomputing the match with the actual match and with the actual injections (non-projected)
 	#	(if it's the case)
 	######
-if args.full_match or args.full_symphony_match:
-	templates_full = np.array(var_handler.get_BBH_components(bank.templates, args.variable_format)).T #(N,10)
+if full_match:
 		#this function should take the stat_dict and for each best_id, it should replace the metric match with the actual match
 		#The actual match shall be computed with metric.WF_match
 		#The function returns an updated version of injection_stat_dict
 	metric.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
 
 	if args.use_ray:
-		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, templates_full, metric,
-				sky_locs = sky_locs, mchirp_window = args.mchirp_window,
+		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, bank, metric,
+				mchirp_window = args.mchirp_window,
 				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	else:
-		injection_stat_dict = compute_injections_match(injection_stat_dict, templates_full, metric,
-				sky_locs = sky_locs, mchirp_window = args.mchirp_window,
+		injection_stat_dict = compute_injections_match(injection_stat_dict, bank, metric,
+				mchirp_window = args.mchirp_window,
 				symphony_match = args.full_symphony_match, verbose = args.verbose)
 	metric.set_variable_format(args.variable_format)
 
@@ -288,22 +282,26 @@ save_inj_stat_dict(args.stat_dict, injection_stat_dict)
 projected_injs = var_handler.get_theta(injections_full, args.variable_format) #(N,D)
 	
 	#histogram for the overall match
-matches_metric = np.array(injection_stat_dict['metric_match'])	
-matches_metric[matches_metric<=0] = 0.01
+matches_metric = injection_stat_dict['metric_match']
+if metric_match: matches_metric[matches_metric<=0] = 0.01
 matches = injection_stat_dict['match']
 
-full_match = args.full_match or args.full_symphony_match
-print("Metric match percentiles [50, 5, 1]: ", np.percentile(matches_metric, [50, 5,1]))
-if full_match:
-	print("Match percentiles [50, 5, 1]: ", np.percentile(matches, [50, 5,1]))
+if args.verbose:
+	if metric_match:
+		print("Metric match percentiles [50, 5, 1]: ", np.percentile(matches_metric, [50, 5,1]))
+	if full_match:
+		print("Match percentiles [50, 5, 1]: ", np.percentile(matches, [50, 5,1]))
 plotted_matches = matches if full_match else matches_metric
+if plotted_matches is None:
+	warnings.warn("You chose not to compute neither the match nor the metric match: there's nothing to do here.")
+	quit()
 
 if args.plot:
 
 		###
 		# Histogram
 		###
-	plot_match_histogram(matches_metric, matches = matches if full_match else None,
+	plot_match_histogram(matches_metric, matches,
 			mm = args.mm, bank_name = os.path.basename(args.bank_file),
 			save_folder = args.run_dir)
 

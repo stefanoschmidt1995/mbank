@@ -553,7 +553,7 @@ def compute_injections_match(inj_dict, templates, metric_obj, sky_locs = None, m
 #@do_profile(follow=[])
 def compute_injections_metric_match(injs, bank, tiling, verbose = True):
 	"""
-	Computes the match of the injection with the bank by using the metric approximation.
+	Computes the match of some injections with the bank by using the metric approximation.
 	It makes use of a brute force approach where each injection is checked against each template of the bank. The metric used is the one of the tile each injection belongs to
 	
 	Parameters

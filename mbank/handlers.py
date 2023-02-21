@@ -182,8 +182,8 @@ class variable_handler(object):
 				#FIXME: you should think VERY VERY carefully on the way you treat the spin variables.
 				#At the moment, mbank cannot cover the negative s1x region in for spin format s1xz
 				's1': (0., self.MAX_SPIN), 's2': (0., self.MAX_SPIN),
-				'theta1':(0., np.pi), 'phi1':(-np.pi, np.pi),
-				'theta2':(0., np.pi), 'phi1':(-np.pi, np.pi),
+				'theta1':(-np.pi, np.pi), 'phi1':(-np.pi, np.pi),
+				'theta2':(-np.pi, np.pi), 'phi1':(-np.pi, np.pi),
 				'iota': (0.,np.pi), 'phi': (-np.inf, np.inf),
 				'e': (0., 1.), 'meanano': (0, 1.)
 				} #allowed ranges for each label
@@ -454,7 +454,7 @@ class variable_handler(object):
 			theta.append(BBH_components[:,7])
 		elif self.format_info[variable_format]['spin_format'] == 's1xz':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
-			theta1 = np.arccos(BBH_components[:,4]/s1)
+			theta1 = np.arctan2(BBH_components[:,2], BBH_components[:,4])
 			theta.extend([s1, theta1])
 		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
 			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)

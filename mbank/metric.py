@@ -298,7 +298,7 @@ class cbc_metric(object):
 	def log_pdf_gauss(self, theta, boundaries = None):
 		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
 	
-	def get_WF_grads(self, theta, approx = None, order = None, epsilon = 1e-6):
+	def get_WF_grads(self, theta, approx = None, order = None, epsilon = 1e-6, use_cross = False):
 		"""
 		Computes the gradient of the WF with a given lal FD approximant. The gradients are computed with finite difference methods.
 		
@@ -319,6 +319,9 @@ class cbc_metric(object):
 		
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+
+		use_cross: bool
+			Whether to compute the gradients of the cross polarization, instead of the plus polarization.
 
 		Returns
 		-------
@@ -343,7 +346,8 @@ class cbc_metric(object):
 
 		def get_WF(theta_value, df_):
 			#return self.get_WF_lal(theta_value, approx, df_)[0].data.data
-			return self.get_WF(theta_value)
+			hp, hc = self.get_WF(theta_value, plus_cross = True)
+			return hc if use_cross else hp
 
 			#setting epsilon value
 		if isinstance(epsilon, float):
@@ -597,6 +601,7 @@ class cbc_metric(object):
 		#TODO: allow to implement a custom metric function...
 		metric_dict ={
 			'hessian': self.get_hessian,
+			'symmetrized': self.get_hessian_symmetrized_plus_cross,
 			'projected_hessian': self.get_projected_hessian,
 			'numerical_hessian': self.get_numerical_hessian,
 			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
@@ -992,10 +997,9 @@ class cbc_metric(object):
 		
 		return metric
 
-
-	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5):
+	def get_hessian_symmetrized_plus_cross(self, theta, overlap = False, order = None, epsilon = 1e-5):
 		"""
-		Returns the Hessian matrix.
+		Returns the Hessian matrix where :math:`h_+` and :math:`h_\\times` are treated on the same footing.
 		
 		Parameters
 		----------
@@ -1023,6 +1027,44 @@ class cbc_metric(object):
 			Array containing the metric Hessian in the given parameters
 			
 		"""
+		H_pp = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = False)
+		H_cc = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = True)
+		#print(np.linalg.det(H_pp), np.linalg.det(H_cc))
+		return (H_pp + H_cc)/2.
+
+	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, use_cross = False):
+		"""
+		Returns the Hessian matrix.
+		
+		Parameters
+		----------
+		
+		theta: :class:`~numpy:numpy.ndarray`
+			shape: (N,D)/(D,) -
+			Parameters of the BBHs. The dimensionality depends on self.variable_format
+		
+		overlap: bool
+			Whether to compute the metric based on the local expansion of the overlap rather than of the match
+			In this context the match is the overlap maximized over time
+
+		order: int
+			Order of the finite difference scheme for the gradient computation.
+			If None, some defaults values will be set, depending on the total mass.
+
+		epsilon: list
+			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+
+		use_cross: bool
+			Whether to use the cross polarization to compute the hessian.
+
+		Returns
+		-------
+		
+		metric : :class:`~numpy:numpy.ndarray`
+			shape: (N,D,D)/(D,D) -
+			Array containing the metric Hessian in the given parameters
+			
+		"""
 			#TODO: understand whether the time shift is an issue here!!
 			#		Usually match is max_t0 <h1(t)|h2(t-t0)>. How to cope with that? It this may make the space larger than expected
 		theta = np.asarray(theta)
@@ -1039,8 +1081,9 @@ class cbc_metric(object):
 		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h.real/h_grad_h.imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
 
 		### scalar product in FD
-		h = self.get_WF(theta, approx = self.approx) #(N,D)
-		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon) #(N,D, K)
+		hp, hc = self.get_WF(theta, approx = self.approx, plus_cross = True) #(N,D)
+		h = hc if use_cross else hp
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon, use_cross = use_cross) #(N,D, K)
 		
 		h_W = h / np.sqrt(self.PSD) #whithened WF
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
@@ -1283,6 +1326,9 @@ class cbc_metric(object):
 		theta1 = np.atleast_2d(theta1)
 		theta2 = np.atleast_2d(theta2)
 		
+		if theta1.shape[0] != theta2.shape[0]:
+			assert (theta1.shape[0] == 1) or (theta2.shape[0] == 1), "If the shapes of the thetas are not the same, one of them must be one dimensional"
+		
 		plus_cross = symphony or (antenna_patterns is not None)
 		
 		if antenna_patterns is not None:
@@ -1296,7 +1342,7 @@ class cbc_metric(object):
 				F_c = np.repeat(F_c[0], theta1.shape[0])
 		else:
 			if symphony: raise ValueError("The antenna patterns must be given if the symphony match is used!")
-		
+
 			#checking for shapes
 		if theta1.shape != theta2.shape:
 			if theta1.shape[-1] != theta2.shape[-1]:

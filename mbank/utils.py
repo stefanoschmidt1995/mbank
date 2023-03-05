@@ -21,7 +21,7 @@ import scipy
 import json
 import pickle
 
-from scipy.sparse import csc_array, lil_array
+from scipy.sparse import lil_array
 
 
 	#ligo.lw imports for xml files: pip install python-ligo-lw
@@ -1900,9 +1900,9 @@ def get_antenna_patterns(longitude, latitude, polarization):
 	
 	.. math::
 	
-		F_+ = - \\frac{1}{2}(1 + \cos(\\theta^2)) \cos(2\\alpha) cos(2\Psi) - \cos(\\theta)\sin(2\\alpha)\sin(2\Psi)
+		F_+ = - \\frac{1}{2}(1 + \cos(\\theta^2)) \cos(2\\alpha) \cos(2\Psi) - \cos(\\theta)\sin(2\\alpha)\sin(2\Psi)
 		
-		F_\\times = \\frac{1}{2}*(1 + \cos(\\theta^2)) \cos(2\\alpha) sin(2\Psi) - \cos(\\theta)\sin(2\\alpha)\cos(2\Psi) 
+		F_\\times = \\frac{1}{2}(1 + \cos(\\theta^2)) \cos(2\\alpha) \sin(2\Psi) - \cos(\\theta)\sin(2\\alpha)\cos(2\Psi) 
 	
 	where :math:`\\theta = \\frac{\pi}{2} - \\delta`.
 	

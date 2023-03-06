@@ -26,7 +26,7 @@ metric = cbc_metric('Mq_chi',
 The object has an internal frequency grid `metric.f_grid`, on which all the waveforms generated are evaluated as well as the PSD (stored in `metric.PSD`). The grid spacing is inferred from the given PSD whereas the limits are given by the frequency window.
 
 To compute the metric at a given point, one can use the function ```get_metric()```. Returning the metric evaluted at a given point ```theta```. The function supports batch evaluation, as custom in `numpy`.
-The argument `metric_type` allows the user to decide their preferred metric computation method. We _strongly_ recommend to use the default method `hessian`, which computes the metric as the hessian of the overlap, as stated in the [paper](linktoourpaper): any other metric computation method either provides an experimental feature either shows a poor numerical performance!
+The argument `metric_type` allows the user to decide their preferred metric computation method. We _strongly_ recommend to use the default method `hessian`, which computes the metric as the hessian of the overlap, as described in the [paper](https://arxiv.org/abs/2302.00436): any other metric computation method either provides an experimental feature either shows a poor numerical performance!
 
 A number of helpers allow to compute useful quantities derived from the metric:
 

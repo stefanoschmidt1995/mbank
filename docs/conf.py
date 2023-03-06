@@ -24,6 +24,7 @@ author = "Stefano Schmidt"
 # The full version, including alpha/beta/rc tags
 release = "0.2.0"
 
+#TODO: make a serious version control with branches and stuff!
 
 # -- General configuration ---------------------------------------------------
 

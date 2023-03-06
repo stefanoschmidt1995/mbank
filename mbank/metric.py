@@ -1270,6 +1270,7 @@ class cbc_metric(object):
 			s = F_+ h_+(\\theta_\\mathrm{signal}) + F_\\times h_\\times(\\theta_\\mathrm{signal})
 			
 		where :math:`F_+, F_\\times` are the antenna pattern functions (see :func:`get_antenna_patterns`), provided from the argument ``antenna_patterns``.
+		If the ``antenna_patterns`` is ``None``, it is equivalent to :math:`s = h_+` (i.e. :math:`F_+, F_\\times = 0, 1`). This option can be applied only in the case of standard match (``symphony==False``).
 		
 		If ``symphony==False``, the match is the standard non-precessing one
 		

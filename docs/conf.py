@@ -18,11 +18,11 @@
 # -- Project information -----------------------------------------------------
 
 project = "mbank"
-copyright = "2022, Stefano Schmidt"
+copyright = "2023, Stefano Schmidt"
 author = "Stefano Schmidt"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.1"
+release = "0.2.0"
 
 
 # -- General configuration ---------------------------------------------------
@@ -61,6 +61,9 @@ exclude_patterns = ["_build"]
 #
 #html_theme = "sphinx_rtd_theme" #old shit
 html_theme = "sphinxawesome_theme"
+
+#https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-toc_object_entries
+toc_object_entries = False
 
 	# This option is `True` by default
 #html_awesome_code_headers = False

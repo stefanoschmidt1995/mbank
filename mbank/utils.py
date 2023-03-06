@@ -550,16 +550,16 @@ def initialize_inj_stat_dict(injs, sky_locs = None):
 	The injection stat dictionary can be passed to :func:`compute_injections_metric_match` and/or :func:`compute_injections_match` which fill the relevant entries, with the results of fitting factors calculations.
 
 	An injection stat dictionary is dictionary with entries:
-			
-		- ``theta_inj``: the parameters of the injections
-		- ``id_tile``: index of the tile the injections belongs to in a given tiling (filled by :func:`compute_injections_metric_match`)
-		- ``mchirp_window``: the window in relative chirp mass inside which the templates are considered for full match
-		- ``match``: match of the closest template (filled by :func:`compute_injections_match`)
-		- ``id_match``: index of the closest template (filled by :func:`compute_injections_match`)
-		- ``metric_match``: metric match of the closest template (filled by :func:`compute_injections_metric_match`)
-		- ``id_metric_match``: metric index of the closest template (filled by :func:`compute_injections_metric_match`)
-		- ``sky_loc``: the sky location for each injection
-	
+		
+	- ``theta_inj``: the parameters of the injections
+	- ``id_tile``: index of the tile the injections belongs to in a given tiling (filled by :func:`compute_injections_metric_match`)
+	- ``mchirp_window``: the window in relative chirp mass inside which the templates are considered for full match
+	- ``match``: match of the closest template (filled by :func:`compute_injections_match`)
+	- ``id_match``: index of the closest template (filled by :func:`compute_injections_match`)
+	- ``metric_match``: metric match of the closest template (filled by :func:`compute_injections_metric_match`)
+	- ``id_metric_match``: metric index of the closest template (filled by :func:`compute_injections_metric_match`)
+	- ``sky_loc``: the sky location for each injection
+
 	Parameters
 	----------
 		injs: :class:`~numpy:numpy.ndarray`
@@ -568,7 +568,7 @@ def initialize_inj_stat_dict(injs, sky_locs = None):
 			Each row keeps the following entries: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
 	
 		sky_locs: :class:`~numpy:numpy.ndarray`
-			- shape (N,3)
+			shape (N,3) -
 			Sky localization for the injections. Each row corresponds to longitude, latitude and polarization angle for the injections. Sky localization will be used to compute the antenna pattern: see :func:`get_random_sky_loc` and :func:`get_antenna_patterns` for more information.
 			If ``None``, only the plus polarization will be used for injection recovery: this can only happens if the standard match is used (``symphony = False`` in :func:`compute_injections_match`).
 	
@@ -2051,7 +2051,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, sky_locs = 
 			Filename to save the injections at
 		
 		injs: :class:`~numpy:numpy.ndarray`
-			- shape (N,12)
+			shape (N,12) -
 			Injection array. It must be in the same layout of :func:`mbank.handlers.get_BBH_components`: ``m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi``.
 		
 		GPS_start: int

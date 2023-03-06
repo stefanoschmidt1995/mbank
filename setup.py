@@ -18,7 +18,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name="gw-mbank",
-	version="0.1.1.post1",
+	version="0.2.0",
 	author="Stefano Schmidt",
 	author_email="stefanoschmidt1995@gmail.com",
 	description="Metric bank generation for gravitational waves data analysis",

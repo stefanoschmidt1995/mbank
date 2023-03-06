@@ -13,15 +13,16 @@ Welcome to ``mbank``'s documentation!
 
    usage/install.md
    usage/overview.md
+   usage/match.md
    usage/bank_generation.md
    usage/injections.md
    usage/metric.md
    usage/flow.md
 
 .. toctree::
-   :maxdepth: 2
    :caption: Package reference
    :name: package_reference
+   :titlesonly:
    
    package_reference/metric.rst
    package_reference/handlers.rst

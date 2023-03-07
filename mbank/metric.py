@@ -101,6 +101,7 @@ class cbc_metric(object):
 		self.set_variable_format(variable_format)
 		
 		self.f_min = float(f_min)
+		if isinstance(f_max, str): f_max = float(f_max)
 		
 		if not isinstance(PSD, tuple):
 			raise ValueError("Wrong format for the PSD. Expected a tuple of np.ndarray, got {}".format(type(PSD)))
@@ -1027,12 +1028,27 @@ class cbc_metric(object):
 			Array containing the metric Hessian in the given parameters
 			
 		"""
-		H_pp = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = False)
-		H_cc = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = True)
+		#H_pp = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = False, time_comps = False)
+		#H_cc = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = True, time_comps = False)
+		#return (H_pp + H_cc)/2.
+		
+		H_pp, gpp_ti, gpp_tt = self.get_hessian(theta, overlap = True, order = order, epsilon = epsilon, use_cross = False, time_comps = True)
+		H_cc, gcc_ti, gcc_tt = self.get_hessian(theta, overlap = True, order = order, epsilon = epsilon, use_cross = True, time_comps = True)
 		#print(np.linalg.det(H_pp), np.linalg.det(H_cc))
-		return (H_pp + H_cc)/2.
+		#print(gpp_ti, gpp_tt)
+		#print(gcc_ti, gcc_tt)
 
-	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, use_cross = False):
+		if overlap:
+			return (H_pp + H_cc)/2.
+
+		H, g_ti, g_tt = -(H_pp + H_cc), (gpp_ti+gcc_ti)/2., (gpp_tt+gcc_tt)/2.
+		time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt) if g_ti.ndim == 2 else np.outer(g_ti, g_ti)/g_tt
+		metric = H - time_factor
+		
+		return -0.5*metric
+			
+
+	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, use_cross = False, time_comps = False):
 		"""
 		Returns the Hessian matrix.
 		
@@ -1056,6 +1072,9 @@ class cbc_metric(object):
 
 		use_cross: bool
 			Whether to use the cross polarization to compute the hessian.
+		
+		time_comps: bool
+			Whether to return the time components :math:`H_{it}, H_{tt}` of the hessian of the overlap.
 
 		Returns
 		-------
@@ -1065,8 +1084,7 @@ class cbc_metric(object):
 			Array containing the metric Hessian in the given parameters
 			
 		"""
-			#TODO: understand whether the time shift is an issue here!!
-			#		Usually match is max_t0 <h1(t)|h2(t-t0)>. How to cope with that? It this may make the space larger than expected
+		#TODO: this function is weird: it should return either the (D,D) hessian or the (D+1, D+1) hessian. The merginalization should be performed by get_metric. On the other hands, this will be computationally inefficient, so we can probably keep it as it is for the sake of speed.
 		theta = np.asarray(theta)
 		squeeze = False
 		if theta.ndim ==1:
@@ -1099,7 +1117,7 @@ class cbc_metric(object):
 		metric = np.einsum('ijk,i->ijk', metric , 1./np.square(h_h))
 		metric = metric - np.divide(grad_h_grad_h_real, h_h[:,None,None])
 
-		if not overlap:
+		if (not overlap) or time_comps:
 			#including time dependence
 			h_h_f = np.sum(np.multiply(np.conj(h_W), h_W*self.f_grid), axis =1) #(N,)
 			h_h_f2 = np.sum(np.multiply(np.conj(h_W), h_W*np.square(self.f_grid)), axis =1) #(N,)
@@ -1110,15 +1128,19 @@ class cbc_metric(object):
 			g_ti = (h_grad_h.imag.T * h_h_f.real + h_grad_h.real.T * h_h_f.imag).T #(N,K)
 			g_ti = (g_ti.T/np.square(h_h)).T
 			g_ti = g_ti - (h_grad_h_f.imag.T/h_h).T
-			
+		
+		if not overlap:
 			time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt)
 			metric = metric - time_factor
 		
 			#adding the -0.5 factor
 		metric = -0.5*metric
 		
-		if squeeze:	metric = np.squeeze(metric)
+		if squeeze: metric = np.squeeze(metric)
+		if squeeze and time_comps: g_ti, g_tt = np.squeeze(g_ti), np.squeeze(g_tt)
 
+		if time_comps:
+			return metric, g_ti, g_tt
 		return metric
 	
 	def WF_symphony_match(self, signal, template_plus, template_cross, overlap = False):
@@ -1182,7 +1204,6 @@ class cbc_metric(object):
 		SNR_ts_p = np.fft.ifft(SNR_fs_p, axis =-1).real*SNR_fs_p.shape[-1]
 		SNR_ts_c = np.fft.ifft(SNR_fs_c, axis =-1).real*SNR_fs_c.shape[-1]
 
-			#This correlation does not agree with sbank!!
 		h1pc = np.sum(np.multiply(np.conj(h1p_WN), h1c_WN), axis = -1).real
 		den = 1- np.square(h1pc)
 		

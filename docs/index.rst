@@ -22,7 +22,7 @@ Welcome to ``mbank``'s documentation!
 .. toctree::
    :caption: Package reference
    :name: package_reference
-   :titlesonly:
+   :maxdepth: 2
    
    package_reference/metric.rst
    package_reference/handlers.rst

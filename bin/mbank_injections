@@ -187,7 +187,7 @@ if full_match: #in this case we need to load the PSD and instantiate the metric
 bank = cbc_bank(args.variable_format, args.bank_file)
 if args.verbose: print("Loaded bank {} with {} templates".format(args.bank_file, bank.templates.shape[0]))
 
-	#Loading the flow, if it's the case
+	#Loading the tiling and the flow, if it's the case
 if metric_match:
 	t_obj = tiling_handler(args.tiling_file)
 	if isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)

@@ -170,7 +170,16 @@ class variable_handler(object):
 				'mass_format': m_, 'spin_format': s_, 'eccentricity_format': e_, 'angle_format':a_,
 				'e': (e_.find('e')>-1), 'meanano': (e_.find('meanano')>-1),
 				'iota': (a_.find('iota')>-1) ,'phi': (a_.find('phi')>-1)}
-			
+		
+			#Adding format BBH_components
+		self.valid_formats.append('BBH_components')
+		self.format_D['BBH_components'] = 12
+		self.format_info['BBH_components'] = {'D':12,
+				'mass_format': 'BBH_components', 'spin_format': 'BBH_components',
+				'eccentricity_format': 'BBH_components', 'angle_format': 'BBH_components',
+				'e': True, 'meanano':True,
+				'iota': True,'phi': True}
+		
 		self.MAX_SPIN = 0.999 #defining the constant maximum value for the spin (used for any check that's being done)
 		self.MAX_Q = 100.
 		
@@ -428,6 +437,9 @@ class variable_handler(object):
 		
 		assert BBH_components.shape[1] == 12, "The number of BBH parameter is not enough. Expected 12 [m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi], given {}".format(BBH_components.shape[1])
 		
+		if variable_format == 'BBH_components':
+			theta = [*BBH_components.T]
+		
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
 			theta = [BBH_components[:,0], BBH_components[:,1]]
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
@@ -480,8 +492,6 @@ class variable_handler(object):
 			theta2 = np.arccos(BBH_components[:,7]/s2)
 			phi2 = np.arctan2(BBH_components[:,6], BBH_components[:,5])
 			theta.extend([s1, theta1, phi1, s2, theta2, phi2])
-		else:
-			raise RuntimeError("Wrong setting for variable_format")
 			
 			#dealing with eccentricity
 		if self.format_info[variable_format]['e']:
@@ -525,6 +535,10 @@ class variable_handler(object):
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
 		assert theta.shape[1]==self.D(variable_format), "The number of BBH parameter doesn't fit into the given variable format. Expected {}, given {}".format(self.D(variable_format), theta.shape[1])
+		
+		if variable_format == 'BBH_components':
+			if squeeze: return tuple(*theta.tolist())
+			return tuple([*theta.T])
 		
 			#setting the masses
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
@@ -593,7 +607,6 @@ class variable_handler(object):
 			return s
 		s1x, s1y, s1z = set_zero_spin(s1x), set_zero_spin(s1y), set_zero_spin(s1z)
 		s2x, s2y, s2z = set_zero_spin(s2x), set_zero_spin(s2y), set_zero_spin(s2z)
-		
 		
 		if squeeze:
 			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z,  e, meanano, iota, phi = m1[0], m2[0], s1x[0], s1y[0], s1z[0], s2x[0], s2y[0], s2z[0], e[0], meanano[0], iota[0], phi[0]

@@ -112,6 +112,15 @@ mbank_place_templates --tiling-file tiling_my_first_precessing_bank.npy --mm 0.9
 
 This will do the template placing again and will produce a new bank and plots.
 
+### Launching `mbank_run` with condor
+
+Sometimes it is convenient to run your bank generation job with condor. To generate a minimal condor submit file, you can add the option `--make-sub-file`: it will create a `.sub` file which you can use to launch your `mbank_run` job.
+
+```Bash
+mbank_run --make-sub-file my_first_precessing_bank.ini
+condor_submit precessing_bank/mbank_run_my_first_precessing_bank.sub
+```
+
 ## Bank by hands
 
 Of course you can also code the bank generation by yourself in a python script. Althought this requires more work, it gives more control on the low level details and in some situation can be useful. However, for ease of use, it is always advised to use the provided executables `mbank_run` and `mbank_place_templates`.

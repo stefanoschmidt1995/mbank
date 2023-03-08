@@ -14,6 +14,11 @@ You can also load (some) options from an ini-file:
 	mbank_run --some-options other_options.ini
 
 Make sure that the mbank is properly installed.
+
+To create a sub file and run in condor:
+
+	mbank_run --make-sub-file options.ini
+
 To know which options are available:
 
 	mbank_run --help
@@ -21,6 +26,7 @@ To know which options are available:
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import warnings
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
@@ -92,7 +98,7 @@ parser.add_argument(
 	"--max-depth", default = 6, type = int,
 	help="Maximum number of iterative splitting before terminating.")
 parser.add_argument(
-	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symmetrized'],
+	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symmetrized', 'hessian_symphony'],
 	help="Method to use to compute the metric.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
@@ -155,7 +161,26 @@ parser.add_argument(
 	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
 	help="Range values for reference phase (if applicable)")
 
+parser.add_argument(
+	"--make-sub-file",  default = False, action='store_true',
+	help="If set, it will make a condor submit file which the user can use to launch the job through condor.")
+
 args, filenames = parser.parse_known_args()
+
+sub_file_str = """Universe   = vanilla
+Executable = {}
+arguments = "{}"
+getenv = true
+Log = {}mbank_run_{}.log
+Error = {}mbank_run_{}.err
+Output = {}mbank_run_{}.out
+request_memory = 4GB
+request_cpus = 8
+request_disk = 4GB
+
+queue
+"""
+
 
 	#updating from the ini file(s), if it's the case
 for f in filenames:
@@ -178,6 +203,24 @@ if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 
 if args.grid_size is None: args.grid_size = tuple([1 for i in range(var_handler.D(args.variable_format))])
+
+if args.make_sub_file:
+	if '--make-sub-file' in sys.argv:
+		sys.argv.remove('--make-sub-file')
+	else:
+		warnings.warn('The option --make-sub-file was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
+	sub_file_str = sub_file_str.format(sys.argv[0], ' '.join(sys.argv[1:]),
+		args.run_dir, args.run_name,
+		args.run_dir, args.run_name,
+		args.run_dir, args.run_name)
+	
+	sub_file = args.run_dir+'mbank_run_{}.sub'.format(args.run_name)
+	with open(sub_file, 'w') as f:
+		f.write(sub_file_str)
+	print('#####')
+	print("Submit file generated @ {}\nSubmit a job it with condor_submit\n".format(args.run_dir+'mbank_run_{}.sub'.format(args.run_name)))
+	print(sub_file_str)
+	quit()
 
 m_min, m_max = args.m_range
 mtot_min, mtot_max = args.mtot_range

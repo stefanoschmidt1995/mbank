@@ -175,7 +175,7 @@ Log = {}mbank_run_{}.log
 Error = {}mbank_run_{}.err
 Output = {}mbank_run_{}.out
 request_memory = 4GB
-request_cpus = 8
+request_cpus = {}
 request_disk = 4GB
 
 queue
@@ -209,10 +209,12 @@ if args.make_sub_file:
 		sys.argv.remove('--make-sub-file')
 	else:
 		warnings.warn('The option --make-sub-file was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
+	n_cpu = None if args.grid_size is None else int(np.prod(args.grid_size))
 	sub_file_str = sub_file_str.format(sys.argv[0], ' '.join(sys.argv[1:]),
 		args.run_dir, args.run_name,
 		args.run_dir, args.run_name,
-		args.run_dir, args.run_name)
+		args.run_dir, args.run_name,
+		n_cpu)
 	
 	sub_file = args.run_dir+'mbank_run_{}.sub'.format(args.run_name)
 	with open(sub_file, 'w') as f:

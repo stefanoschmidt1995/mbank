@@ -181,7 +181,6 @@ request_disk = 4GB
 queue
 """
 
-
 	#updating from the ini file(s), if it's the case
 for f in filenames:
 	args = updates_args_from_ini(f, args, parser)

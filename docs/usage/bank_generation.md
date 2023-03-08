@@ -121,6 +121,23 @@ mbank_run --make-sub-file my_first_precessing_bank.ini
 condor_submit precessing_bank/mbank_run_my_first_precessing_bank.sub
 ```
 
+Here's how the submit file looks like:
+
+```
+Universe   = vanilla
+Executable = /usr/bin/mbank_run
+arguments = "my_first_precessing_bank.ini"
+getenv = true
+Log = precessing_bank/mbank_run_my_first_precessing_bank.log
+Error = precessing_bank/mbank_run_my_first_precessing_bank.err
+Output = precessing_bank/mbank_run_my_first_precessing_bank.out
+request_memory = 4GB
+request_cpus = 4
+request_disk = 4GB
+
+queue
+```
+
 ## Bank by hands
 
 Of course you can also code the bank generation by yourself in a python script. Althought this requires more work, it gives more control on the low level details and in some situation can be useful. However, for ease of use, it is always advised to use the provided executables `mbank_run` and `mbank_place_templates`.

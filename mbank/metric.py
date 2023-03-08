@@ -605,6 +605,7 @@ class cbc_metric(object):
 			'symmetrized': self.get_hessian_symmetrized_plus_cross,
 			'projected_hessian': self.get_projected_hessian,
 			'numerical_hessian': self.get_numerical_hessian,
+			'hessian_symphony': self.get_numerical_hessian,
 			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
 			'block_diagonal_hessian': self.get_block_diagonal_hessian,
 			'fisher':self.get_fisher_matrix
@@ -613,6 +614,10 @@ class cbc_metric(object):
 		if metric_type not in metric_dict.keys():
 			msg = "Unknown metric_type '{}' given. It must be one of {}".format(metric_type, list(metric_dict.keys()))
 			raise ValueError(msg)
+		
+		if metric_type == 'hessian_symphony':
+			kwargs['symphony'] = True
+			kwargs['antenna_patterns'] = None
 		
 		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
 
@@ -700,7 +705,7 @@ class cbc_metric(object):
 		else: return metric
 
 
-	def get_parabolic_fit_hessian(self, theta, overlap = False, target_match = 0.9, N_epsilon_points = 7, log_epsilon_range = (-4, 1), full_output = False, **kwargs):
+	def get_parabolic_fit_hessian(self, theta, overlap = False, symphony = False, target_match = 0.9, N_epsilon_points = 7, log_epsilon_range = (-4, 1), antenna_patterns = None, full_output = False, **kwargs):
 		"""
 		Returns the hessian with the adjusted eigenvalues.
 		The eigenvalues are adjusted by fitting a parabola on the match along each direction.
@@ -716,6 +721,9 @@ class cbc_metric(object):
 			Whether to compute the metric based on the local expansion of the overlap rather than of the match
 			In this context the match is the overlap maximized over time
 
+		symphony: bool
+			Whether to compute the metric approximation for the symphony match
+
 		target_match: float
 			Target match for the eigenvalues fixing. Maximum range for the optimization problem
 		
@@ -724,10 +732,13 @@ class cbc_metric(object):
 		
 		log_epsilon_range: tuple
 			Tuple of floats. They represent the range in the log10(epsilon) to explore
+
+		antenna_patterns: tuple
+			Tuple of float/:class:`~numpy:numpy.ndarray` (:math:`F_+`, :math:`F_\\times`) for the two antenna patterns.
+			If given, it is used to build the signal :math:`s`, starting from :math:`h(\\theta_1)`; if ``None``, :math:`s = h_+(\\theta_\\mathrm{template})`. See :func:`get_antenna_patterns`.
 		
 		full_output: bool
 			Whether to return (together with the metric) a list of array, one for each dimension. The arrays have rows ``(step, match)``
-		
 
 		Returns
 		-------
@@ -750,13 +761,20 @@ class cbc_metric(object):
 			theta = theta[None,:]
 			squeeze = True
 		
+		if antenna_patterns is None:
+			antenna_patterns = (1,0)
+		assert isinstance(antenna_patterns, (tuple, list, np.ndarray)), "Antenna pattern must be a tuple"
+		F_p, F_c = antenna_patterns
+		
 		metric_hessian = self.get_hessian(theta, overlap = overlap, order = None) #(N,D,D)
 		#metric_hessian = self.get_block_diagonal_hessian(theta, overlap = overlap, order = None); warnings.warn("Using block diagonal hessian")#(N,D,D)
 		parabolae = []
 		metric = []
 
 		for center, metric_ in zip(theta, metric_hessian):
-			WF1 = self.get_WF(center, self.approx)
+			WF1_p, WF1_c = self.get_WF(center, self.approx, plus_cross = True)
+				#Building the signal
+			WF1 = WF1_p *F_p + WF1_c*F_c
 			eigvals, eigvecs = np.linalg.eig(metric_)
 			
 			parabolae_ = []
@@ -775,8 +793,11 @@ class cbc_metric(object):
 					
 					theta_ = np.array(center)+s*epsilon*eigvec
 					if self.var_handler.is_theta_ok(theta_, self.variable_format):
-						WF2 = self.get_WF(theta_, self.approx)
-						temp_match = self.WF_match(WF1, WF2, overlap = overlap) #Why was it set to True??
+						WF2_p, WF2_c = self.get_WF(theta_, self.approx, plus_cross = True)
+						if symphony:
+							temp_match = self.WF_symphony_match(WF1, WF2_p, WF2_c, overlap = overlap)
+						else:
+							temp_match = self.WF_match(WF1, WF2_p, overlap = overlap)
 						if temp_match >= target_match:
 							parabola_list_d.append((s*epsilon, temp_match))
 						else:
@@ -787,7 +808,7 @@ class cbc_metric(object):
 				parabolae_.append(np.array(parabola_list_d))
 				p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 1)[0] #parabolic fit
 				#p = np.polyfit(parabolae_[-1][:,0]**2, parabolae_[-1][:,1], 2)[1] #quartic fit
-				new_eigvals.append(np.abs(p)) #abs is dangerous, as if you have a negative eigenvalues, you wouldn't note
+				new_eigvals.append(np.abs(p)) #abs is dangerous, since if you have a negative eigenvalues you wouldn't note
 		
 			parabolae.append(parabolae_)
 			metric.append(np.linalg.multi_dot([eigvecs, np.diag(new_eigvals), eigvecs.T]))
@@ -802,9 +823,9 @@ class cbc_metric(object):
 		else: return metric
 		
 	
-	def get_numerical_hessian(self, theta, overlap = False, epsilon = 1e-6, target_match = 0.97):
+	def get_numerical_hessian(self, theta, overlap = False, symphony = False, epsilon = 1e-6, target_match = 0.97, antenna_patterns = None):
 		"""
-		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce `cbc_metric.get_hessian_metric`.
+		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce :func:`get_hessian_metric`.
 		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function `cbc_metric.get_hessian_metric`.
 		In particular the step size epsilon must be tuned carefully and the results are really sensible on this choice.
 		Uses package ``numdifftools``, not among the dependencies.
@@ -820,12 +841,19 @@ class cbc_metric(object):
 			Whether to compute the metric based on the local expansion of the overlap rather than of the match
 			In this context the match is the overlap maximized over time
 
+		symphony: bool
+			Whether to compute the metric approximation for the symphony match
+
 		epsilon: float
 			Size of the jump for the finite difference scheme.
 			If `None`, it will be authomatically computed.
 		
 		target_match: float
 			Target match for the authomatic epsilon computation. Only applies is epsilon is None.
+		
+		antenna_patterns: tuple
+			Tuple of float/:class:`~numpy:numpy.ndarray` (:math:`F_+`, :math:`F_\\times`) for the two antenna patterns.
+			If given, it is used to build the signal :math:`s`, starting from :math:`h(\\theta_1)`; if ``None``, :math:`s = h_+(\\theta_\\mathrm{template})`. See :func:`get_antenna_patterns`.
 		
 		Returns
 		-------
@@ -838,9 +866,15 @@ class cbc_metric(object):
 		# Defining a match functions
 		
 		def match_t(x):
+			#WF1 is the "injection" and is in global scope
 			t, theta_ = x[0], x[1:]
-			WF2 = self.get_WF(theta_, self.approx)*np.exp(-1j*2*np.pi*self.f_grid*t)
-			return self.WF_match(WF1, WF2, False) #WF1 is in global scope
+			WF2_p, WF2_c = self.get_WF(theta_, self.approx, plus_cross = True)
+			WF2_p *= np.exp(-1j*2*np.pi*self.f_grid*t)
+			if symphony:
+				WF2_c *= np.exp(-1j*2*np.pi*self.f_grid*t)
+				return self.WF_symphony_match(WF1, WF2_p, WF2_c, overlap = False)
+			else:
+				return self.WF_match(WF1, WF2_p, overlap = False) 
 		
 		###
 		# Loss function
@@ -875,16 +909,24 @@ class cbc_metric(object):
 			squeeze = True
 
 		##		
-		# Dealing with epsilon
+		# Dealing with epsilon & antenna patterns
 		if not (isinstance(epsilon, (float, list, np.ndarray)) or epsilon is None):
 			raise ValueError("epsilon should be a float, list or None")
+	
+		if antenna_patterns is None:
+			antenna_patterns = (1,0)
+		assert isinstance(antenna_patterns, (tuple, list, np.ndarray)), "Antenna pattern must be a tuple"
+		F_p, F_c = antenna_patterns
 	
 		##
 		# Computing the metric
 		
 		metric = []
 		for theta_i in theta:
-			WF1 = self.get_WF(theta_i, self.approx) #used by
+			WF1_p, WF1_c = self.get_WF(theta_i, self.approx, plus_cross = True) #used by
+				#Building the signal
+			WF1 = WF1_p *F_p + WF1_c*F_c
+			
 			center = np.array([0, *theta_i])
 
 			#setting epsilon (if it's the case)

@@ -110,7 +110,10 @@ if args.injection_stat:
 	for stat_dict in stat_dict_list:
 		for k,v in stat_dict.items():
 			if k in merged_stat_dict:
-				if isinstance(v, (float, int)) or v is None:
+				if k == 'sky_loc':
+					assert np.allclose(v, merged_stat_dict[k]), "The sky locations of the injection statistics dictionaries are not compatible"
+					continue
+				if isinstance(v, (float, int)) or (v is None):
 					assert v == merged_stat_dict[k], "The given injection statistics dictionary are not compatible: are the metadata the same?"
 					continue
 				merged_stat_dict[k] = np.concatenate([merged_stat_dict[k], v], axis = 0)

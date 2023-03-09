@@ -602,10 +602,10 @@ class cbc_metric(object):
 		#TODO: allow to implement a custom metric function...
 		metric_dict ={
 			'hessian': self.get_hessian,
-			'symmetrized': self.get_hessian_symmetrized_plus_cross,
-			'projected_hessian': self.get_projected_hessian,
+			'symphony': self.get_hessian_symphony,
 			'numerical_hessian': self.get_numerical_hessian,
-			'hessian_symphony': self.get_numerical_hessian,
+			'numerical_symphony': self.get_numerical_hessian,
+			'projected_hessian': self.get_projected_hessian,
 			'parabolic_fit_hessian': self.get_parabolic_fit_hessian,
 			'block_diagonal_hessian': self.get_block_diagonal_hessian,
 			'fisher':self.get_fisher_matrix
@@ -615,7 +615,7 @@ class cbc_metric(object):
 			msg = "Unknown metric_type '{}' given. It must be one of {}".format(metric_type, list(metric_dict.keys()))
 			raise ValueError(msg)
 		
-		if metric_type == 'hessian_symphony':
+		if metric_type == 'numerical_symphony':
 			kwargs['symphony'] = True
 			kwargs['antenna_patterns'] = None
 		
@@ -1040,9 +1040,9 @@ class cbc_metric(object):
 		
 		return metric
 
-	def get_hessian_symmetrized_plus_cross(self, theta, overlap = False, order = None, epsilon = 1e-5):
+	def get_hessian_symphony(self, theta, overlap = False, order = None, epsilon = 1e-5, time_comps = False):
 		"""
-		Returns the Hessian matrix where :math:`h_+` and :math:`h_\\times` are treated on the same footing.
+		Returns the Hessian matrix of the symphony match.
 		
 		Parameters
 		----------
@@ -1061,6 +1061,9 @@ class cbc_metric(object):
 
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
+		
+		time_comps: bool
+			Whether to return the time components :math:`H_{it}, H_{tt}` of the hessian of the overlap.
 
 		Returns
 		-------
@@ -1070,27 +1073,87 @@ class cbc_metric(object):
 			Array containing the metric Hessian in the given parameters
 			
 		"""
-		#H_pp = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = False, time_comps = False)
-		#H_cc = self.get_hessian(theta, overlap = overlap, order = order, epsilon = epsilon, use_cross = True, time_comps = False)
-		#return (H_pp + H_cc)/2.
-		
-		H_pp, gpp_ti, gpp_tt = self.get_hessian(theta, overlap = True, order = order, epsilon = epsilon, use_cross = False, time_comps = True)
-		H_cc, gcc_ti, gcc_tt = self.get_hessian(theta, overlap = True, order = order, epsilon = epsilon, use_cross = True, time_comps = True)
-		#print(np.linalg.det(H_pp), np.linalg.det(H_cc))
-		#print(gpp_ti, gpp_tt)
-		#print(gcc_ti, gcc_tt)
+		#TODO: this function is weird: it should return either the (D,D) hessian or the (D+1, D+1) hessian. The merginalization should be performed by get_metric. On the other hands, this will be computationally inefficient, so we can probably keep it as it is for the sake of speed.
+		theta = np.asarray(theta)
+		squeeze = False
+		if theta.ndim ==1:
+			theta = theta[None,:]
+			squeeze = True
 
-		if overlap:
-			return (H_pp + H_cc)/2.
+		####
+		#computing the metric
+		####
 
-		H, g_ti, g_tt = -(H_pp + H_cc), (gpp_ti+gcc_ti)/2., (gpp_tt+gcc_tt)/2.
-		time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt) if g_ti.ndim == 2 else np.outer(g_ti, g_ti)/g_tt
-		metric = H - time_factor
+		###
+		# Scalar products in FD
+		hp, hc = self.get_WF(theta, approx = self.approx, plus_cross = True) #(N,D)
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon) #(N,D, K)
 		
-		return -0.5*metric
+		hp_W = hp / np.sqrt(self.PSD) #whithened plus
+		hc_W = hc / np.sqrt(self.PSD) #whithened cross
+		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
+		
+		hpp = np.sum(np.multiply(np.conj(hp_W), hp_W), axis =1).real #(N,)
+		hcc = np.sum(np.multiply(np.conj(hc_W), hc_W), axis =1).real #(N,)
+		hpc = np.sum(np.multiply(np.conj(hp_W), hc_W), axis =1).real #(N,)
+		hpc_norm = hpc/np.sqrt(hpp*hcc)
+		
+		hp_grad_h = np.einsum('ij,ijk->ik', np.conj(hp_W), grad_h_W) #(N,K)
+		hc_grad_h = np.einsum('ij,ijk->ik', np.conj(hc_W), grad_h_W) #(N,K)
+		grad_h_grad_h_real = np.einsum('ijk,ijl->ikl', np.conj(grad_h_W), grad_h_W).real #(N,K,K)
+		
+		###
+		#computing the metric
+		piece_one = np.einsum('ij,ik->ijk', hp_grad_h.real, hp_grad_h.real) #(N,K,K) 
+		piece_one = np.einsum('ijk,i->ijk', piece_one , 1./np.square(hpp)) #(N,K,K)
+		piece_two = np.einsum('ij,ik->ijk', hc_grad_h.real, hc_grad_h.real) #(N,K,K)
+		piece_two = np.einsum('ijk,i->ijk', piece_two , 1./(hpp*hcc*(1-hpc_norm**2))) #(N,K,K)
+		
+		metric = piece_one + piece_two - np.divide(grad_h_grad_h_real, hpp[:,None,None]) #(N,K,K)
+
+			#including time dependence
+		if (not overlap) or time_comps:
+			hp_hp_f = np.sum(np.multiply(np.conj(hp_W), hp_W*self.f_grid), axis =1) #(N,)
+			hc_hp_f = np.sum(np.multiply(np.conj(hc_W), hp_W*self.f_grid), axis =1) #(N,)
+			hp_hp_f2 = np.sum(np.multiply(np.conj(hp_W), hp_W*np.square(self.f_grid)), axis =1) #(N,)
+			hp_grad_h_f = np.einsum('ij,ijk->ik', np.conj(hp_W)*self.f_grid, grad_h_W) #(N,K)
+			hc_grad_h_f = np.einsum('ij,ijk->ik', np.conj(hc_W)*self.f_grid, grad_h_W) #(N,K)
+			
+			g_tt = np.square(hc_hp_f.imag/np.sqrt(hpp*hcc)) #(N,)
+			g_tt = g_tt - 2*hpc_norm*(hc_hp_f.imag/np.sqrt(hpp*hcc))*(hp_hp_f.imag/hpp) #(N,)
+			g_tt = g_tt / (1-hpc_norm**2) #(N,)
+			g_tt = g_tt - hp_hp_f2.real/hpp #(N,)
+			
+			g_ti = - (hc_grad_h.real.T/hpp)*(hc_hp_f.imag/hcc) #(K,N)
+			g_ti = g_ti + hpc_norm*(hp_hp_f.imag/hpp)*(hc_grad_h.real.T/np.sqrt(hpp*hcc)) #(K,N)
+			g_ti = g_ti + hpc_norm*(hc_hp_f.imag/hpp)*(hp_grad_h.real.T/np.sqrt(hpp*hcc)) #(K,N)
+			g_ti = g_ti - np.square(hpc_norm)*(hp_grad_h.real.T/hpp)*(hp_hp_f.imag/hpp) #(K,N)
+			g_ti = g_ti / (1-hpc_norm**2) #(K,N)
+			g_ti = g_ti - hp_grad_h_f.imag.T/hpp + (hp_grad_h.real.T/hpp) * (hp_hp_f.imag/hpp) #(K,N)
+			g_ti = g_ti.T #(N,K)
+		
+		if not overlap:
+			time_factor = np.einsum('ij,ik,i->ijk', g_ti, g_ti, 1./g_tt)
+			metric = metric - time_factor
+		
+			#adding the -0.5 factor
+		metric = -0.5*metric
+
+		eigval, eigvec = np.linalg.eig(metric)
+		if np.any(eigval<=0):
+			#FIXME: this shouldn't be happening!
+			warnings.warn("One of the metric eigenvalue is negative! Beware: metric computation is not stable...")
+			metric = np.einsum('ijk,ik,ilk->ijl', eigvec, np.abs(eigval), eigvec)
+
+		if squeeze: metric = np.squeeze(metric)
+		if squeeze and time_comps: g_ti, g_tt = np.squeeze(g_ti), np.squeeze(g_tt)
+
+		if time_comps:
+			return metric, g_ti, g_tt
+		return metric
 			
 
-	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, use_cross = False, time_comps = False):
+	def get_hessian(self, theta, overlap = False, order = None, epsilon = 1e-5, time_comps = False):
 		"""
 		Returns the Hessian matrix.
 		
@@ -1112,9 +1175,6 @@ class cbc_metric(object):
 		epsilon: list
 			Size of the jump for the finite difference scheme for each dimension. If a float, the same jump will be used for all dimensions
 
-		use_cross: bool
-			Whether to use the cross polarization to compute the hessian.
-		
 		time_comps: bool
 			Whether to return the time components :math:`H_{it}, H_{tt}` of the hessian of the overlap.
 
@@ -1141,9 +1201,8 @@ class cbc_metric(object):
 		#The following outputs grad_h_grad_h_real (N,D,4,4), h_grad_h.real/h_grad_h.imag (N,D,4) and h_h (N,D), evaluated on self.f_grid (or in a std grid if PSD is None)
 
 		### scalar product in FD
-		hp, hc = self.get_WF(theta, approx = self.approx, plus_cross = True) #(N,D)
-		h = hc if use_cross else hp
-		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon, use_cross = use_cross) #(N,D, K)
+		h = self.get_WF(theta, approx = self.approx, plus_cross = False) #(N,D)
+		grad_h = self.get_WF_grads(theta, approx = self.approx, order = order, epsilon = epsilon) #(N,D, K)
 		
 		h_W = h / np.sqrt(self.PSD) #whithened WF
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads

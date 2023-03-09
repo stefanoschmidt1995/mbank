@@ -369,7 +369,7 @@ class cbc_bank():
 			eigs, _ = np.linalg.eig(M)
 					#sanity checks on the metric eigenvalues
 			if np.any(eigs < 0):
-				warnings.warn("The metric has a negative eigenvalue: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed.")
+				warnings.warn("The metric has a negative eigenvalue @ {}: the template placing in this tile may be unreliable. This is pathological as the metric computation may have failed.\nEigvs are: {}".format((R.maxes+R.mins)/2, eigs))
 			
 			abs_det = np.abs(np.prod(eigs))
 			if abs_det < 1e-50: #checking if the determinant is close to zero...

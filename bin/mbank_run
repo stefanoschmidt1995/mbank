@@ -98,7 +98,7 @@ parser.add_argument(
 	"--max-depth", default = 6, type = int,
 	help="Maximum number of iterative splitting before terminating.")
 parser.add_argument(
-	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symmetrized', 'hessian_symphony'],
+	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symphony'],
 	help="Method to use to compute the metric.")
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,

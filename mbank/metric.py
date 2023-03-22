@@ -866,13 +866,16 @@ class cbc_metric(object):
 		# Defining a match functions
 		
 		def match_t(x):
-			#WF1 is the "injection" and is in global scope
+			#WF2 is the "template" and it is in global scope
 			t, theta_ = x[0], x[1:]
-			WF2_p, WF2_c = self.get_WF(theta_, self.approx, plus_cross = True)
-			WF2_p *= np.exp(-1j*2*np.pi*self.f_grid*t)
+			WF1_p, WF1_c = self.get_WF(theta_, self.approx, plus_cross = True)
+			WF1 = WF1_p *F_p + WF1_c*F_c
+			WF1 *= np.exp(-1j*2*np.pi*self.f_grid*t)
 			if symphony:
-				WF2_c *= np.exp(-1j*2*np.pi*self.f_grid*t)
 				return self.WF_symphony_match(WF1, WF2_p, WF2_c, overlap = False)
+				#return self.WF_symphony_match(WF2_p *F_p + WF2_c*F_c,
+				#		WF1_p*np.exp(-1j*2*np.pi*self.f_grid*t),
+				#		WF1_c*np.exp(-1j*2*np.pi*self.f_grid*t), overlap = False)
 			else:
 				return self.WF_match(WF1, WF2_p, overlap = False) 
 		
@@ -923,10 +926,8 @@ class cbc_metric(object):
 		
 		metric = []
 		for theta_i in theta:
-			WF1_p, WF1_c = self.get_WF(theta_i, self.approx, plus_cross = True) #used by
+			WF2_p, WF2_c = self.get_WF(theta_i, self.approx, plus_cross = True) #used by
 				#Building the signal
-			WF1 = WF1_p *F_p + WF1_c*F_c
-			
 			center = np.array([0, *theta_i])
 
 			#setting epsilon (if it's the case)
@@ -1091,6 +1092,8 @@ class cbc_metric(object):
 		
 		hp_W = hp / np.sqrt(self.PSD) #whithened plus
 		hc_W = hc / np.sqrt(self.PSD) #whithened cross
+		#hc_W = 1j*hp_W #Add this to recover the NP limit...
+		
 		grad_h_W = grad_h/np.sqrt(self.PSD[:,None]) #whithened grads
 		
 		hpp = np.sum(np.multiply(np.conj(hp_W), hp_W), axis =1).real #(N,)
@@ -1104,12 +1107,13 @@ class cbc_metric(object):
 		
 		###
 		#computing the metric
-		piece_one = np.einsum('ij,ik->ijk', hp_grad_h.real, hp_grad_h.real) #(N,K,K) 
-		piece_one = np.einsum('ijk,i->ijk', piece_one , 1./np.square(hpp)) #(N,K,K)
-		piece_two = np.einsum('ij,ik->ijk', hc_grad_h.real, hc_grad_h.real) #(N,K,K)
-		piece_two = np.einsum('ijk,i->ijk', piece_two , 1./(hpp*hcc*(1-hpc_norm**2))) #(N,K,K)
 		
-		metric = piece_one + piece_two - np.divide(grad_h_grad_h_real, hpp[:,None,None]) #(N,K,K)
+		metric = np.einsum('ij,ik->ijk', (hp_grad_h.real.T/hpp).T, (hc_grad_h.real.T/np.sqrt(hcc*hpp)).T) #(N,K,K) 
+		metric =  - hpc_norm[:,None,None] * (metric + np.swapaxes(metric,1,2)) #(N,K,K) 
+		metric = metric + np.einsum('ij,ik,i->ijk', hp_grad_h.real, hp_grad_h.real, 1./np.square(hpp)) #(N,K,K) 
+		metric = metric + np.einsum('ij,ik,i->ijk', hc_grad_h.real, hc_grad_h.real, 1./(hpp*hcc)) #(N,K,K)
+		metric = np.divide(metric, (1-hpc_norm**2)[:,None,None])
+		metric = metric - np.divide(grad_h_grad_h_real, hpp[:,None,None]) #(N,K,K)
 
 			#including time dependence
 		if (not overlap) or time_comps:
@@ -1119,17 +1123,13 @@ class cbc_metric(object):
 			hp_grad_h_f = np.einsum('ij,ijk->ik', np.conj(hp_W)*self.f_grid, grad_h_W) #(N,K)
 			hc_grad_h_f = np.einsum('ij,ijk->ik', np.conj(hc_W)*self.f_grid, grad_h_W) #(N,K)
 			
-			g_tt = np.square(hc_hp_f.imag/np.sqrt(hpp*hcc)) #(N,)
-			g_tt = g_tt - 2*hpc_norm*(hc_hp_f.imag/np.sqrt(hpp*hcc))*(hp_hp_f.imag/hpp) #(N,)
-			g_tt = g_tt / (1-hpc_norm**2) #(N,)
-			g_tt = g_tt - hp_hp_f2.real/hpp #(N,)
+			g_tt = np.square(hc_hp_f.imag/np.sqrt(hpp*hcc))/(1-hpc_norm**2)
+			g_tt = g_tt- hp_hp_f2.real/hpp #(N,)
 			
 			g_ti = - (hc_grad_h.real.T/hpp)*(hc_hp_f.imag/hcc) #(K,N)
-			g_ti = g_ti + hpc_norm*(hp_hp_f.imag/hpp)*(hc_grad_h.real.T/np.sqrt(hpp*hcc)) #(K,N)
-			g_ti = g_ti + hpc_norm*(hc_hp_f.imag/hpp)*(hp_grad_h.real.T/np.sqrt(hpp*hcc)) #(K,N)
-			g_ti = g_ti - np.square(hpc_norm)*(hp_grad_h.real.T/hpp)*(hp_hp_f.imag/hpp) #(K,N)
+			g_ti = g_ti + hpc_norm*(hc_hp_f.imag/np.sqrt(hpp*hcc))*(hp_grad_h.real.T/hpp) #(K,N)
 			g_ti = g_ti / (1-hpc_norm**2) #(K,N)
-			g_ti = g_ti - hp_grad_h_f.imag.T/hpp + (hp_grad_h.real.T/hpp) * (hp_hp_f.imag/hpp) #(K,N)
+			g_ti = g_ti - hp_grad_h_f.imag.T/hpp #(K,N)
 			g_ti = g_ti.T #(N,K)
 		
 		if not overlap:
@@ -1142,8 +1142,11 @@ class cbc_metric(object):
 		eigval, eigvec = np.linalg.eig(metric)
 		if np.any(eigval<=0):
 			#FIXME: this shouldn't be happening!
-			warnings.warn("One of the metric eigenvalue is negative! Beware: metric computation is not stable...")
-			metric = np.einsum('ijk,ik,ilk->ijl', eigvec, np.abs(eigval), eigvec)
+			msg = "One of the metric eigenvalue is negative! Beware: metric computation is not stable...\nCenter: {}\n\thpc: {}\n\teigs: {}".format(theta, hpc_norm, eigval)
+			warnings.warn(msg)
+			#metric = np.einsum('ijk,ik,ilk->ijl', eigvec, np.abs(eigval), eigvec)
+			
+		#print('hpc norm: ',hpc_norm)
 
 		if squeeze: metric = np.squeeze(metric)
 		if squeeze and time_comps: g_ti, g_tt = np.squeeze(g_ti), np.squeeze(g_tt)
@@ -1226,7 +1229,7 @@ class cbc_metric(object):
 			
 			g_tt = np.square(h_h_f.real/h_h) - h_h_f2.real/h_h #(N,)
 			
-			g_ti = (h_grad_h.imag.T * h_h_f.real + h_grad_h.real.T * h_h_f.imag).T #(N,K)
+			g_ti = (h_grad_h.imag.T * h_h_f.real).T #(N,K)
 			g_ti = (g_ti.T/np.square(h_h)).T
 			g_ti = g_ti - (h_grad_h_f.imag.T/h_h).T
 		

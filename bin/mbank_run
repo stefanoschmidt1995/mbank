@@ -219,7 +219,10 @@ if args.make_sub_file:
 	with open(sub_file, 'w') as f:
 		f.write(sub_file_str)
 	print('#####')
-	print("Submit file generated @ {}\nSubmit a job it with condor_submit\n".format(args.run_dir+'mbank_run_{}.sub'.format(args.run_name)))
+	sub_file = args.run_dir+'mbank_run_{}.sub'.format(args.run_name)
+	print("Submit file generated @ {}\nSubmit a job it with condor_submit {}\n".format(sub_file, sub_file))
+	print("Monitor it with: tail -f {}mbank_run_{}.err".format(args.run_dir, args.run_name))
+	print('#####')
 	print(sub_file_str)
 	quit()
 

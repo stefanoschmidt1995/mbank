@@ -139,6 +139,9 @@ parser.add_argument(
 	"--metric-type", default = 'hessian',
 	help="The metric computation method to use")
 parser.add_argument(
+	"--symphony-match", default = False, action='store_true',
+	help="Whether to compute the match with the symphony match")
+parser.add_argument(
 	"--on-boundaries",  default = False, action='store_true',
 	help="Whether the sampled points for validation should be drawn on the boundaries of the constant match ellipse. If False (default) points will be drawn inside.")
 parser.add_argument(
@@ -187,6 +190,7 @@ if not m_obj.var_handler.is_theta_ok(center, args.variable_format):
 
 target_match = 0.9
 metric_hessian = m_obj.get_hessian(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
+metric_symphony = m_obj.get_hessian_symphony(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
 metric_fisher = m_obj.get_fisher_matrix(center, overlap = args.overlap, order = None, epsilon = args.epsilon)
 metric_block_diagonal = m_obj.get_block_diagonal_hessian(center,  overlap = args.overlap, epsilon = 1e-6, order = None)
 metric_numerical = np.eye(center.shape[0])  #m_obj.get_numerical_hessian(center,  overlap = overlap, target_match = 0.999, epsilon = 1e-6)
@@ -200,6 +204,7 @@ print("Approximant: ", args.approximant)
 print("Frequency range: ", args.f_min, args.f_max)
 print("center: ", center)
 print("  Eig hessian: ", np.linalg.eig(metric_hessian)[0], np.linalg.det(metric_hessian))
+print("  Eig symphony: ", np.linalg.eig(metric_symphony)[0], np.linalg.det(metric_symphony))
 print("  Eig Fisher: ", np.linalg.eig(metric_fisher)[0], np.linalg.det(metric_fisher))
 print("  Eig block diagonal: ", np.linalg.eig(metric_block_diagonal)[0], np.linalg.det(metric_block_diagonal))
 print("  Eig numerical hessian: ", np.linalg.eig(metric_numerical)[0], np.linalg.det(metric_numerical))
@@ -219,7 +224,8 @@ ids_inside = m_obj.var_handler.is_theta_ok(points, args.variable_format, raise_e
 #		m_obj.var_handler.is_theta_ok(p2, args.variable_format, raise_error = False))#DEBUG
 
 if sum(ids_inside)>0:
-	matches[ids_inside] = m_obj.match(points[ids_inside, :], center, overlap = args.overlap)
+	matches[ids_inside] = m_obj.match(points[ids_inside, :], center,
+		overlap = args.overlap, symphony = args.symphony_match, antenna_patterns = (1,0))
 	#matches[ids_inside] = m_obj.match(p1[ids_inside, :], p2[ids_inside, :], overlap = args.overlap) #DEBUG
 #points = np.concatenate([p1, p2], axis = 0)
 #matches = np.concatenate([matches, matches], axis = 0)
@@ -254,9 +260,10 @@ if args.save_dir is not None: plt.savefig(args.save_dir+"ellipses.png")
 	#histogram
 plt.figure()
 plt.title("Center: {} - Overlap {}".format(center, args.overlap))
-hist_kwargs = {'bins': 20, 'histtype':'step', 'color':'orange'}
+hist_kwargs = {'bins': 20, 'histtype':'step', 'density':True, 'cumulative': True, 'color':'orange'}
 plt.hist(matches, label = 'mbank', **hist_kwargs)
 plt.axvline(args.match, c = 'r')
+plt.yscale('log')
 plt.legend()
 if args.save_dir is not None: plt.savefig(args.save_dir+"validation_hist.png")
 

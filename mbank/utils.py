@@ -2185,7 +2185,7 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, sky_locs = 
 		lw_utils.write_filename(xmldoc, filename, verbose=False)
 		xmldoc.unlink()
 
-		print("Saved {} injections to {}".format(i+1, filename))
+		print("Saved {} injections to {}".format(i+1, filename)) #FIXME: remove this from here!
 
 		return 
 

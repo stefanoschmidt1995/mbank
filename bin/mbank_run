@@ -143,6 +143,7 @@ parser.add_argument(
 	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
 	help="Range values for effective spin parameter (if applicable)")
 parser.add_argument(
+	#Make default: [-pi, pi]??
 	"--theta-range", default = [0., np.pi], type=float, nargs = 2,
 	help="Range values for theta angles of spins (if applicable)")
 parser.add_argument(

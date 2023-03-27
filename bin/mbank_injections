@@ -158,7 +158,7 @@ if isinstance(args.inj_file, str):
 if isinstance(args.stat_dict, str):
 	if args.stat_dict.find('/') <0: args.stat_dict = args.run_dir+args.stat_dict
 else:
-	args.stat_dict = os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.json'
+	args.stat_dict = args.run_dir+os.path.basename(args.bank_file).split('.')[0]+'-injections_stat_dict.json'
 if isinstance(args.flow_file, str):
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
 if metric_match:

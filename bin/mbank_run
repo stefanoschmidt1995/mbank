@@ -17,7 +17,7 @@ Make sure that the mbank is properly installed.
 
 To create a sub file and run in condor:
 
-	mbank_run --make-sub-file options.ini
+	mbank_run --make-sub options.ini
 
 To know which options are available:
 
@@ -88,6 +88,9 @@ parser.add_argument(
 parser.add_argument(
 	"--n-livepoints", default = 10000, type = float,
 	help="Parameter to control the number of livepoints to use in the `random` and `pruning` placing method. For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction. For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.")
+parser.add_argument(
+	"--covering-fraction", default = 0.01, type = float,
+	help="Parameter to control the maximum fraction of livepoints alive before terminating the bank generation with the `random` and `pruning` placing method. The smaller the threshold, the higher the nuber of templates in the final bank.")
 parser.add_argument(
 	"--empty-iterations", default = 100, type = float,
 	help="Number of consecutive rejected proposal after which the `stochastic` placing method stops.")
@@ -163,8 +166,8 @@ parser.add_argument(
 	help="Range values for reference phase (if applicable)")
 
 parser.add_argument(
-	"--make-sub-file",  default = False, action='store_true',
-	help="If set, it will make a condor submit file which the user can use to launch the job through condor.")
+	"--make-sub",  default = False, action='store_true',
+	help="If set, it will make a condor submit file that the user can use to launch the job through condor.")
 
 args, filenames = parser.parse_known_args()
 
@@ -204,11 +207,11 @@ if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 
 if args.grid_size is None: args.grid_size = tuple([1 for i in range(var_handler.D(args.variable_format))])
 
-if args.make_sub_file:
-	if '--make-sub-file' in sys.argv:
-		sys.argv.remove('--make-sub-file')
+if args.make_sub:
+	if '--make-sub' in sys.argv:
+		sys.argv.remove('--make-sub')
 	else:
-		warnings.warn('The option --make-sub-file was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
+		warnings.warn('The option --make-sub was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
 	n_cpu = None if args.grid_size is None else int(np.prod(args.grid_size))
 	sub_file_str = sub_file_str.format(sys.argv[0], ' '.join(sys.argv[1:]),
 		args.run_dir, args.run_name,
@@ -288,10 +291,10 @@ if format_info['mass_format'] == 'm1m2':
 
 else:
 	t_obj = bank.generate_bank(m, minimum_match = args.mm, boundaries = boundaries,
-		tolerance = args.tile_tolerance,
+		max_depth = args.max_depth, tolerance = args.tile_tolerance,
 		placing_method = args.placing_method, metric_type = args.metric_type,
 		grid_list = args.grid_size, train_flow = args.train_flow,
-		N_livepoints = args.n_livepoints, empty_iterations = args.empty_iterations, max_depth = args.max_depth,
+		N_livepoints = args.n_livepoints, covering_fraction = args.covering_fraction, empty_iterations = args.empty_iterations,
 		use_ray = args.use_ray, n_layers = args.n_layers, hidden_features = args.hidden_features, N_epochs = args.n_epochs)
 	
 	tiling_file = args.run_dir+'tiling_{}.npy'.format(args.run_name)

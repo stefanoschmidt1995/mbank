@@ -307,7 +307,7 @@ class cbc_bank():
 		
 		return
 		
-	def place_templates(self, tiling, minimum_match, placing_method, N_livepoints = 10000, empty_iterations = 100, verbose = True):
+	def place_templates(self, tiling, minimum_match, placing_method, N_livepoints = 10000, covering_fraction = 0.01, empty_iterations = 100, verbose = True):
 		"""
 		Given a tiling, it places the templates according to the given method and **adds** them to the bank
 		
@@ -342,6 +342,9 @@ class cbc_bank():
 			Only applies for `random` method or `pruning` method.
 			For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction.
 			For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.
+		
+		covering_fraction: float
+			Only applies for `random` method or `pruning` method. Fraction of livepoints to be covered before terminating the loop
 		
 		empty_iterations: int
 			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method (or related).
@@ -428,7 +431,7 @@ class cbc_bank():
 			else: new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 		
 		if placing_method in ['random', 'random_stochastic']:
-			new_templates = place_random(minimum_match, tiling, N_livepoints = N_livepoints, tolerance = 0.01, verbose = verbose)
+			new_templates = place_random(minimum_match, tiling, N_livepoints = N_livepoints, covering_fraction = covering_fraction, verbose = verbose)
 		
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'iterative_stochastic', 'stochastic']:
 			new_templates = place_stochastically(minimum_match, tiling,
@@ -458,7 +461,8 @@ class cbc_bank():
 				#TODO: make this a ray function? Too much memory expensive, probably...
 					#The template volume for random is sqrt(1-MM) (not dist)
 				
-				new_templates_ = place_pruning(minimum_match, p, N_points = int(N_points(p)), tolerance = 0.0001, verbose = verbose)
+				new_templates_ = place_pruning(minimum_match, p, N_points = int(N_points(p)),
+					covering_fraction = covering_fraction, verbose = verbose)
 				
 				new_templates.extend(new_templates_)
 			
@@ -469,7 +473,8 @@ class cbc_bank():
 
 	def generate_bank(self, metric_obj, minimum_match, boundaries, tolerance,
 			placing_method = 'random', metric_type = 'hessian', grid_list = None, train_flow = False,
-			use_ray = False, N_livepoints = 50, empty_iterations = 100, max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000):
+			use_ray = False, N_livepoints = 50, covering_fraction = 0.01, empty_iterations = 100,
+			max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000, verbose = True):
 		#FIXME: here you should use kwargs, directing the user to the docs of other functions?
 		"""
 		Generates a bank using a hierarchical hypercube tesselation. 
@@ -516,6 +521,9 @@ class cbc_bank():
 			Only applies for `random` method or `pruning` method.
 			For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction.
 			For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.
+			
+		covering_fraction: float
+			Only applies for `random` method or `pruning` method. Fraction of livepoints to be covered before terminating the template placing
 		
 		empty_iterations: int
 			Number of consecutive proposal inside a tile to be rejected before the tile is considered full. It only applies to the ``stochastic`` placing method.
@@ -533,6 +541,9 @@ class cbc_bank():
 		
 		N_epochs: int
 			Number of epochs for the training of the flow
+		
+		verbose: bool
+			Whether to print some output
 		
 		Returns
 		-------
@@ -568,14 +579,15 @@ class cbc_bank():
 		t_obj = tiling_handler() #empty tiling handler
 		t_obj.create_tiling_from_list(boundaries_list, tolerance, metric_fun, max_depth = max_depth, use_ray = use_ray )	
 		
-		if train_flow: t_obj.train_flow(N_epochs = N_epochs, n_layers = n_layers, hidden_features =  hidden_features, verbose = True)
+		if train_flow: t_obj.train_flow(N_epochs = N_epochs, n_layers = n_layers, hidden_features =  hidden_features, verbose = verbose)
 		
 			##
 			#placing the templates
 			#(if there is KeyboardInterrupt, the tiling is returned anyway)
 
 		try:
-			self.place_templates(t_obj, minimum_match, placing_method = placing_method, N_livepoints = N_livepoints, empty_iterations = empty_iterations, verbose = True)
+			self.place_templates(t_obj, minimum_match, placing_method = placing_method, N_livepoints = N_livepoints,
+				covering_fraction =covering_fraction, empty_iterations = empty_iterations, verbose = verbose)
 		except KeyboardInterrupt:
 			self.templates = None
 		

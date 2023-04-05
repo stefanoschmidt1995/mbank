@@ -11,7 +11,7 @@ sys.path.insert(0, '../..')
 
 from mbank.bank import cbc_bank
 from mbank.metric import cbc_metric
-from mbank.utils import load_PSD, get_boundaries_from_ranges, compute_injections_match, compute_injections_metric_match, ray_compute_injections_match
+from mbank.utils import load_PSD, get_boundaries_from_ranges, compute_injections_match, compute_injections_metric_match, ray_compute_injections_match, initialize_inj_stat_dict, get_random_sky_loc
 from mbank.handlers import tiling_handler, variable_handler
 
 ###########################################################################################
@@ -31,7 +31,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			'MM_metric': np.zeros((len(max_depth_list), N_injs), float),
 			'MM_full': np.zeros((len(max_depth_list), N_injs), float),
 			'N_injs': N_injs, 'mchirp_window': mchirp_window, 'MM_inj': 0.97,
-			'N_livepoints': 10000, 'empty_iterations': 200	
+			'N_livepoints': 1_000_000, 'empty_iterations': 200, 'covering_fraction': 0.01
 		}
 
 	t = tiling_handler()
@@ -44,8 +44,8 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			t = tiling_handler(filename)
 		else:
 			t = tiling_handler() #emptying the handler... If the split is not volume based, you should start again with the tiling
-			#t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = max_depth, verbose = True)
-			t.create_tiling(boundaries, epsilon, m_obj.get_metric, max_depth = max_depth, verbose = True)
+			#t.create_tiling(boundaries, epsilon, m_obj.get_hessian, max_depth = max_depth, verbose = True)
+			t.create_tiling(boundaries, epsilon, m_obj.get_hessian_symphony, max_depth = max_depth, verbose = True)
 			t.save(filename)
 		out_dict['N_tiles'][i]= len(t)
 		out_dict['volume_tiles'][i]= t.compute_volume()[0]
@@ -59,6 +59,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			else: 
 				b.place_templates(t, MM, placing_method = placing_method, 
 						N_livepoints = out_dict['N_livepoints'], empty_iterations = out_dict['empty_iterations'],
+						covering_fraction = out_dict['covering_fraction'],
 						verbose = True)
 				b.save_bank(bank_name)
 			out_dict['N_templates'][i,j] = b.templates.shape[0]
@@ -68,13 +69,15 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			if MM != out_dict['MM_inj']: continue #injections only for MM = 0.97
 			injs = t.sample_from_tiling(N_injs, seed = 210795)
 					#metric injections
-			inj_dict = compute_injections_metric_match(injs, b, t, verbose = True)
+			sky_locs = np.stack(get_random_sky_loc(len(injs)), axis = -1)
+			inj_dict = initialize_inj_stat_dict(np.stack(b.var_handler.get_BBH_components(injs, variable_format)).T, sky_locs)
+			inj_dict = compute_injections_metric_match(inj_dict, b, t, verbose = True)
 			out_dict['MM_metric'][i,:] = inj_dict['metric_match']
 			print('\t\tMetric match: ', np.percentile(inj_dict['metric_match'], [1, 5, 50,95])) 
 					#full match injections
 			if full_match:
-				inj_dict = ray_compute_injections_match(inj_dict, b.BBH_components(), m_obj,
-							symphony_match = False, cache = False, mchirp_window = mchirp_window)
+				inj_dict = ray_compute_injections_match(inj_dict, b, m_obj,
+							symphony_match = True, mchirp_window = mchirp_window)
 				out_dict['MM_full'][i,:] = inj_dict['match']
 				print('\t\tFull match: ', np.percentile(inj_dict['match'], [1, 5,50,95]))
 		
@@ -125,7 +128,8 @@ def plot(out_dict, run_name, folder_name = None):
 		plt.plot(np.repeat(N_t, 2), perc, '--', lw = 1, c='k')
 			#creating a KDE for the plots
 		scale_factor = 0.3
-		kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_metric'][i,:, None])
+
+		kde = KernelDensity(kernel='gaussian', bandwidth=bw[0]).fit(out_dict['MM_metric'][i,:, None])
 		pdf_metric = np.exp(kde.score_samples(MM_grid[:,None]))
 		plt.plot(N_t*(1-scale_factor*(pdf_metric-np.min(pdf_metric))/np.max(pdf_metric-pdf_metric[0])), MM_grid,
 						c= 'b', label = 'Metric Match' if i==0 else None)
@@ -177,9 +181,9 @@ if __name__ == '__main__':
 		#The 2D bank is too simple: you don't want to validate it!!!
 	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
 
-	#max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50)
-	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
-	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomPv2'; M_range = (40, 50)
+	#max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50); f_min, f_max = 10., 1024.
+	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomXP'; M_range = (40, 50); f_min, f_max = 10., 1024.
+	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomXP'; M_range = (40, 50); f_min, f_max = 15., 1024.
 	
 			#setting ranges
 	q_range = (1,5)
@@ -188,8 +192,7 @@ if __name__ == '__main__':
 	boundaries = get_boundaries_from_ranges(variable_format, M_range, q_range, s_range, s_range, e_range = e_range)
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
-	f_min, f_max = 10., 1024.
-	N_injs, mchirp_window = 1000, 0.2
+	N_injs, mchirp_window = 1000, 0.1
 	epsilon = 0.1
 	
 	m_obj = cbc_metric(variable_format,

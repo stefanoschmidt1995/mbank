@@ -258,7 +258,7 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 		perc = np.percentile(out_dict['MM_metric'][i,:], 1) if np.all(out_dict['MM_full'][i,:]==0.) else np.minimum(np.percentile(out_dict['MM_full'][i,:], 1), np.percentile(out_dict['MM_metric'][i,:], 1))
 		perc = np.array([perc, 1])
 		MM_grid = np.sort([*np.linspace(*perc, 30), out_dict['MM_inj']])
-		bw = np.diff(perc)/10
+		bw = np.diff(perc)[0]/10
 		
 			#creating a KDE for the plots
 		scale_factor = 0.5
@@ -566,7 +566,8 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	quit()
 
 		###
 		# Validation of the tiling

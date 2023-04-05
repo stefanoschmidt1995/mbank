@@ -175,9 +175,9 @@ sub_file_str = """Universe   = vanilla
 Executable = {}
 arguments = "{}"
 getenv = true
-Log = {}mbank_run_{}.log
-Error = {}mbank_run_{}.err
-Output = {}mbank_run_{}.out
+Log = {}_mbank_run_{}.log
+Error = {}_mbank_run_{}.err
+Output = {}_mbank_run_{}.out
 request_memory = 4GB
 request_cpus = {}
 request_disk = 4GB

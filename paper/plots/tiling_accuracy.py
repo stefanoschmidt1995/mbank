@@ -12,183 +12,137 @@ from mbank.handlers import tiling_handler, variable_handler
 from mbank.flow.utils import compare_probability_distribution
 
 import pickle, json
-import os, sys
+import os, sys, glob
 
-def get_deltaM_data(t_obj, m_obj, N_points, filename = 'tiling_accuracy/test.pkl' ):
+def load_result_dict(input_folder, N_points = 100):
+	vf_list = []
+	res_dict = {}
 	
-			#Checking if the metric object loaded is the correct one!
-	for i in range(5):
-		rect, metric_tiling = t_obj[np.random.randint(len(t_obj))]
-		center = (rect.maxes+rect.mins)/2.
-		metric_true = m_obj.get_metric(center)
-		metric_flow = t_obj.get_metric(center, flow = True, kdtree = False)
-		#print("Dets: true | tiling | flow ", np.linalg.det(metric_true), np.linalg.det(metric_tiling), np.linalg.det(metric_flow))
+		#Initializing result dict
+	for f in glob.glob(input_folder+'paper_*/*pkl'):
+		with open(f, 'rb') as f_obj:
+			data_dict = pickle.load(f_obj)
+		vf = data_dict['variable_format']
+		if vf in vf_list: continue
+		else: vf_list.append(vf)
 		
-		assert np.allclose(np.linalg.det(metric_true), np.linalg.det(metric_tiling))
-		assert np.allclose(np.linalg.det(metric_true), np.linalg.det(metric_flow))
-	
-	out_dict = {
-		'variable_format': m_obj.variable_format,
-	}
-	
-	points, t_id = t_obj.sample_from_tiling(N_points, seed = None, tile_id = True)
-	deltaM_tiling_hist, deltaM_flow_hist = [], []
-	logMratio_tiling_hist, logMratio_flow_hist = [], []
-	Mdet_hist = []
-	metric_flow_list = []
-	
-	for j in tqdm(range(len(points)), desc = "Loop on points - {}".format(out_dict['variable_format'])):
+		save_dict = {
+		'f_max': 1024.,
+		'f_min': 10. if vf != 'Mq_s1xz_s2z_iota' else 15.,
+		'approximant': 'IMRPhenomD' if vf == 'Mq_chi' else 'IMRPhenomXP'
+		}
 		
-		try:
-			p, id_ = points[j], t_id[j]
+		for md in data_dict['max_depth_list']:
+			tiling_file = "{}/files/tiling_{}_{}.npy".format(os.path.dirname(f), vf, md)
+			save_dict['max_depth_list'] = data_dict['max_depth_list']
+			save_dict[md] = tiling_file
 			
-				#Computing all the different metric
-				#TODO: do that in batches...
-			metric_tiling = t_obj[id_].metric
-			metric_true = m_obj.get_metric(p)
-			
-				#Creating a buffer of metric values for the flow
-			if len(metric_flow_list)==0:
-				metric_flow_list = t_obj.get_metric(points[j:j+1000], flow = True, kdtree = False)
-				metric_flow_list = [m for m in metric_flow_list]
-				
-			metric_flow = metric_flow_list.pop(0)
-
-				#Computing interesting quantities
-			det_true = np.linalg.det(metric_true)
-			det_tiling = np.linalg.det(metric_tiling)
-			det_flow = np.linalg.det(metric_flow)
-
-			deltaM = lambda det_true, det_other: (det_true - det_other)/det_true
-			logMratio = lambda det_true, det_other: 0.5*np.log10(det_other/det_true)
-
-			deltaM_tiling = deltaM(det_true, det_tiling)
-			deltaM_flow = deltaM(det_true, det_flow)
-
-			logMratio_tiling = logMratio(det_true, det_tiling)
-			logMratio_flow = logMratio(det_true, det_flow)
-
-			#print("Dets: true | tiling | flow ", det_true, det_tiling, det_flow)
-			#print("logM_ratio: tiling | flow", logMratio_tiling, logMratio_flow)
-
-				#Appending to the hists
-			deltaM_tiling_hist.append(deltaM_tiling)
-			deltaM_flow_hist.append(deltaM_flow)
-
-			logMratio_tiling_hist.append(logMratio_tiling)
-			logMratio_flow_hist.append(logMratio_flow)
-			
-			Mdet_hist.append([det_true, det_tiling, det_flow])
-			
-		except KeyboardInterrupt:
-			break
+		#Filling save_dict with interesting values 
+		psd = 'aligo_O3actual_H1.txt' 
+		ifo = 'H1'
 		
-	out_dict['deltaM_tiling'] = deltaM_tiling_hist
-	out_dict['deltaM_flow'] = deltaM_flow_hist
-	out_dict['logMratio_tiling'] = logMratio_tiling_hist
-	out_dict['logMratio_flow'] = logMratio_flow_hist
-	out_dict['Mdet'] = Mdet_hist
+		m_obj = cbc_metric(vf,
+			PSD = load_PSD(psd, True, ifo),
+			approx = save_dict['approximant'],
+			f_min = save_dict['f_min'], f_max = save_dict['f_max'])
+
+		#loading all the tiling objs
+		tiling_objs = {}
+		for md in save_dict['max_depth_list']:
+			tiling_objs[md] = tiling_handler(save_dict[md])
+			print(vf, md, len(tiling_objs[md]))
+		#extracting points to test the tiling accuracy at
+		save_dict['test_points'] = tiling_objs[md].sample_from_tiling(N_points)
+		
+		metric_from_tiling = tiling_objs[md][0].metric
+		metric_from_obj = m_obj.get_metric(tiling_objs[md][0].center, metric_type = 'symphony')
+
+		if not np.allclose(metric_from_tiling, metric_from_obj, atol = 0., rtol = 1e-6):
+			print("Something wonky going on with the metric obj: are you sure you set all the params right?")
+			print('\t',save_dict['approximant'], save_dict['f_min'], save_dict['f_max'])
+		
+		det_true = np.linalg.det(m_obj.get_metric(save_dict['test_points'], metric_type = 'symphony'))
+		for md in save_dict['max_depth_list']:
+			det_tiling = np.linalg.det(tiling_objs[md].get_metric(save_dict['test_points']))
+			save_dict['hist_{}'.format(md)] = 0.5 * np.log10(det_tiling/det_true)
+			save_dict['det_tiling_{}'.format(md)] = det_tiling
+			save_dict['det_true_{}'.format(md)] = det_true
+
+		del tiling_objs
+
+		res_dict[vf] = save_dict
+	return res_dict
+
+def plot_tiling_accuracy_study(res_dict):
 	
-		#saving to file		
-	with open(filename, 'w') as filehandler:
-		json.dump(out_dict, filehandler)
-
-def plot_deltaM_data(filename):
-
-	with open(filename, 'r') as filehandler:
-		out_dict = json.load(filehandler)
-	N = len(out_dict['deltaM_tiling'])
-	nbins = int(np.sqrt(N))+1
-
-	out_dict['deltaM_tiling'] = np.abs(out_dict['deltaM_tiling'])
-	out_dict['deltaM_flow'] = np.abs(out_dict['deltaM_flow'])
-
-
-	hist_args = {
-		'bins': np.logspace(np.log10(np.min(out_dict['deltaM_tiling'])), np.log10(np.max(out_dict['deltaM_tiling'])), nbins),
-		'density': True,
-		'histtype': 'step'
-	}
-
 	plt.figure()
-	plt.title(out_dict['variable_format'])
-	#plt.hist((out_dict['deltaM_tiling']), label = 'tiling', **hist_args)
-	#plt.hist((out_dict['deltaM_flow']), label = 'flow', **hist_args)
-	plt.hist(out_dict['deltaM_tiling'], label = 'tiling', **hist_args)
-	plt.hist(out_dict['deltaM_flow'], label = 'flow', **hist_args)
-	
+	for k, v in res_dict.items():
+		y_axis = []
+		for md in v['max_depth_list']:
+			y_axis.append(np.percentile(np.abs(v['hist_{}'.format(md)]), 50))
+		plt.scatter(v['max_depth_list'], y_axis, label = k)
+	plt.axhline(0.1, ls = '--', c = 'k')
 	plt.legend()
+	
+	vf = 'Mq_s1xz_s2z_iota'
+	plt.figure()
+	plt.hist(res_dict[vf]['hist_{}'.format(8)], bins = 100, histtype = 'step')
 	plt.yscale('log')
-	plt.xscale('log')
-	plt.xlabel(r'$\frac{|M|-|M_{true}|}{|M_{true}|}$', size = 15)
-	plt.tight_layout()
+	plt.xlabel(r"$0.5 \log_{10}\left(\frac{M}{M_{true}}\right)$")
+	plt.axvline(-0.1, ls = '--', c = 'k')
+	
+	
+	vh = variable_handler()
+	ids_, = np.where(res_dict[vf]['hist_{}'.format(8)]>4.)
+	for i, l in enumerate(vh.labels(vf, latex = True)):
+
+		bins = int(np.sqrt(len(ids_)))
+		hist_kwargs = {
+			'density': True,
+			'bins': 100
+		}
+		plt.figure()
+		plt.hist(res_dict[vf]['test_points'][:,i], label = 'all points',  histtype ='stepfilled', alpha = 0.3, 	**hist_kwargs)
+		plt.hist(res_dict[vf]['test_points'][ids_,i], label = 'bad points', histtype = 'step', **hist_kwargs)
+		plt.xlabel(l)
+		plt.legend()
+	
 	plt.show()
-	
-	
-	plt.show()
-		
-	
-		
+
 
 if __name__ == '__main__':
 	
-	folder = 'tiling_accuracy/'
+	tiling_folder = 'tiling_accuracy/'
 	
-	assert len(sys.argv) >1, "Variable format must be given"
+	input_folder = 'placing_methods_accuracy/'
 	
-	load = (len(sys.argv) == 3 and sys.argv[-1].lower() == 'load')
+	save_file = tiling_folder+'tiling_accuracy_study.pkl'
 	
-	variable_format = sys.argv[1]
-	
-	N_points = 50_000
-	
-	psd = 'aligo_O3actual_H1.txt'; asd = True
-	ifo = 'H1'
-	f_min, f_max = 10., 1024.
+	if len(sys.argv)>1:
+		if sys.argv[1].lower() != 'run': raise ValueError("If an arg is given, it must be 'run'")
+		if len(sys.argv) > 2: N_points = int(sys.argv[2])
+		else: N_points = 10
+		res_dict = load_result_dict(input_folder, N_points = N_points)
+		with open(save_file, 'wb') as f:
+			pickle.dump(res_dict, f)
 
-	if variable_format == 'Mq_chi':
-		approximant = 'IMRPhenomD'; tiling_file = 'placing_methods_accuracy/paper_Mq_chi/files/tiling_Mq_chi_8.npy'
-	elif variable_format == 'Mq_s1xz':
-		approximant = 'IMRPhenomPv2'; tiling_file = 'placing_methods_accuracy/paper_Mq_s1xz/files/tiling_Mq_s1xz_10.npy'
-	elif variable_format == 'Mq_s1xz_s2z_iota':
-		approximant = 'IMRPhenomPv2'; tiling_file = 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/files/tiling_Mq_s1xz_s2z_iota_10.npy'
-	else:
-		raise ValueError("Variable format {} not configured".format(variable_format))
+	with open(save_file, 'rb') as f:
+		res_dict = pickle.load(f)
 	
-	m_obj = cbc_metric(variable_format,
-			PSD = load_PSD(psd, asd, ifo),
-			approx = approximant,
-			f_min = f_min, f_max = f_max)
+	#Plotting shit
+	plot_tiling_accuracy_study(res_dict)
 	
-	flow_file = folder+'flow_{}.zip'.format(variable_format)
-	t_obj = tiling_handler(tiling_file)
 	
-	if os.path.isfile(flow_file):
-		t_obj.load_flow(flow_file)
-	else:
-		history = t_obj.train_flow(N_epochs=2500, N_train_data= 20_000,
-				#n_layers=2, hidden_features=4,	#Mq_chi
-				n_layers=5, hidden_features=4,	#Mq_s1xz
-				#n_layers=6, hidden_features=4,	#Mq_s1xz_s2z_iota
-				batch_size=None, lr=0.001, verbose=True)
-		t_obj.flow.save_weigths(flow_file)
-	
-		with open(folder+'history_{}.pkl'.format(variable_format), 'wb') as f:
-			pickle.dump(history, f)
-	
-		N_plot_points = 10000
-		compare_probability_distribution(t_obj.sample_from_flow(N_plot_points), data_true=t_obj.sample_from_tiling(N_plot_points), 
-				variable_format=variable_format,
-				title=None, hue_labels=['flow', 'train'],
-				savefile=folder+'flow_{}.png'.format(variable_format), show=False)
-	
-	filename = folder+'out_dict_{}.json'.format(variable_format)
-	print("Working with {}".format(filename))
 
-	if load:
-		plot_deltaM_data(filename)
-	else:
-		get_deltaM_data(t_obj, m_obj, N_points = N_points, filename = filename)
+
+
+
+
+
+
+
+
+
 	
 	
 	

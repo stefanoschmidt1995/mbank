@@ -453,8 +453,8 @@ def compute_injections_match(inj_dict, bank, metric_obj, mchirp_window = 0.1, sy
 	sky_locs = inj_dict['sky_loc']
 	
 	old_format = metric_obj.variable_format
-	if metric_obj.variable_format != 'm1m2_fullspins_emeanano_iotaphi':
-		metric_obj.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
+	if metric_obj.variable_format != 'BBH_components':
+		metric_obj.set_variable_format('BBH_components')
 
 		#allocating memory for the match
 	inj_dict['id_match'] = np.zeros((inj_dict['theta_inj'].shape[0],), int)
@@ -464,8 +464,8 @@ def compute_injections_match(inj_dict, bank, metric_obj, mchirp_window = 0.1, sy
 
 		#putting injections and templates with the format 'm1m2_fullspins_emeanano_iotaphi'
 		# The format is basically the full 12 dimensional space, with spins in spherical coordinates
-	injs = metric_obj.var_handler.get_theta(inj_dict['theta_inj'], 'm1m2_fullspins_emeanano_iotaphi')
-	templates = metric_obj.var_handler.get_theta(bank.BBH_components, 'm1m2_fullspins_emeanano_iotaphi')
+	injs = inj_dict['theta_inj']
+	templates = bank.BBH_components
 	
 	chirp_injs = metric_obj.var_handler.get_mchirp(injs[:,[0,1]], 'm1m2_nonspinning')
 	chirp_templates = metric_obj.var_handler.get_mchirp(templates[:,[0,1]], 'm1m2_nonspinning')

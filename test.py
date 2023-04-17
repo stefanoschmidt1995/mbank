@@ -79,8 +79,12 @@ def test_variable_format():
 	to_return = True
 	for vf in vh.valid_formats:
 		#vf = 'mceta_s1xz_s2z_iota'
-		if vf.startswith('mceta'):q_range = (0.08, 0.25)
+		if vf.startswith('mceta'): q_range = (0.08, 0.25)
 		elif vf.startswith('Mq'): q_range = (1,10)
+		elif vf.startswith('m1m2'): q_range = M_range
+		elif vf.startswith('logMq'):
+			q_range = (1,10)
+			M_range = (.1, 2)
 		else: continue
 		
 		boundaries = mbank.utils.get_boundaries_from_ranges(vf, M_range, q_range)

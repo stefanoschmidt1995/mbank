@@ -202,6 +202,7 @@ class variable_handler(object):
 			'mass1': lambda x: x[:,0],
 			'mass2': lambda x: x[:,1],
 			'M': lambda x: x[:,0] + x[:,1],
+			'logM': lambda x: np.log10(x[:,0] + x[:,1]),
 			'q': lambda x: np.maximum(x[:,1] / x[:,0], x[:,0] / x[:,1]),
 			'Mc': lambda x: (x[:,0] + x[:,1])*np.power(np.divide(x[:,1] * x[:,0], np.square(x[:,0] + x[:,1])), 3./5.),
 			'eta': lambda x: np.divide(x[:,1] * x[:,0], np.square(x[:,0] + x[:,1]) ),
@@ -211,13 +212,9 @@ class variable_handler(object):
 			's1': lambda x: np.linalg.norm(x[:,2:5], axis =1),
 			'theta1': lambda x: np.arctan2(np.linalg.norm(x[:,[2,3]], axis =1)*np.sign(x[:,2]), x[:,4]),
 			'phi1': lambda x: np.arctan(x[:,3]/(x[:,2]+1e-20)),
-			#'theta1': lambda x: np.arccos(x[:,4]/np.maximum(np.linalg.norm(x[:,2:5], axis =1),1e-10)),
-			#'phi1': lambda x: np.arctan2(x[:,3], x[:,2]),
 			's2': lambda x: np.linalg.norm(x[:, 5:8], axis =1),
 			'theta2': lambda x: np.arctan2(np.linalg.norm(x[:,[5,6]], axis = -1)*np.sign(x[:,5]), x[:,7]),
 			'phi2': lambda x: np.arctan(x[:,6]/(x[:,5]+1e-20)),
-			#'theta2': lambda x: np.arccos(x[:,7]/np.maximum(np.linalg.norm(x[:, 5:8], axis =1),1e-10)),
-			#'phi2': lambda x: np.arctan2(x[:,6], x[:,5]),
 			'e': lambda x: x[:,8],
 			'meanano': lambda x: x[:,9],
 			'iota': lambda x: x[:,10],
@@ -514,8 +511,8 @@ class variable_handler(object):
 		assert theta.shape[1]==self.D(variable_format), "The number of BBH parameter doesn't fit into the given variable format. Expected {}, given {}".format(self.D(variable_format), theta.shape[1])
 		
 		if variable_format == 'BBH_components':
-			if squeeze: return tuple(*theta.tolist())
-			return tuple([*theta.T])
+			if squeeze: return np.squeeze(theta)
+			return theta
 		
 			#setting the masses
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':

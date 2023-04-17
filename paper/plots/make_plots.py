@@ -23,6 +23,7 @@ import matplotlib
 from matplotlib.lines import Line2D
 
 from mbank import cbc_bank, variable_handler
+from mbank.utils import load_inj_stat_dict
 
 from scipy.integrate import quad
 
@@ -429,8 +430,8 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 		injs_dicts = []
 	
 		for pkl_list in files:
-			with open(pkl_list[i], 'rb') as filehandler:
-				injs_dicts.append(pickle.load(filehandler))
+			injs_dicts.append(load_inj_stat_dict(pkl_list[i]))
+			
 			injs_dicts[-1].pop('match_list', None)
 			injs_dicts[-1].pop('id_match_list', None)
 			print(pkl_list[i], len(injs_dicts[-1]['theta_inj']))
@@ -566,8 +567,7 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
-	quit()
+	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 		###
 		# Validation of the tiling
@@ -605,26 +605,26 @@ if __name__ == '__main__':
 		###
 		#Bank case studies flow
 	format_list = ['Mq_s1xz', 'logMq_chi_iota', 'Mq_nonspinning_e']
-	bank_list = [	'../../flow_banks/precessing_bank/bank_paper_precessing_flow.dat',
-					'../../flow_banks/HM_bank/bank_paper_HM_flow.dat',
-					'../../flow_banks/eccentric_bank/bank_paper_eccentric_flow.dat']
+	bank_list = [	'precessing_bank/bank_paper_precessing.dat',
+					'HM_bank/bank_paper_HM.dat',
+					'eccentric_bank/bank_paper_eccentric.dat']
 	title_list = ['Precessing', 'IMBH HM', 'Nonspinning eccentric']
 
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
-		filename = img_folder+'bank_scatter_{}_flow.pdf'.format(t.replace(' ', '_'))
+		filename = img_folder+'bank_scatter_{}.pdf'.format(t.replace(' ', '_'))
 		corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
 	
 		#Flow injection recovery
-	injs_list_noflow = ['precessing_bank/bank_paper_precessing-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM-injections_stat_dict.pkl',
-		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.pkl']
-	injs_list_flow = ['precessing_bank/bank_paper_precessing_flow-injections_stat_dict.pkl', 'HM_bank/bank_paper_HM_flow-injections_stat_dict.pkl',
-		'eccentric_bank/bank_paper_eccentric_flow-injections_stat_dict.pkl']
+	injs_list_noflow = ['precessing_bank/dag/results/stat_dict.json', 'HM_bank/dag/results/stat_dict.json',
+		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.json']
 	
-	#plot_comparison_injections( (injs_list_noflow, injs_list_noflow, injs_list_flow), ('metric match', 'match no flow', 'match flow'), ('metric_match','match', 'match'), c_list = ('darkorange', 'cornflowerblue', 'purple'), MM = 0.97, title = title_list, savefile = img_folder+'bank_injections_flow.pdf')
+	plot_comparison_injections( (injs_list_noflow, injs_list_noflow), ('metric match', 'match'), ('metric_match','match'),
+		c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list,
+		savefile = img_folder+'bank_injections_flow.pdf')
 	
 	
 	quit()

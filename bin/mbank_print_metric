@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+"""
+mbank_run
+---------
+
+A script to print the metric values
+
+To print the metric:
+
+	mbank_print_metric --options-you-like
+
+This will download a PSD file and print the metric in the `Mq_s1xz` format:
+
+	wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt
+	mbank_print_metric --psd aligo_O3actual_H1.txt --asd --variable-format Mq_s1xz --theta 10. 3. 0.15 0.18
+
+To know which options are available:
+
+	mbank_print_metric --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+from mbank import variable_handler, cbc_metric, cbc_bank
+from mbank.utils import load_PSD
+
+import argparse
+import os
+
+##### Creating parser
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--variable-format", required = True,
+	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
+parser.add_argument(
+	"--psd",  required = False,
+	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
+parser.add_argument(
+	"--asd",  default = False, action='store_true',
+	help="Whether the input file has an ASD (sqrt of the PSD)")
+parser.add_argument(
+	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
+	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the scalar product")
+parser.add_argument(
+	"--f-max",  default = 1024., type=float,
+	help="Maximum frequency for the scalar product")
+parser.add_argument(
+	"--approximant", default = 'IMRPhenomPv2',
+	help="LAL approximant for the bank generation")
+parser.add_argument(
+	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
+	help="Which placing method to use for each tile")
+parser.add_argument(
+	"--theta", type = float, nargs='+', required = True,
+	help="The point in space where the metric is evaluated"
+	)
+parser.add_argument(
+	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symphony'],
+	help="Method to use to compute the metric.")
+
+args, filenames = parser.parse_known_args()
+
+####################################################################################################
+	######
+	#	Interpreting the parser and initializing variables
+	######
+
+var_handler = variable_handler()
+assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+
+if args.psd is None:
+	f = np.arange(0., args.f_max, 0.25)
+	PSD = np.ones(f.shape)
+else:
+	f, PSD = load_PSD(args.psd, args.asd, args.ifo)
+
+	######
+	#	Loading PSD and initializing metric
+	######
+
+m = cbc_metric(args.variable_format,
+			PSD = (f, PSD),
+			approx = args.approximant,
+			f_min = args.f_min, f_max = args.f_max)
+
+
+metric = m.get_metric(args.theta, metric_type = args.metric_type)
+
+print("Evaluating the metric @ ", args.theta)
+print('Metric determinant\n\t', np.linalg.det(metric))
+print('Metric eigenvalues\n\t', np.linalg.eig(metric)[0])
+print('Matrix elements\n\t', np.array2string(metric).replace('\n', '\n\t'))
+
+
+
+
+
+
+
+
+
+
+
+

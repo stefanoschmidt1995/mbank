@@ -209,7 +209,7 @@ def avg_dist(avg_match, D):
 ####################################################################################################################
 
 def get_boundaries_from_ranges(variable_format, M_range, q_range,
-	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), chi_range = (-0.99,0.99), theta_range = (0, np.pi), phi_range = (-np.pi, np.pi),
+	s1_range = (-0.99,0.99), s2_range = (-0.99,0.99), chi_range = (-0.99,0.99), theta_range = (-np.pi, np.pi), phi_range = (-np.pi/2., np.pi/2.),
 	iota_range = (0, np.pi), ref_phase_range = (-np.pi, np.pi), e_range = (0., 0.5), meanano_range = (0.1, 1.)):
 	"""
 	Given the ranges of each quantity, it combines them in a bondary array, suitable for other uses in the package (for instance in the bank generation).

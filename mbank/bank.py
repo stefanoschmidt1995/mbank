@@ -167,7 +167,7 @@ class cbc_bank():
 		
 		"""
 			#getting the masses and spins of the rows
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(self.templates, self.variable_format)
+		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi = self.var_handler.get_BBH_components(self.templates, self.variable_format).T
 		
 		if np.any(e != 0.):
 			msg = "Currently xml format does not support eccentricity... The saved bank '{}' will have zero eccentricity".format(filename)
@@ -274,7 +274,7 @@ class cbc_bank():
 				Array of BBH components of the templates in the bank. They have the same layout as :func:`mbank.handlers.variable_handler.get_BBH_components`
 		"""
 		if self.templates is not None:
-			return np.array(self.var_handler.get_BBH_components(self.templates, self.variable_format)).T
+			return self.var_handler.get_BBH_components(self.templates, self.variable_format)
 		return
 		
 	def add_templates(self, new_templates):

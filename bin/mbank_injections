@@ -204,7 +204,7 @@ if args.inj_file is None:
 	
 	#projected_injs = bank.templates; print("######### Bank injections!! ###########") #FIXME: this will become a bank-injs option!! Or something similar
 	
-	injections_full = np.array(var_handler.get_BBH_components(projected_injs, args.variable_format)).T
+	injections_full = var_handler.get_BBH_components(projected_injs, args.variable_format)
 	del projected_injs #storing projected_injs is a waste of memory that can scale super badly
 	
 		#dealing with sky location

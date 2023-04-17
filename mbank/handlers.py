@@ -196,6 +196,39 @@ class variable_handler(object):
 				'iota': (0.,np.pi), 'phi': (-np.inf, np.inf),
 				'e': (0., 1.), 'meanano': (0, 1.)
 				} #allowed ranges for each label
+		
+			#Adding a set of functions to extract some values from the BBH components
+		self.theta_getter = {
+			'mass1': lambda x: x[:,0],
+			'mass2': lambda x: x[:,1],
+			'M': lambda x: x[:,0] + x[:,1],
+			'q': lambda x: np.maximum(x[:,1] / x[:,0], x[:,0] / x[:,1]),
+			'Mc': lambda x: (x[:,0] + x[:,1])*np.power(np.divide(x[:,1] * x[:,0], np.square(x[:,0] + x[:,1])), 3./5.),
+			'eta': lambda x: np.divide(x[:,1] * x[:,0], np.square(x[:,0] + x[:,1]) ),
+			'chi': lambda x: (x[:,0]*x[:,4] + x[:,7]*x[:,1])/(x[:,0]+x[:,1]),
+			's1z': lambda x: x[:,4],
+			's2z': lambda x: x[:,7],
+			's1': lambda x: np.linalg.norm(x[:,2:5], axis =1),
+			'theta1': lambda x: np.arctan2(np.linalg.norm(x[:,[2,3]], axis =1)*np.sign(x[:,2]), x[:,4]),
+			'phi1': lambda x: np.arctan(x[:,3]/(x[:,2]+1e-20)),
+			#'theta1': lambda x: np.arccos(x[:,4]/np.maximum(np.linalg.norm(x[:,2:5], axis =1),1e-10)),
+			#'phi1': lambda x: np.arctan2(x[:,3], x[:,2]),
+			's2': lambda x: np.linalg.norm(x[:, 5:8], axis =1),
+			'theta2': lambda x: np.arctan2(np.linalg.norm(x[:,[5,6]], axis = -1)*np.sign(x[:,5]), x[:,7]),
+			'phi2': lambda x: np.arctan(x[:,6]/(x[:,5]+1e-20)),
+			#'theta2': lambda x: np.arccos(x[:,7]/np.maximum(np.linalg.norm(x[:, 5:8], axis =1),1e-10)),
+			#'phi2': lambda x: np.arctan2(x[:,6], x[:,5]),
+			'e': lambda x: x[:,8],
+			'meanano': lambda x: x[:,9],
+			'iota': lambda x: x[:,10],
+			'phi': lambda x: x[:,11]
+		}
+		for v, tg in self.theta_getter.items():
+			setattr(self, 'get_'+v, tg)
+		
+		self.comp_getter = [
+		'm1', 'm2', 's1x', 's1y', 's1z', 's2x', 's2y', 's2z', 'e', 'meanano', 'iota', 'phi'
+		] #does this obj make sense?
 				
 		
 		return
@@ -281,7 +314,7 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['spin_format'] == 's1xyz_s2z':
 			theta[ids,4], theta[ids,5] = theta[ids,5], theta[ids,4] #switching spins
 		elif self.format_info[variable_format]['spin_format'] == 'fullspins':
-			theta[ids,[2,3,4]], theta[ids,[5,6,7]] =  theta[ids,[5,6,7]], theta[ids,[2,3,4]] #switching spins
+			theta[ids,2:5], theta[ids,5:8] =  theta[ids,5:8], theta[ids,2:5] #switching spins
 
 
 		if squeeze: theta = np.squeeze(theta)
@@ -351,7 +384,7 @@ class variable_handler(object):
 			else: labels.extend(['s1','theta1', 'phi1', 's2z'])
 		elif self.format_info[variable_format]['spin_format'] == 'fullspins':
 			if latex: labels.extend([r'$s_{1}$', r'$\theta_1$', r'$\phi_1$', r'$s_{2}$', r'$\theta_2$', r'$\phi_2$'])
-			else: labels.extend(['s1','theta1', 'phi1', 's2z', 'theta2', 'phi2'])
+			else: labels.extend(['s1','theta1', 'phi1', 's2', 'theta2', 'phi2'])
 		
 		if self.format_info[variable_format]['e'] and latex: labels.append(r'$e$')
 		if self.format_info[variable_format]['e'] and not latex: labels.append('e')
@@ -426,7 +459,7 @@ class variable_handler(object):
 		BBH_components: :class:`~numpy:numpy.ndarray`
 			shape: (N,12)/(12,) -
 			Parameters of the BBHs.
-			Each row should be: m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+			The columns of the array should be: `m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi`
 
 		variable_format: str
 			How to handle the BBH variables.
@@ -444,72 +477,9 @@ class variable_handler(object):
 		
 		if variable_format == 'BBH_components':
 			theta = [*BBH_components.T]
-		
-		if self.format_info[variable_format]['mass_format'] == 'm1m2':
-			theta = [BBH_components[:,0], BBH_components[:,1]]
-		elif self.format_info[variable_format]['mass_format'] == 'Mq':
-			q = np.maximum(BBH_components[:,1] / BBH_components[:,0], BBH_components[:,0] / BBH_components[:,1])
-			theta = [BBH_components[:,0] + BBH_components[:,1], q]
-		elif self.format_info[variable_format]['mass_format'] == 'logMq':
-			q = np.maximum(BBH_components[:,1] / BBH_components[:,0], BBH_components[:,0] / BBH_components[:,1])
-			theta = [np.log10(BBH_components[:,0] + BBH_components[:,1]), q]
-		elif self.format_info[variable_format]['mass_format'] == 'mceta':
-			eta = np.divide(BBH_components[:,1] * BBH_components[:,0], np.square(BBH_components[:,0] + BBH_components[:,1]) )
-			theta = [(BBH_components[:,0] + BBH_components[:,1])*np.power(eta, 3./5.), eta]
+		else:
+			theta = [self.theta_getter[l](BBH_components) for l in self.labels(variable_format)]
 
-			#starting a case swich
-		if self.format_info[variable_format]['spin_format'] =='nonspinning':
-			pass
-		elif self.format_info[variable_format]['spin_format'] == 'chi':
-			chi = (BBH_components[:,0]*BBH_components[:,4] + BBH_components[:,7]*BBH_components[:,1])/ \
-					(BBH_components[:,0]+BBH_components[:,1])
-			theta.append(chi)
-		elif self.format_info[variable_format]['spin_format'] == 's1z':
-			theta.append(BBH_components[:,4])
-		elif self.format_info[variable_format]['spin_format'] == 's1z_s2z':
-			theta.append(BBH_components[:,4])
-			theta.append(BBH_components[:,7])
-		elif self.format_info[variable_format]['spin_format'] == 's1xz':
-			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
-			theta1 = np.arctan2(BBH_components[:,2], BBH_components[:,4])
-			theta.extend([s1, theta1])
-		elif self.format_info[variable_format]['spin_format'] == 's1xyz':
-			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1) #(N,)
-			theta1 = np.arccos(BBH_components[:,4]/s1)
-			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
-			theta.extend([s1, theta1, phi1])
-		elif self.format_info[variable_format]['spin_format'] == 's1xz_s2z':
-			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
-			theta1 = np.arccos(BBH_components[:,4]/s1)
-			theta.append(s1)
-			theta.append(theta1)
-			theta.append(BBH_components[:,7])
-		elif self.format_info[variable_format]['spin_format'] == 's1xyz_s2z':
-			s1 = np.linalg.norm(BBH_components[:,2:5], axis =1)+1e-10 #(N,)
-			theta1 = np.arccos(BBH_components[:,4]/s1)
-			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
-			theta.extend([s1, theta1, phi1, BBH_components[:,7]])
-		elif self.format_info[variable_format]['spin_format'] == 'fullspins':
-			s1 = np.maximum(np.linalg.norm(BBH_components[:,2:5], axis =1), 1e-20) #(N,)
-			theta1 = np.arccos(BBH_components[:,4]/s1)
-			phi1 = np.arctan2(BBH_components[:,3], BBH_components[:,2])
-			s2 = np.maximum(np.linalg.norm(BBH_components[:, 5:8], axis =1), 1e-20) #(N,)
-			theta2 = np.arccos(BBH_components[:,7]/s2)
-			phi2 = np.arctan2(BBH_components[:,6], BBH_components[:,5])
-			theta.extend([s1, theta1, phi1, s2, theta2, phi2])
-			
-			#dealing with eccentricity
-		if self.format_info[variable_format]['e']:
-			theta.append(BBH_components[:,8])
-		if self.format_info[variable_format]['meanano']:
-			theta.append(BBH_components[:,9])
-		
-			#dealing with angles
-		if self.format_info[variable_format]['iota']:
-			theta.append(BBH_components[:,10])
-		if self.format_info[variable_format]['phi']:
-			theta.append(BBH_components[:,11])
-		
 		theta = np.column_stack(theta)
 		
 		if squeeze: theta = np.squeeze(theta)
@@ -524,7 +494,8 @@ class variable_handler(object):
 		Parameters
 		----------
 		
-		theta: :class:`~numpy:numpy.ndarray` (N,D)
+		theta: :class:`~numpy:numpy.ndarray`
+			shape: (N,12) -
 			Parameters of the BBHs. The dimensionality depends on variable_format
 
 		variable_format: str
@@ -533,9 +504,10 @@ class variable_handler(object):
 		Returns
 		-------
 		
-		m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi: :class:`~numpy:numpy.ndarray`
-			Components of the BBH in the std parametrization.
-			Each has shape (N,)
+		BBH_components: :class:`~numpy:numpy.ndarray`
+			shape: (N,12) -
+			Components of the BBH.
+			Columns of the array are `m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi`.
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
@@ -586,8 +558,10 @@ class variable_handler(object):
 		elif self.format_info[variable_format]['spin_format'] == 's1xyz_s2z':
 			s1x, s1y, s1z, s2z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3]), theta[:,5]
 		elif self.format_info[variable_format]['spin_format'] == 'fullspins':
-			s1x, s1y, s1z = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4]), theta[:,2]*np.cos(theta[:,3])
-			s2x, s2y, s2z = theta[:,5]*np.sin(theta[:,6])*np.cos(theta[:,7]), theta[:,5]*np.sin(theta[:,6])*np.sin(theta[:,7]), theta[:,5]*np.cos(theta[:,6])
+			s1x, s1y = theta[:,2]*np.sin(theta[:,3])*np.cos(theta[:,4]), theta[:,2]*np.sin(theta[:,3])*np.sin(theta[:,4])
+			s1z = theta[:,2]*np.cos(theta[:,3])
+			s2x, s2y = theta[:,5]*np.sin(theta[:,6])*np.cos(theta[:,7]), theta[:,5]*np.sin(theta[:,6])*np.sin(theta[:,7])
+			s2z = theta[:,5]*np.cos(theta[:,6])
 
 			#dealing with angles and eccentricity (tricky!!)
 		assign_var =  [self.format_info[variable_format]['e'], self.format_info[variable_format]['meanano'],
@@ -613,10 +587,11 @@ class variable_handler(object):
 		s1x, s1y, s1z = set_zero_spin(s1x), set_zero_spin(s1y), set_zero_spin(s1z)
 		s2x, s2y, s2z = set_zero_spin(s2x), set_zero_spin(s2y), set_zero_spin(s2z)
 		
-		if squeeze:
-			m1, m2, s1x, s1y, s1z, s2x, s2y, s2z,  e, meanano, iota, phi = m1[0], m2[0], s1x[0], s1y[0], s1z[0], s2x[0], s2y[0], s2z[0], e[0], meanano[0], iota[0], phi[0]
+		BBH_comps = np.stack([m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi], axis = 1)
 		
-		return m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano, iota, phi
+		if squeeze:	BBH_comps = np.squeeze(BBH_comps)
+		
+		return BBH_comps
 	
 	def get_mchirp(self, theta, variable_format):
 		"""

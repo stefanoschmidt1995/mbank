@@ -133,7 +133,7 @@ else:
 sky_locs = np.array(args.fixed_sky_loc_polarization) if args.fixed_sky_loc_polarization else None
 
 var_handler = variable_handler()
-injs = np.array(var_handler.get_BBH_components(injs, args.variable_format)).T
+injs = var_handler.get_BBH_components(injs, args.variable_format)
 
 save_injs(args.inj_out_file, injs, args.gps_start, args.gps_end, args.time_step, args.approximant,
 	luminosity_distance = (min_dist, max_dist), sky_locs = sky_locs, f_min = args.f_min, f_max = args.f_max)

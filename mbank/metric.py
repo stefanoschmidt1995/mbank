@@ -25,7 +25,7 @@ import lalsimulation as lalsim
 import warnings
 
 from .handlers import variable_handler
-from .utils import project_metric
+from .utils import project_metric, get_projected_metric
 
 	#TODO: understand whether it's a good idea to use anycache
 #from anycache import anycache

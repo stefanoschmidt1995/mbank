@@ -1686,7 +1686,7 @@ def create_mesh(dist, tile, coarse_boundaries = None):
 def points_in_hull(points, hull, tolerance=1e-12):
 	#"Check if points (N,D) are in the hull"
 	if points.ndim == 1:
-		points = point[None,:]
+		points = points[None,:]
 	
 	value_list = [np.einsum('ij,j->i', points, eq[:-1])+eq[-1] for eq in hull.equations]
 	value_list = np.array(value_list).T #(N, N_eqs)

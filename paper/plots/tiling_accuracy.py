@@ -86,6 +86,7 @@ def plot_tiling_accuracy_study(res_dict):
 	
 	vf = 'Mq_s1xz_s2z_iota'
 	plt.figure()
+	#plt.hist(res_dict[vf]['hist_{}'.format(8)]*res_dict[vf]['det_true_{}'.format(8)], bins = 100, histtype = 'step')
 	plt.hist(res_dict[vf]['hist_{}'.format(8)], bins = 100, histtype = 'step')
 	plt.yscale('log')
 	plt.xlabel(r"$0.5 \log_{10}\left(\frac{M}{M_{true}}\right)$")
@@ -93,7 +94,12 @@ def plot_tiling_accuracy_study(res_dict):
 	
 	
 	vh = variable_handler()
-	ids_, = np.where(res_dict[vf]['hist_{}'.format(8)]>4.)
+	ids_, = np.where(res_dict[vf]['hist_{}'.format(8)]<1.)
+	
+	print('mean det normal', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(8)])))
+	print('mean det anomaly', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(8)][ids_])))
+	
+	
 	for i, l in enumerate(vh.labels(vf, latex = True)):
 
 		bins = int(np.sqrt(len(ids_)))
@@ -111,6 +117,8 @@ def plot_tiling_accuracy_study(res_dict):
 
 
 if __name__ == '__main__':
+	
+	#Tiling approximation sucks but it's fine since most of the points where it fails have low determinant anyway...
 	
 	tiling_folder = 'tiling_accuracy/'
 	

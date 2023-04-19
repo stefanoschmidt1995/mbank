@@ -49,7 +49,8 @@ superscriptaddress,10pt]{revtex4-2}
 
 \newcommand{\scalar}[2]{\langle #1|#2 \rangle}
 \newcommand{\scalarnonorm}[2]{\langle #1|#2 \rangle_{\text{not normalized}}}
-\newcommand{\rescalar}[2]{( #1|#2 )}
+\newcommand{\rescalar}[2]{( #1 |#2 )}
+\newcommand{\rescalarwide}[2]{\left( #1 \lvert #2 \right)}
 \newcommand{\imscalar}[2]{[ #1|#2 ]}
 
 
@@ -126,27 +127,51 @@ Finally, in Sec.~\ref{sec:conclusion} we conclude with some remarks on future pr
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Methods} \label{sec:methods}
 
-When searching for a BBH signal in GW data, it is customary to use a frequentist detection statistic~\cite{Creighton_book, Maggiore:2007ulw, Harry:2016ijz, Harry:2017weg}.
-We model the detector output $s(t)$ to be composed of {\it Gaussian} noise $n(t)$ and possibly a known GW signal $h(t)$.
-Given some observed data $d(t)$, the detection statistic $\Lambda$ is then a measure of the log probability ratio between the signal hypothesis $s = n+h$ and the noise hypothesis $s = n$:
+When searching for a BBH signal in GW data, it is customary to use a frequentist detection statistic~\cite{Creighton_book, Maggiore:2007ulw, Harry:2016ijz, Harry:2017weg}, which models the detector output to be composed of {\it gaussian} noise $n(t)$ and possibly a known GW signal $h(t)$.
+Given some observed data $s(t)$, the detection statistic $\Lambda$ is a measure of the log probability ratio between the signal hypothesis $n+h$ and the noise hypothesis $n$:
 \begin{equation}\label{eq:LL}
-	\Lambda(\theta) = \log\frac{p(s = n+h(\theta)|d)}{p(s = n|d)}
+	\Lambda = \log\frac{p(s|n+h)}{p(s| n)}
 \end{equation}
-where a signal model is parameterized by a vector of parameters $\theta$, which represents a GW signal $h(t;\theta)$.
-For any given observation time, a search aims to maximize with respect to $\theta$ the detection statistics, also called signal-to-noise ratio (SNR).
-The exact expressions of $p(s = n+h(\theta)|d)$ and $p(s = n|d)$ are obtained under the assumption of stationary Gaussian noise and  depend on the quantities $\scalar{s}{h}$ and $\scalar{h}{h}$, where $\scalar{\cdot}{\cdot}$ is a noise-weighted scalar product described in more detail in Sec.~\ref{sec:metric}.
+For a standard GW observatory such as LIGO and Virgo, the signal observed takes the following form:
+\begin{equation}\label{eq:signal_model}
+	h(t;\theta) = F_+(\delta, \alpha, \Psi) h_+(t;\theta) + F_\times(\delta, \alpha, \Psi) h_\times(t;\theta)
+\end{equation}
 
-A generic eccentric BBH signal detected by LIGO or Virgo will be characterized by 17 quantities \cite{Sathyaprakash_2009}, grouped into \textit{intrinsic} and \textit{extrinsic} parameters.
-The twelve intrinsic parameters needed to fully characterize the source consist of: two BH masses ($m_1$, $m_2$), two 3-dimensional spins ($\mathbf{s}_1$, $\mathbf{s}_2$), the inclination angle $\iota$, the reference phase $\phi$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$.
-The five extrinsic parameters characterize the position of the source with respect to the observer: sky location (two angles: right ascension and declination), luminosity distance $D$, polarization angle $\Psi$ and the time of arrival of the signal.
+The functions $F_+, F_\times$, also called Antenna Patterns, denote the interferometer response to the two polarizations of a GW. They depend on the sky location, parameterized by right ascension $\alpha$ and declination $\delta$, and on the polarization angle $\Psi$. 
+For a BBH system, the two polarizations $h_+, h_\times$ depend on two BH masses ($m_1$, $m_2$), two 3-dimensional spins ($\mathbf{s}_1$, $\mathbf{s}_2$), the inclination angle $\iota$, the reference phase $\phi$, the luminosity distance of the source $D_L$, the eccentricity $e$ of the orbit and the mean periastron anomaly $a$ \cite{Sathyaprakash_2009}.
 
-One is able to maximize $\Lambda(\theta)$ analytically over the extrinsic parameters and, depending on the scope of the search, over many of the intrinsic parameters.
-For the other quantities, a brute force approach is required\footnote{
-For example, in the case of a non-precessing BBH, where we neglect the HMs, the parameter space to search by brute force has only 4 dimensions (two masses and the two z-components of the spins).
-}, where $\Lambda(\theta)$ is evaluated on a large set of values of $\theta$, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
-A GW search computes the detection statistic for each template as a function of time: this is the process of {\it matched filtering}, implemented successfully by several pipelines to search for GW signals \cite{Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
+Under the assumption of {\it gaussian noise}, we can write down an explicit model for the likelihood and Eq.~\eqref{eq:LL} becomes \cite{Creighton_book, Maggiore:2007ulw}:
+\begin{equation}\label{eq:LL_gauss}
+	\Lambda = \frac{\left(\Re\scalar{s}{h}\right)^2}{\scalar{h}{h}} = \rescalar{s}{\hat{h}}^2
+\end{equation}
+where we introduced a {\it complex} scalar product between two signals $a$, $b$:
+\begin{equation} \label{eq:scalar_product}
+	\scalar{a}{b} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{a}^*(f) \tilde{b}(f)}{S_n(f)}
+\end{equation}
+In this context, $S_n(f)$ is the frequency domain autocorelation function of the noise, also called Power Spectral Density (PSD).
+For ease of notation, we define ${\rescalar{a}{b} = \Re\scalar{a}{b}}$ and ${\hat{a} = \frac{a}{\rescalar{a}{a}}}$.
 
-It is useful, to think of the BBH parameter space as a D-dimensional manifold $\mathcal{B}_D$, embedded in a large 12 dimensional manifold $\mathcal{B}$ of the intrinsic parameters. Each point of the manifold corresponds to a GW signal. The number of dimensions $D$ depends on the BBH variables under consideration.
+For any given observation time, a search aims to {\it maximize} the detection statistics $\Lambda$ with respect to all the parameters of the signal model: this maximised quantity is also called signal-to-noise ratio (SNR).
+Depending on symmetry assumptions on the polarizations, one is able to maximise analytically over some (nuisance) parameters.
+For the other quantities, a brute force approach is required, where the maximised $\Lambda$ is evaluated at each time on a large set of signal models, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
+This procedure is called {\it matched filtering} and it has been implemented successfully by several pipelines to search for GW signals \cite{Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}.
+
+For a non-precessing signal, it holds $h_+ \propto ih_\times$ and the maximization of Eq.~\eqref{eq:LL_gauss} over the nuisance parameters yields:
+\begin{equation}\label{eq:std_snr}
+	\max \Lambda = \lVert \scalar{s}{\hat{h}_+} \rVert^2 = \rescalar{s}{\hat{h}_+}^2 + \rescalar{s}{\hat{h}_\times}^2
+\end{equation}
+In this simple case, $\max\Lambda$ only depends on the two BH masses $m_1, m_2$ and the two z-components of the spins $s_{1z}, s_{2z}$ (4 quantities).
+
+For the general case, where no particular symmetry is available, one obtains a different expression:
+\begin{equation}\label{eq:symphony_snr}
+	\max \Lambda = \frac{ \rescalar{s}{\hat{h}_+}^2 + \rescalar{s}{\hat{h}_\times}^2 -2\rescalar{\hat{h}_+}{\hat{h}_\times}\rescalar{s}{\hat{h}_\times}\rescalar{s}{\hat{h}_+}}{1- \rescalar{\hat{h}_+}{\hat{h}_\times}^2}
+\end{equation}
+In this case, $\max\Lambda$ depends on 12 parameters: they are the two BH masses $m_1, m_2$, the two three-dimensional spins $\mathbf{s}_1$, $\mathbf{s}_2$, the inclination angle $\iota$, the reference phase $\phi$ and the eccentricity parameters $e, a$.
+Unilike the non-precessing case, the analytical maximisation removed the dependence of $\Lambda$ on fewer parameters.
+
+Depending on the scope of a BBH matched-filtering search, a pipeline can use either Eq.~\eqref{eq:std_snr} or Eq.~\eqref{eq:symphony_snr} to filter the interferometer data with templates.
+
+For the purpose of template placement, it is useful to think of the parameter space of BBH signals as a D-dimensional manifold $\mathcal{B}_D$, embedded in a large 12 dimensional manifold $\mathcal{B}$. Each point of the manifold corresponds to a GW signal. The number of dimensions $D$ depends on the BBH variables under consideration.
 As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful default value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the full manifold $\mathcal{B}$.
 
 To place templates on $\mathcal{B}_D$, it is standard to equip the manifold with a distance (called {\it mismatch}) and then place templates so that \cite{Allen:2021yuy}: (i) they cover all the manifold and (ii) their mutual distance is as close as possible to a target distance.
@@ -159,91 +184,55 @@ Building on this, we develop a novel approach to template placing in three (plus
 	\item \textit{(Optional)} Training of a normalizing flow model to interpolate the metric within each tile and sample from the manifold. 
 	\item Placing the templates according to the tiling.
 \end{enumerate}
-Although this results in template placing that is only approximately optimal, our method is several orders of magnitude faster than the standard stochastic approach, as it avoids the generation of a large number of waveforms and the computation of the distance between them.
+Although not optimal, our method is several orders of magnitude faster than the standard stochastic approach, as it avoids the generation of a large number of waveforms and the computation of the distance between them.
 The rest of this section details the steps above.
 
 \subsection{The metric} \label{sec:metric}
 
-The metric on the manifold $\mathcal{B}_D$ provides a a fast-to-compute approximation to the {\it mismatch} between templates. We now derive an explicit expression for the metric in terms of the signal and its gradients.
+Here we aim to define a metric on the manifold $\mathcal{B}_D$: this will provide a a fast-to-compute approximation to the {\it mismatch} (distance) between templates and will be a crucial ingredient for template placement.
 
-Under the assumption of Gaussian noise \cite{Creighton_book}, it is natural to introduce a complex \textit{scalar product}\footnote{
-Technically, this is a scalar product on the $L^2$ space of the waveforms $h$.}
-$\scalar{\cdot}{\cdot}$ between two templates $h(\theta_1)$ and $h(\theta_2)$, evaluated at different points:
-
-\begin{equation} \label{eq:scalar_product}
-	\scalar{h(\theta_1)}{h(\theta_2)} = 4 \int_{0}^{\infty} \d{f} \frac{\tilde{h}^*(f;\theta_1) \tilde{h}(f;\theta_2)}{S_n(f)}
+Given two points of the manifold $\theta_1,\theta_2$, we define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized templates as:
+\begin{widetext}
+	\begin{align}\label{eq:overlap}
+		\mathcal{O}(\theta_1,\theta_2, t) &= \frac{1}{1- \hat{h}_{+\times}(\theta_2)^2} 
+		\biggl\{ \rescalarwide{\hat{h}_+(\theta_1)e^{i ft}}{\hat{h}_+(\theta_2)}^2 + \rescalarwide{\hat{h}_+(\theta_1)e^{i ft}}{\hat{h}_\times(\theta_2)}^2 \nonumber \\
+		& -2h_{+\times}(\theta_2)\rescalarwide{\hat{h}_+(\theta_1)e^{i ft}}{\hat{h}_\times(\theta_2)}\rescalarwide{\hat{h}_+(\theta_1)e^{i ft}}{\hat{h}_+(\theta_2)} \biggl\}
+	\end{align}
+\end{widetext}
+where $\hat{h}_+(\theta)e^{i ft}$ is the plus polarization $\hat{h}_+(\theta)$ translated by a constant time $t$ and $\hat{h}_{+\times}(\theta) = \rescalar{\hat{h}_+(\theta)}{\hat{h}_\times(\theta)}$.
+The overlap amounts to the fraction of SNR recovered when filtering a signal $s=h_+(\theta_1)$ with a template evaluated at a point $\theta_2$ (see also Eq.~\eqref{eq:symphony_snr}).
+In the case of a non-precessing search, it holds $h_{+\times} = 0$ and $h_\times = i h_+$, hence the overlap simplifies to:
+\begin{equation}\label{eq:overlap_NP}
+\mathcal{O}(\theta_1,\theta_2, t) = \left|\scalar{\hat{h}_+(\theta_1)e^{i ft}}{\hat{h}_+(\theta_2)} \right|^2
 \end{equation}
-where $\tilde{h}(f; \theta)$ denotes the frequency-domain template, evaluated at the point $\theta$ on the manifold.
+To our knowledge, all the literature available \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Roy:2017oul, Coogan:2022qxs, Hanna:2022zpk} relies on the latter expression to derive the metric, addressing only the non-precessing case.
 
-A template $h(\theta)$ can be normalized using the scalar product above:
-\begin{equation} \label{eq:normalization}
-	\hat{h}(f; \theta) = \frac{h(f; \theta)}{\scalar{h(\theta)}{h(\theta)}}.
-\end{equation}
-
-We define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized templates as:
-\begin{align}\label{eq:overlap}
-	\mathcal{O}(\theta_1,\theta_2, t) &= \left\lvert \int\limits_{0}^{+\infty} \d{f} \frac{\tilde{\hat{h}}^*(f;\theta_1)\tilde{\hat{h}}(f;\theta_2) e^{i2\pi ft}}{S_n(f)} \right\rvert \nonumber\\
-	&= \lvert \scalar{\hat{h}(\theta_1)}{\hat{h}(\theta_2)e^{i 2\pi ft}} \rvert
-\end{align}
-where $\hat{h}(\theta)e^{i 2\pi ft}$ is the template $\hat{h}(\theta)$ translated by a constant time $t$ and $\lvert \cdot \rvert$ denotes the absolute value of a complex number.
-
-We can use the overlap to compute the scalar product between $h(\theta_1)$ and $h(\theta_2)$, maximized over a constant time shift. This is defined as the {\it match}:
+We can maximise the overlap Eq.~\eqref{eq:overlap} with respect to time to obtain the match $\mathcal{M}(\theta_1,\theta_2)$ between templates evaluated at different points of the manifold:
 \begin{equation}\label{eq:match}
 	\mathcal{M}(\theta_1,\theta_2) = \max_t \mathcal{O}(\theta_1,\theta_2, t). \\
 \end{equation}
 %
-which has values in $[0,1]$. Trivially $\mathcal{M}(\theta,\theta) = 1$.
+The match has values in $[0,1]$ and trivially $\mathcal{M}(\theta,\theta) = 1$.
 
-The expression for the overlap is motivated by the analytical form of the {\it maximised} likelihood Eq.~\eqref{eq:LL} in the case of non-precessing circular BBHs, for which ${\tilde{h}_+ \propto i \, \tilde{h}_\times}$ \cite[Eq.~(14)]{Harry:2016ijz}.
-In this case, the template $\tilde{h}(f; \theta)$, used to filter the data, is simply:
-\begin{equation} \label{eq:template}
-	\tilde{h}(f; \theta) \propto \tilde{h}_+(f; \theta)
-\end{equation}
-where the cross polarization is not considered, as it does not add any information with respect to $h_+$.
-In this special case, the overlap has a straightforward interpretation: it amounts to the fraction of SNR lost when filtering a signal with intrinsic parameters $\theta_1$ with a template with parameters $\theta_2$.
-For a more general situation, the maximisation of the search likelihood yields a different expression \cite{Harry:2016ijz, Harry:2017weg} and the overlap, as defined in Eq.~\ref{eq:overlap}, loses this physical interpretation. The general search likelihood, however, cannot be used to motivate another simple {\it symmetric} expression for the match. Without symmetry, we cannot consistently define a distance between pair of points, which is crucial for the construction of a metric.
-For this reason, in this work, we will always use the templates in Eq.~\eqref{eq:template}, together with Eq.~\eqref{eq:overlap}, even if a generic search will use different templates and a more complicated statistic.
-Thus, in the general precessing and/or eccentric case, our definition of match does not have the usual direct link with the output of a matched filter pipeline and should be intended purely as a convenient measure of similarity between templates.
-
-Having defined the match, we are ready to define a {\it distance} $d(\theta_1,\theta_2)$ \footnote{
-From a strict geometrical point of view, this is not a distance since it does not satisfy triangular inequality. However, this does not affect its effectiveness in measuring the ``dissimilarity" between two waveforms and it will be used regardless.}
-on the D-manifold $\mathcal{B}_D$:
+We use the match to introduce a {\it distance} $d$ \footnote{
+From a strict geometrical point of view, this is not a distance since it does neither symmetry nor triangular inequality. However, this does not affect its effectiveness in measuring the ``dissimilarity" between two waveforms and it will be used regardless.}
+between two points on the D-manifold $\mathcal{B}_D$:
 \begin{align}\label{eq:distance}
-	d(\theta_1,\theta_2) \vcentcolon= \sqrt{1 - \mathcal{M}(\theta_1,\theta_2)}
+	d^2(\theta_1,\theta_2) \vcentcolon= 1 - \mathcal{M}(\theta_1,\theta_2)
 \end{align}
-The quantity $1-\mathcal{M}$ above is also called {\it mismatch}.
-
-To construct the metric approximation of the distance Eq.~\eqref{eq:distance}, we replace the distance with a bilinear form in the neighborhood of any point $\theta$. Such bilinear form is represented by a $D\times D$ matrix $M_{ij}(\theta)$ such that\footnote{
-In this expression and everywhere else, we assume Einstein summation convention for the vector product.}:
+The distance $d$ can then by approximated locally by a bilinear form $d_M$:
 \begin{align}\label{eq:metric_definition}
-	d^2(\theta_1,\theta_2) = 1 - \mathcal{M}(\theta_1,\theta_2) \simeq M_{ij}(\theta) \Delta\theta_i \Delta\theta_j
+	d_M^2(\theta_1,\theta_2) \vcentcolon= M_{ij}(\theta) \Delta\theta_i \Delta\theta_j \simeq 1 - \mathcal{M}(\theta_1,\theta_2)
 \end{align}
-where $\Delta\theta = \theta_1-\theta_2$ is a D-dimensional vector \cite{owen_metric}.
-It is worth noting that, like any expansion, Eq.~\eqref{eq:metric_definition} is guaranteed to be accurate only in the limit of small $||\Delta\theta||$\footnote{Here $||\cdot||$ is the usual Euclidean $L^2$ norm.}.
+The bilinear $d_M$ is represented by a D-dimensional square matrix $M_{ij}(\theta)$, defined at each point of the manifold.
 
-Of course, there is not a ``true" expression for the matrix $M_{ij}(\theta)$, but its value may depend on the application and on the range of validity of the approximation.
-A fair guess for the tensor field $M_{ij}(\theta)$ can be done through an optimization problem where we minimize the discrepancy between the two quantities in Eq.~\eqref{eq:metric_definition}, encoded into a {\it loss function}.
-The loss function depends on the values of the matrix elements $M^\prime_{ij}$:
-\begin{equation} \label{eq:loss_function}
-	\mathcal{L}_\theta(M^\prime_{ij}) = \hspace{-4em} \int\limits_{\hspace{3em}\{d(\theta,\theta^\prime) < d_\mathrm{target}\}} \hspace{-3.8em}
-		\dvol{\theta^\prime}{D}  \left[ 1 - \mathcal{M}(\theta,\theta^\prime) - M^\prime_{ij} \Delta\theta_i \Delta\theta_j \right]^2
-\end{equation}
-where the integration extends on a D-ball with radius $d_\mathrm{target}$ centered around $\theta$ and $d_\mathrm{target}$ is a tunable parameter, which controls the validity of the approximation.
-
-At any given point $\theta$, the components $M_{ij}(\theta)$ of the metric are selected by minimizing the above loss:
-\begin{equation} \label{eq:metric_optmization}
-	M_{ij}(\theta) = \argmin_{M^\prime_{ij}}  \mathcal{L}_\theta(M^\prime_{ij})
-\end{equation}
-Although the minimization can be tackled with standard techniques, it requires many evaluations of Eq.~\eqref{eq:distance} and to sampling from a ``complex" set such as ${\{d(\theta,\theta^\prime) < d_\mathrm{target}\}}$: in most cases this may prove unfeasible\footnote{
-Future work may try to tackle this optimization problem finding a solution at a feasible computational cost. A number of alternative optimization strategies are already available in \texttt{mbank}, although not fully validated.}.
-
-To make the metric generation feasible, we use an heuristic solution to the optimization problem Eq.~\eqref{eq:metric_optmization} and we identify the metric $M_{ij}(\theta)$ with the bilinear term of the Taylor expansion of the match, thus avoiding the minimization in Eq.~\eqref{eq:metric_optmization}.
-Following most of the literature \cite{owen_metric, Messenger:2008ta}, the final expression depends on the template $h(\theta)$ and on its gradients $\partial_i h(\theta)$:
+Following a standard practice, we identify $M_{ij}(\theta)$ to be the quadratic term of the Taylor expansion of $d_M(\theta+\Delta\theta,\theta)$ around $\Delta\theta\simeq 0$:
 \begin{equation}\label{eq:metric_expression}
 	M_{ij}(\theta) = - \frac{1}{2} \left( H_{ij} - \frac{H_{ti}H_{tj}}{H_{tt}} \right)
 \end{equation}
 where $H(\theta)$ is the Hessian of the overlap Eq.~\eqref{eq:overlap}, a $D+1$ square matrix.
-Note that the metric is positive definite. The details of the computation of the Hessian in terms of the gradients of the waveform are presented in Appendix \ref{app:metric}. The full expression is given in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
+Note that the metric is positive definite. A convenenient expression of the $H$ in terms of the gradients of the waveform is presented in App.~\ref{app:metric}, the full expression being in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
+While identifying the metric with the Hessian is well motivated and yields reliable results, other definition are available: this is discussed in App.~\ref{app:metric_definition}.
 
 For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, such gradients are available analytically.
 
@@ -261,7 +250,7 @@ Finally, we introduce the uniform probability measure, such that $p(V) \propto \
 \begin{equation}\label{eq:pdf_uniform}
 	p(\theta) \propto \sqrt{|\text{det}M(\theta)|}.
 \end{equation}
-Samples from the uniform distribution tends to have an ``uniform" (i.e. constant) spacing, computed with the metric distance. Thanks to this feature, the uniform distribution is a natural candidate to draw template proposals from.
+Samples from the uniform distribution tend to have an ``uniform" (i.e. constant) spacing, computed with the metric distance. Thanks to this feature, the uniform distribution is a natural candidate to draw template proposals from.
 
 \subsection{The tiling} \label{sec:tiling}
 
@@ -779,10 +768,10 @@ This will allow for optimal resource allocation to search for signatures of prec
 In this Appendix we report the details of the derivation of the Eq.~\eqref{eq:metric_expression}, as well as the computation of the Hessian $H$ of the overlap Eq.~\eqref{eq:overlap} in terms of the gradients of the waveform $h(\theta)$. 
 In what follows, we define $\rescalar{h_1}{h_2}$ and $\imscalar{h_1}{h_2}$ to be respectively the real and imaginary part of $\scalar{h_1}{h_2}$.
 
-We begin by expanding the quantity $\mathcal{M}(\theta,\theta +\Delta\theta)$ for $\Delta\theta$ around $0$. Since the $\mathcal{M}(\theta,\theta +\Delta\theta)$ has a maximum for $\Delta\theta = 0$, the leading term is quadratic in $\Delta\theta$.
+We begin by expanding the quantity $\mathcal{M}(\theta+\Delta\theta,\theta )$ for $\Delta\theta$ around $0$. Since the $\mathcal{M}(\theta+\Delta\theta,\theta )$ has a maximum for $\Delta\theta = 0$, the leading term is quadratic in $\Delta\theta$.
 We obtain:
 \begin{align} \label{eq:metric_derivation}
-	&\mathcal{M}(\theta,\theta +\Delta\theta) = \max_{\Delta t} \mathcal{O}(\theta, \theta + \Delta\theta, \Delta t) \nonumber\\
+	&\mathcal{M}(\theta+\Delta\theta,\theta ) = \max_{\Delta t} \mathcal{O}(\theta + \Delta\theta, \theta, \Delta t) \nonumber\\
 	& =	\max_{\Delta t} \left\{ 1+ \frac{1}{2}\left[ \partial_{ij}\mathcal{O} \Delta\theta_i \Delta\theta_j + 2  \partial_{it}\mathcal{O} \Delta\theta_i \Delta t + \partial_{tt}\mathcal{O} (\Delta t)^2 \right] \right\}  \nonumber \\
 	&= 1 + \frac{1}{2}\left[ \partial_{ij}\mathcal{O} - \frac{\partial_{it}\mathcal{O} \partial_{jt}\mathcal{O}}{\partial_{tt}\mathcal{O}}\right] \Delta\theta_i \Delta\theta_j
 \end{align}
@@ -791,27 +780,33 @@ ${\Delta t = -\frac{\partial_{it}\mathcal{O} \Delta\theta_i}{\partial_{tt}\mathc
 
 From the above Eq.~\eqref{eq:metric_derivation}, we can read the expression for the metric in Eq.~\eqref{eq:metric_expression} recognizing in the derivatives $\partial\partial\mathcal{O}|_{\Delta\theta, \Delta t = 0}$ the components of the Hessian matrix $H$ of the overlap.
 
-We now compute the Hessian of the overlap as a function of the gradients of the {\it normalized} waveforms.
-We have\footnote{
-A constant factor in front of the frequency in the Fourier transform does not affect the result. For this reason, we dropped the constant $2\pi$ in the exponential.}:
-\begin{align}
-	\partial_i \mathcal{O} &= \frac{1}{\mathcal{O}} \left[ \rescalar{\hat{h}}{\hat{h}e^{ift}}\rescalar{\hat{h}}{\partial_i\hat{h}e^{ift}} + \imscalar{\hat{h}}{\hat{h}e^{ift}}\imscalar{\hat{h}}{\partial_i\hat{h}e^{ift}} \right]\\
-	\partial_t \mathcal{O} &= \frac{1}{\mathcal{O}} \left[ \rescalar{\hat{h}}{\hat{h}e^{ift}}\rescalar{\hat{h}}{\hat{h}if e^{ift}} + \imscalar{\hat{h}}{\hat{h}e^{ift}}\imscalar{\hat{h}}{\hat{h}if e^{ift}} \right]
+We now compute the Hessian of the overlap as a function of the gradients of the {\it normalized} waveforms. For notational convenience, we set $h_+(\theta_1)e^{ift} = s$, we drop any dependence on $\theta_2$ and we understand $\mu = {i, t}$.
+We have:
+\begin{align}\label{eq:overlap_grads}
+	\partial_{\mu} \mathcal{O} &= \frac{1}{\mathcal{O}} \frac{1}{1-\hat{h}^2_{+\times}}
+	\left[
+	\rescalar{\partial_\mu\hat{s}}{\hat{h}_+}\rescalar{\hat{s}}{\hat{h}_+} 
+	+ \rescalar{\partial_\mu\hat{s}}{\hat{h}_\times}\rescalar{\hat{s}}{\hat{h}_\times} \right. \nonumber \\
+	&\left. - \rescalar{\partial_\mu\hat{s}}{\hat{h}_+}\rescalar{\hat{s}}{\hat{h}_\times}h_{+\times}
+	- \rescalar{\partial_\mu\hat{s}}{\hat{h}_\times}\rescalar{\hat{s}}{\hat{h}_+}h_{+\times}
+	\right]
 \end{align}
 Differentiating another time, after some rearrangements, we get:
 \begin{align}
-H_{tt} &= \frac{\partial^2 \mathcal{O}}{\partial t \partial t } \left|_{\Delta\theta, t = 0} \right.
-								= \rescalar{\hat{h}}{\hat{h}f}^2 - \rescalar{\hat{h}}{\hat{h}f^2} \label{eq:H_tt}\\
-H_{ti} &= \frac{\partial^2 \mathcal{O}}{\partial \Delta \theta_i \partial t } \left|_{\Delta\theta, t = 0} \right.
-								= - \imscalar{\hat{h}}{\partial_i \hat{h}f} + \imscalar{\hat{h}}{\partial_i\hat{h}} \rescalar{\hat{h}}{\hat{h}f} \label{eq:H_ti}\\
-H_{ij} &= \frac{\partial^2 \mathcal{O}}{\partial \Delta \theta_i \partial \Delta \theta_j }\left|_{\Delta\theta, t = 0} \right.
-								= \rescalar{\hat{h}}{\partial_i\partial_j\hat{h}} +\imscalar{\hat{h}}{\partial_i\hat{h}} \imscalar{\hat{h}}{\partial_j\hat{h}} \label{eq:H_ij}
+H_{tt} &= - \rescalar{\hat{h}_+}{\hat{h}_+f^2}
+			+ \frac{1}{1-\hat{h}^2_{+\times}} \imscalar{\hat{h}_\times}{\hat{h}_+f}^2 \label{eq:H_tt}\\
+H_{ti} &= \imscalar{\hat{h}_+}{\partial_i \hat{h}_+f}
+			- \frac{1}{1-\hat{h}^2_{+\times}} \rescalar{\hat{h}_\times}{\partial_i\hat{h}_+} \imscalar{\hat{h}_\times}{\hat{h}_+f} \label{eq:H_ti}\\
+H_{ij} &= \rescalar{\hat{h}_+}{\partial_i\partial_j\hat{h}_+}
+			+ \frac{1}{1-\hat{h}^2_{+\times}} \rescalar{\hat{h}_\times}{\partial_i\hat{h}_+} \rescalar{\hat{h}_\times}{\partial_j\hat{h}_+} \label{eq:H_ij}
 \end{align}
 
-To move further, we express the normalized waveform derivatives in terms of the non normalized ones:
+To move further, we express a normalized waveform derivatives in terms of the un-normalized ones:
 \begin{align*}
 	\bullet&\quad \partial_i \scalar{h}{h} = \scalar{\partial_i h}{h}+ \scalar{h}{\partial_i h} = 2 \rescalar{h}{\partial_i h} \\
-	\bullet&\quad \partial_i \hat{h} =\frac{1}{\rescalar{h}{h}^{3/2}} \left[ \rescalar{h}{h}\partial_i h -  \rescalar{h}{\partial_i h} h \right]	\\
+	\bullet&\quad \partial_i \hat{h} =\frac{1}{\rescalar{h}{h}^{3/2}} \left[ \rescalar{h}{h}\partial_i h -  \rescalar{h}{\partial_i h} h \right]
+	\\
+	\bullet &\quad \partial_t \hat{h} = i f \hat{h} = i f \frac{h}{\rescalar{h}{h}} \\
 	\bullet &\quad \partial_i \partial_j \hat{h} = \frac{1}{\rescalar{h}{h}^{1/2}} \partial_{ij}h 	+3 \frac{1}{\rescalar{h}{h}^{5/2}} \rescalar{h}{\partial_i h}\rescalar{h}{\partial_j h}h \\
 	&- \frac{1}{\rescalar{h}{h}^{3/2}} \left[\rescalar{h}{ \partial_{ij} h} h + \rescalar{\partial_i h}{\partial_j h}  h
 		+2\rescalar{h}{\partial_{(i} h} \partial_{j)} h \right]
@@ -819,16 +814,47 @@ To move further, we express the normalized waveform derivatives in terms of the 
 where $A_{(ij)} = \frac{1}{2}(A_{ij}+A_{ji})$ denotes symmetrization.
 
 Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
+\begin{widetext}
 \begin{align}
-	H_{tt} &= \frac{1}{\rescalar{h}{h}^{2}} \rescalar{{h}}{{h}f}^2 - \frac{1}{\rescalar{h}{h}} \imscalar{h}{{h} f^2 } \label{eq:H_tt_grad} \\
-	H_{ti} &= \frac{1}{\rescalar{h}{h}^{2}} \Big\{ \imscalar{h}{\partial_i {h}} \rescalar{{h}}{{h}f} +\rescalar{h}{\partial_i {h}} \imscalar{h}{hf} \Big\} \nonumber \\
-	&- \frac{1}{\rescalar{h}{h}} \imscalar{h}{\partial_i{h} f } \label{eq:H_ti_grad} \\
-	H_{ij} &=  \frac{1}{\rescalar{h}{h}^{2}} \Big\{ \rescalar{h}{\partial_i {h}} \rescalar{{h}}{\partial_j {h}} +\imscalar{h}{\partial_i {h}} \imscalar{h}{\partial_j {h}} \Big\} \nonumber \\
-	&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}} \label{eq:H_ij_grad} 
+	H_{tt} &= - \frac{1}{h_{++}} \rescalar{h_+}{f^2 {h_+}}
+		+ \frac{1}{1-\hat{h}^2_{+\times}} \frac{1}{h_{++}h_{\times\times}} \imscalar{{h_\times}}{f{h_+}}^2 \label{eq:H_tt_grad} \\
+	H_{ti} &= - \frac{1}{h_{++}} \rescalar{h_+}{f \partial_i h_+}
+		- \frac{1}{1-\hat{h}^2_{+\times}} \frac{1}{h_{++}h_{\times\times}} \imscalar{{h_\times}}{f{h_+}} \rescalar{{h_\times}}{\partial_i h_+}
+		+ \frac{\hat{h}_{+\times}}{1-\hat{h}^2_{+\times}} \frac{1}{h^{3/2}_{++}h^{1/2}_{\times\times}}
+			\imscalar{{h_\times}}{f{h_+}} \rescalar{{h_+}}{\partial_i h_+} \label{eq:H_ti_grad}\\
+	H_{ij} &= - \frac{1}{h_{++}} \rescalar{\partial_i h_+}{\partial_j h_+}
+		+ \frac{1}{1-\hat{h}^2_{+\times}} \frac{1}{h^2_{++}} \rescalar{h_+}{\partial_i {h_+}} \rescalar{{h_+}}{\partial_j {h_+}}
+		+ \frac{1}{1-\hat{h}^2_{+\times}} \frac{1}{h_{++}h_{\times\times}} \rescalar{h_\times}{\partial_i {h_+}} \rescalar{{h_\times}}{\partial_j {h_+}} \nonumber \\
+		& - \frac{2 \hat{h}_{+\times}}{1-\hat{h}^2_{+\times}} \frac{1}{h^{3/2}_{++}h^{1/2}_{\times\times}}
+		\rescalar{h_\times}{\partial_{(i} {h_+}} \rescalar{{h_+}}{\partial_{j)} {h_+}} \label{eq:H_ij_grad}
+%
+%
+%
+%	\frac{1}{\rescalar{h}{h}^{2}}  \imscalar{h}{\partial_i {h}} \rescalar{{h}}{{h}f} +\rescalar{h}{\partial_i {h}} \imscalar{h}{hf}
+%	&- \frac{1}{\rescalar{h}{h}} \imscalar{h}{\partial_i{h} f } \label{eq:H_ti_grad} \\
+	%H_{ij} &=  \frac{1}{\rescalar{h}{h}^{2}} \Big\{ \rescalar{h}{\partial_i {h}} \rescalar{{h}}{\partial_j {h}} +\imscalar{h}{\partial_i {h}} \imscalar{h}{\partial_j {h}} \Big\} \nonumber \\
+	%&- \frac{1}{\rescalar{h}{h}} \rescalar{\partial_i h}{\partial_j {h}} \label{eq:H_ij_grad} 
 \end{align}
+\end{widetext}
+where we defined $h_{\cdot*} = \rescalar{h_\cdot}{h_*}$.
 
 Such expressions, together with Eq.~\eqref{eq:metric_expression} fully specify the metric computation.
 The gradients $\partial_i h$ of the waveform can be computed with any finite difference scheme or analytically for a limited number of waveform surrogate models \cite{PhysRevD.103.043020, Khan:2020fso, Tissino:2022thn}.
+
+The non precessing limit can be recovered by setting $h_\times = i h_+$ and $h_{+\times} = 0$:
+\begin{align}
+	H_{tt} &= \frac{1}{h_{++}^{2}} \rescalar{{h_+}}{f{h_+}}^2 - \frac{1}{h_{++}} \rescalar{h_+}{f^2 {h_+}} \label{eq:H_tt_grad_NP} \\
+	H_{ti} &= \frac{1}{h_{++}^{2}} \imscalar{h_+}{\partial_i {h_+}} \rescalar{{h_+}}{{h_+}f}
+		- \frac{1}{h_{++}} \imscalar{h_+}{f \partial_i{h_+}} \label{eq:H_ti_grad_NP} \\
+	H_{ij} &=  \frac{1}{h_{++}^{2}} \Big\{ \rescalar{h_+}{\partial_i {h_+}} \rescalar{{h_+}}{\partial_j {h_+}} +\imscalar{h_+}{\partial_i {h_+}} \imscalar{h_+}{\partial_j {h_+}} \Big\} \nonumber \\
+	&- \frac{1}{h_{++}} \rescalar{\partial_i h_+}{\partial_j {h_+}} \label{eq:H_ij_grad_NP} 
+\end{align}
+
+\section{Alternative definitions for the metric}\label{app:metric_definition}
+
+\blindtext
+\blindtext
+\blindtext
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY
 	\bibliography{biblio.bib}

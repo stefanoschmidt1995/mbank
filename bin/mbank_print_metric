@@ -12,7 +12,7 @@ To print the metric:
 This will download a PSD file and print the metric in the `Mq_s1xz` format:
 
 	wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt
-	mbank_print_metric --psd aligo_O3actual_H1.txt --asd --variable-format Mq_s1xz --theta 10. 3. 0.15 0.18
+	mbank_print_metric --psd aligo_O3actual_H1.txt --asd --variable-format Mq_s1xz --metric-type symphony --theta 10. 3. 0.15 0.18
 
 To know which options are available:
 

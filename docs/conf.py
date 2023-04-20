@@ -38,6 +38,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinxawesome_theme",
     "myst_parser",
+#    "sphinxarg.ext",
+	"sphinxcontrib.programoutput",
     "sphinx_sitemap", #pip install sphinx-sitemap
 ]
 

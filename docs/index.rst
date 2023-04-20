@@ -31,6 +31,13 @@ Welcome to ``mbank``'s documentation!
    package_reference/mbankflow.rst
 
 .. toctree::
+   :caption: Executables
+   :name: executables
+   :maxdepth: 3
+
+   package_reference/bin.rst
+
+.. toctree::
    :maxdepth: 2
    :caption: About
    

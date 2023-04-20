@@ -73,7 +73,81 @@ def load_result_dict(input_folder, N_points = 100):
 		res_dict[vf] = save_dict
 	return res_dict
 
+def load_result_dict_from_file(input_file, variable_format, N_points = 100):
+	vf_list = [variable_format]
+	res_dict = {}
+	vf = variable_format
+	
+		#Initializing result dict
+	for f in [input_file]:
+		
+		save_dict = {
+		'f_max': 1024.,
+		'f_min': 15.,
+		'approximant': 'IMRPhenomXP'
+		}
+		
+		tiling_file = f
+		save_dict['max_depth_list'] = [11]
+		save_dict[save_dict['max_depth_list'][0]] = tiling_file
+			
+		#Filling save_dict with interesting values 
+		psd = 'aligo_O3actual_H1.txt' 
+		ifo = 'H1'
+		
+		m_obj = cbc_metric(vf,
+			PSD = load_PSD(psd, True, ifo),
+			approx = save_dict['approximant'],
+			f_min = save_dict['f_min'], f_max = save_dict['f_max'])
+
+		#loading all the tiling objs
+		tiling_objs = {}
+		for md in save_dict['max_depth_list']:
+			tiling_objs[md] = tiling_handler(save_dict[md])
+			print(vf, md, len(tiling_objs[md]))
+		#extracting points to test the tiling accuracy at
+		save_dict['test_points'] = tiling_objs[md].sample_from_tiling(N_points)
+		
+		metric_from_tiling = tiling_objs[md][0].metric
+		metric_from_obj = m_obj.get_metric(tiling_objs[md][0].center, metric_type = 'symphony')
+
+		if not np.allclose(metric_from_tiling, metric_from_obj, atol = 0., rtol = 1e-6):
+			print("Something wonky going on with the metric obj: are you sure you set all the params right?")
+			print('\t',save_dict['approximant'], save_dict['f_min'], save_dict['f_max'])
+		
+		det_true = np.linalg.det(m_obj.get_metric(save_dict['test_points'], metric_type = 'symphony'))
+		for md in save_dict['max_depth_list']:
+			det_tiling = np.linalg.det(tiling_objs[md].get_metric(save_dict['test_points']))
+			save_dict['hist_{}'.format(md)] = 0.5 * np.log10(det_tiling/det_true)
+			save_dict['det_tiling_{}'.format(md)] = det_tiling
+			save_dict['det_true_{}'.format(md)] = det_true
+
+		del tiling_objs
+
+		res_dict[vf] = save_dict
+	return res_dict
+
 def plot_tiling_accuracy_study(res_dict):
+	
+	md = 8
+	
+	plt.figure()
+	id_1, id_2 = 1,3
+	vh = variable_handler()
+	vf = 'Mq_s1xz'
+	ids_, = np.where(res_dict[vf]['hist_{}'.format(md)]>1.)
+	
+	centers = tiling_handler(res_dict[vf][md]).get_centers()
+	print(centers.shape)
+	print('# centers, #testpoints: ',len(centers), len(res_dict[vf]['test_points']))
+	plt.scatter(*centers[:,[id_1, id_2]].T, label = 'centers', c = 'k', marker = 'x', s = 25)
+	plt.scatter(*res_dict[vf]['test_points'][:,[id_1, id_2]].T, label = 'test points', s = 3)
+	plt.scatter(res_dict[vf]['test_points'][ids_,id_1], res_dict[vf]['test_points'][ids_,id_2], label = 'bad points', s = 3)
+	plt.ylabel(	vh.labels(vf)[id_2])
+	plt.xlabel(	vh.labels(vf)[id_1])
+	plt.legend()
+	plt.show()
+	#quit()
 	
 	plt.figure()
 	for k, v in res_dict.items():
@@ -84,24 +158,24 @@ def plot_tiling_accuracy_study(res_dict):
 	plt.axhline(0.1, ls = '--', c = 'k')
 	plt.legend()
 	
-	vf = 'Mq_s1xz_s2z_iota'
+	vf = 'Mq_s1xz'#_s2z_iota'
 	plt.figure()
-	#plt.hist(res_dict[vf]['hist_{}'.format(8)]*res_dict[vf]['det_true_{}'.format(8)], bins = 100, histtype = 'step')
-	plt.hist(res_dict[vf]['hist_{}'.format(8)], bins = 100, histtype = 'step')
+	#plt.hist(res_dict[vf]['hist_{}'.format(md)]*res_dict[vf]['det_true_{}'.format(8)], bins = 100, histtype = 'step')
+	plt.hist(res_dict[vf]['hist_{}'.format(md)], bins = 100, histtype = 'step')
 	plt.yscale('log')
 	plt.xlabel(r"$0.5 \log_{10}\left(\frac{M}{M_{true}}\right)$")
 	plt.axvline(-0.1, ls = '--', c = 'k')
 	
 	
 	vh = variable_handler()
-	ids_, = np.where(res_dict[vf]['hist_{}'.format(8)]<1.)
+	ids_, = np.where(res_dict[vf]['hist_{}'.format(md)]<1.)
 	
-	print('mean det normal', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(8)])))
-	print('mean det anomaly', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(8)][ids_])))
+	print('mean det normal', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(md)])))
+	print('mean det anomaly', np.mean(np.sqrt(res_dict[vf]['det_true_{}'.format(md)][ids_])))
 	
 	
 	for i, l in enumerate(vh.labels(vf, latex = True)):
-
+		break
 		bins = int(np.sqrt(len(ids_)))
 		hist_kwargs = {
 			'density': True,
@@ -112,7 +186,7 @@ def plot_tiling_accuracy_study(res_dict):
 		plt.hist(res_dict[vf]['test_points'][ids_,i], label = 'bad points', histtype = 'step', **hist_kwargs)
 		plt.xlabel(l)
 		plt.legend()
-	
+
 	plt.show()
 
 
@@ -131,6 +205,7 @@ if __name__ == '__main__':
 		if len(sys.argv) > 2: N_points = int(sys.argv[2])
 		else: N_points = 10
 		res_dict = load_result_dict(input_folder, N_points = N_points)
+		#res_dict = load_result_dict_from_file('precessing_bank/tiling_paper_precessing.npy', 'Mq_s1xz', N_points)
 		with open(save_file, 'wb') as f:
 			pickle.dump(res_dict, f)
 

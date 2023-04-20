@@ -31,11 +31,12 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			'MM_metric': np.zeros((len(max_depth_list), N_injs), float),
 			'MM_full': np.zeros((len(max_depth_list), N_injs), float),
 			'N_injs': N_injs, 'mchirp_window': mchirp_window, 'MM_inj': 0.97,
-			'N_livepoints': 1_000_000, 'empty_iterations': 200, 'covering_fraction': 0.01
+			'N_livepoints': 2_000_000, 'empty_iterations': 200, 'covering_fraction': 0.01
 		}
 
 	t = tiling_handler()
 	for i, max_depth in enumerate(max_depth_list):
+		print('#########################')
 		filename = "{}/files/tiling_{}_{}.npy".format(folder_name, variable_format, max_depth)
 			#getting the tiling
 		#print("Tiling file: ",filename)
@@ -70,7 +71,7 @@ def get_N_templates_data(variable_format, placing_method, MM_list, max_depth_lis
 			injs = t.sample_from_tiling(N_injs, seed = 210795)
 					#metric injections
 			sky_locs = np.stack(get_random_sky_loc(len(injs)), axis = -1)
-			inj_dict = initialize_inj_stat_dict(np.stack(b.var_handler.get_BBH_components(injs, variable_format)).T, sky_locs)
+			inj_dict = initialize_inj_stat_dict(b.var_handler.get_BBH_components(injs, variable_format), sky_locs)
 			inj_dict = compute_injections_metric_match(inj_dict, b, t, verbose = True)
 			out_dict['MM_metric'][i,:] = inj_dict['metric_match']
 			print('\t\tMetric match: ', np.percentile(inj_dict['metric_match'], [1, 5, 50,95])) 
@@ -120,7 +121,7 @@ def plot(out_dict, run_name, folder_name = None):
 		bw = np.diff(perc)/10
 		if False and N_t>1000: #check KDE
 			plt.figure()
-			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_metric'][i,:, None])
+			kde = KernelDensity(kernel='gaussian', bandwidth=bw[0]).fit(out_dict['MM_metric'][i,:, None])
 			plt.plot(MM_grid, np.exp(kde.score_samples(MM_grid[:,None])))
 			plt.hist(out_dict['MM_metric'][i,:], density = True, bins =20)
 			plt.show()
@@ -135,7 +136,7 @@ def plot(out_dict, run_name, folder_name = None):
 						c= 'b', label = 'Metric Match' if i==0 else None)
 
 		if not np.all(out_dict['MM_full'][i,:]==0.):
-			kde = KernelDensity(kernel='gaussian', bandwidth=bw).fit(out_dict['MM_full'][i,:, None])
+			kde = KernelDensity(kernel='gaussian', bandwidth=bw[0]).fit(out_dict['MM_full'][i,:, None])
 			pdf_full = np.exp(kde.score_samples(MM_grid[:,None]))
 			plt.plot(N_t*(1+scale_factor*(pdf_full-np.min(pdf_full))/np.max(pdf_full-pdf_full[0])), MM_grid,
 						c= 'orange', label = 'Full Match' if i==0 else None)
@@ -174,22 +175,44 @@ if __name__ == '__main__':
 	load = False
 	load_tiling = True
 	load_bank = True
-	full_match = True
+	full_match = False
 
 	MM_list = [0.97]
-	
-		#The 2D bank is too simple: you don't want to validate it!!!
-	#epsilon_list = [10, 1, 0.5, 0.2, 0.1, 0.05, 0.01]; variable_format =  'Mq_nonspinning'; approximant = 'IMRPhenomD'; M_range = (30, 50)
 
-	#max_depth_list = [0, 1, 2, 4, 6, 8]; variable_format =  'Mq_chi'; approximant = 'IMRPhenomD'; M_range = (40, 50); f_min, f_max = 10., 1024.
-	#max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz'; approximant = 'IMRPhenomXP'; M_range = (40, 50); f_min, f_max = 10., 1024.
-	max_depth_list = [0, 1, 4, 6, 8, 10]; variable_format =  'Mq_s1xz_s2z_iota'; approximant = 'IMRPhenomXP'; M_range = (40, 50); f_min, f_max = 15., 1024.
+		#reading input
+	try:
+		run_name, variable_format, placing_method = sys.argv[1], sys.argv[2], sys.argv[3]
+	except:
+		raise ValueError("Run name variable format and placing methods must be given must be given!")
+
+	if variable_format == 'Mq_chi':
+		max_depth_list = [0, 1, 2, 4, 6, 8]
+		approximant = 'IMRPhenomD'
+		M_range = (20, 50)
+		f_min, f_max = 10., 1024.
+		theta_range = None
+	elif variable_format == 'Mq_s1xz':
+		max_depth_list = [0, 1, 4, 6, 8, 10];
+		approximant = 'IMRPhenomXP'
+		M_range = (40, 50)
+		f_min, f_max = 15., 1024.
+		theta_range = (0, np.pi)
+	elif variable_format == 'Mq_s1xz_s2z_iota':
+		max_depth_list = [0, 1, 4, 6, 8, 10]
+		approximant = 'IMRPhenomXP'
+		M_range = (40, 50)
+		f_min, f_max = 15., 1024.
+		theta_range = (np.pi/4, 3*np.pi/4)
+	else:
+		raise ValuError("Variable format not recognized")
 	
 			#setting ranges
 	q_range = (1,5)
 	s_range = (-0.99, 0.99)
 	e_range = (0., 0.5)
-	boundaries = get_boundaries_from_ranges(variable_format, M_range, q_range, s_range, s_range, e_range = e_range)
+	iota_range = (np.pi/4, 3*np.pi/4)
+	boundaries = get_boundaries_from_ranges(variable_format, M_range, q_range, s_range, s_range,
+		e_range = e_range, theta_range = theta_range, iota_range = iota_range)
 	psd = 'aligo_O3actual_H1.txt' 
 	ifo = 'H1'
 	N_injs, mchirp_window = 1000, 0.1
@@ -199,11 +222,8 @@ if __name__ == '__main__':
 			PSD = load_PSD(psd, True, ifo),
 			approx = approximant,
 			f_min = f_min, f_max = f_max)
-	
 
 		#dealing with files
-	if len(sys.argv)>1: run_name, placing_method = sys.argv[1], sys.argv[2]
-	else: raise ValueError("Run name must be given!")
 	run_name = run_name+'_{}'.format(variable_format)
 	
 	folder_name = 'placing_methods_accuracy/{}'.format(run_name)	

@@ -624,7 +624,7 @@ if __name__ == '__main__':
 	
 	plot_comparison_injections( (injs_list_noflow, injs_list_noflow), ('metric match', 'match'), ('metric_match','match'),
 		c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list,
-		savefile = img_folder+'bank_injections_flow.pdf')
+		savefile = img_folder+'bank_injections.pdf')
 	
 	
 	quit()

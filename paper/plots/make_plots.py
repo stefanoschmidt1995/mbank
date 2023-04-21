@@ -274,8 +274,8 @@ def plot_MM_study(ax, out_dict, set_labels = 'both', set_legend = True):
 				#this control the length of the support for the MM hist
 				#TODO: play with this stretch factor...
 		if out_dict['variable_format']=='Mq_chi':
-			y_strecth = 1.2 #0.0008
-			y_min, y_max = 10,2000
+			y_strecth = 1.9 #0.0008
+			y_min, y_max = 10,50_000
 				#do not plot the second to last point
 			if i == len(out_dict['N_tiles'])-1: continue
 		elif out_dict['variable_format']=='Mq_s1xz':
@@ -458,7 +458,7 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 		
 		if isinstance(MM, float): ax.axvline(MM, c = 'k', ls = '--')
 		if isinstance(t, str): ax.set_title(t, fontsize = 10)
-	axes[0].legend(loc = 'upper left', fontsize = 8)
+	axes[1].legend(loc = 'center left', fontsize = 8)
 	axes[-1].set_xlim([x_low_lim,1.001])
 		
 	axes[-1].set_xlabel(r"$\mathcal{M}$", fontsize = 10)
@@ -543,9 +543,92 @@ def plot_injection_distance_hist(inj_pkl_list, variable_format_list, title = Non
 
 	del inj_dict
 
+
+def plot_parabolae(center, variable_format, savefile = None):
+	from mbank import cbc_metric
+	from mbank.utils import load_PSD
+
+	target_match = 0.99
+	psd = 'aligo_O3actual_H1.txt' 
+	ifo = 'H1'
+	m_obj = cbc_metric(variable_format,
+			PSD = load_PSD(psd, True, ifo),
+			approx = 'IMRPhenomXP',
+			f_min = 10., f_max = 1024.)
+
+	metric_parabolae, parabolae, metric_hessian = m_obj.get_parabolic_fit_hessian(center, overlap = False,
+		target_match = target_match, symphony = True, antenna_patterns = (1,0),
+		N_epsilon_points = 10, log_epsilon_range = (-5, 1), full_output = True)
+
+
+	eigvals, eigvecs = np.linalg.eig(metric_hessian)
+	
+		#Try to recalibrate eigenvalues along direction of L
+	#L = np.linalg.cholesky(metric_hessian).T
+	#L_inv = np.linalg.inv(L)
+	#eigvecs = (L_inv / np.linalg.norm(L_inv.T, axis = 0)).T
+	#eigvals = eigvals*0+1.
+
+		##
+		# Plotting & computing eigs
+	y_2nd_sin = lambda x, a: np.square(np.sin(np.sqrt(a*x**2)))
+	y_2nd = lambda x, a, b: a*x**2 + b
+	y_2nd_nob = lambda x, a: a*x**2 + 1
+	y_4th = lambda x, a, b, c: a*x**4 +b*x**2 +c
+	y_6th = lambda x, a, b, c, d: a*x**6 +b*x**6 +c*x**2+d
+	
+	size = plt.rcParams.get('figure.figsize')
+	fig, axes = plt.subplots(len(eigvals)//2, 2, sharex = False, figsize = (2*size[0], .5*len(eigvals)*size[1]))
+	#plt.suptitle("center = {}".format(center))
+	titles = ['1st', '2nd', '3rd', '4th', '5th', '6th']
+	new_eigvals = []
+	fs = 16
+
+	for d, (ax, eigval, parabola) in enumerate(zip(axes.flatten(), eigvals, parabolae)):
+		ax.set_title('{} Eigenvector'.format(titles[d]), fontsize = fs+1)
+		parabola[:,1] = 1- parabola[:,1] #making the match a distance
+		ax.plot(parabola[:,0], parabola[:,1], 'x', c = 'k')
+		
+			#doing the fitting
+		#p = np.polyfit(parabola[:,0], parabola[:,1], 2) #parabolic fit
+		p_2nd = np.polyfit(parabola[:,0]**2, parabola[:,1], 1) #parabolic fit
+		#p_4th = np.polyfit(parabola[:,0]**2, parabola[:,1], 2) #quartic fit
+		#p_6th = np.polyfit(parabola[:,0]**2, parabola[:,1], 3) #quartic fit
+		
+		x = np.sort(parabola[:,0])
+		ax.plot(x, y_2nd(x, *p_2nd), '--', label = '{}'.format(np.format_float_scientific(p_2nd[0],2)))
+		#ax.plot(x, y_4th(x, *p_4th), ':', label = '4th fit: {} | {}'.format(np.format_float_scientific(p_4th[1],2), np.format_float_scientific(p_4th[0],2)))
+		#ax.plot(x, y_6th(x, *p_6th), '-.', label = '6th fit: {} | {} | {}'.format(np.format_float_scientific(p_6th[2],2),
+		#		np.format_float_scientific(p_6th[1],2), np.format_float_scientific(p_6th[0],2)))
+		ax.plot(x, y_2nd(x, eigval, 0), '-', label = '{}'.format(np.format_float_scientific(eigval,2)))
+		#ax.plot(x, y_2nd_sin(x, eigval), '-', label = 'hessian sine: {}'.format(np.format_float_scientific(eigval,2)))
+		ax.set_ylabel(r"$1-\mathcal{M}$", fontsize = fs)
+		#ax.set_xscale('log')
+		#ax.set_yscale('log')
+		ax.legend(loc = 'upper center', fontsize = fs, handlelength = 1)
+		ax.tick_params(axis='x', labelsize=fs)
+		ax.tick_params(axis='y', labelsize=fs)
+		new_eigvals.append(p_2nd[0])
+
+	#min_x, max_x = axes[-1].set_xlim()
+	#axes[-1].set_xlim((min_x, max_x*2.))
+	
+	axes[-1][0].set_xlabel(r"$\epsilon$", fontsize = fs)
+	axes[-1][1].set_xlabel(r"$\epsilon$", fontsize = fs)
+	plt.tight_layout()
+	if savefile: plt.savefig(savefile)
+	
+	return
+
+
 ########################################################################################################
 if __name__ == '__main__':
 	img_folder = '../tex/img/'
+
+		###
+		# parabolae
+	#plot_parabolae([20, 3., 0.7, 1.8, -0.8, 1.2], 'Mq_s1xz_s2z_iota', img_folder+'parabolae.pdf')
+	#plot_parabolae([20, 3., 0.7, 1.8], 'Mq_s1xz', img_folder+'parabolae.pdf') #This goes in the paper
 
 		###
 		#metric accuracy plots
@@ -585,7 +668,7 @@ if __name__ == '__main__':
 	savefile = img_folder+'sbank_comparison.pdf'
 	title = ['Nonspinning', 'Aligned spins high mass', 'Aligned spins low mass']#, 'Gstlal O3 bank']
 	
-	#plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, title = title, savefile = savefile)
+	plot_comparison_injections( (sbank_list_injs, mbank_list_injs), ('sbank', 'mbank'), ('match','match'), MM = 0.97, x_low_lim = 0.93, title = title, savefile = savefile)
 	
 		###
 		#Bank case studies
@@ -598,6 +681,7 @@ if __name__ == '__main__':
 
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
+		break
 		filename = img_folder+'bank_scatter_{}.pdf'.format(t.replace(' ', '_'))
 		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
@@ -613,7 +697,7 @@ if __name__ == '__main__':
 		#plotting bank histograms
 	for b, f, t in zip(bank_list, format_list, title_list):
 		filename = img_folder+'bank_scatter_{}.pdf'.format(t.replace(' ', '_'))
-		corner_plot(b,f,t, savefile = filename)
+		#corner_plot(b,f,t, savefile = filename)
 		#plt.show()
 		
 	#plot_bank_hist(bank_list, format_list, title = title_list, savefile = img_folder+'bank_hist_{}.pdf')
@@ -622,9 +706,9 @@ if __name__ == '__main__':
 	injs_list_noflow = ['precessing_bank/dag/results/stat_dict.json', 'HM_bank/dag/results/stat_dict.json',
 		'eccentric_bank/bank_paper_eccentric-injections_stat_dict.json']
 	
-	plot_comparison_injections( (injs_list_noflow, injs_list_noflow), ('metric match', 'match'), ('metric_match','match'),
-		c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list,
-		savefile = img_folder+'bank_injections.pdf')
+	#plot_comparison_injections( (injs_list_noflow, injs_list_noflow), ('metric match', 'match'), ('metric_match','match'),
+	#	c_list = ('darkorange', 'cornflowerblue'), MM = 0.97, title = title_list,
+	#	savefile = img_folder+'bank_injections.pdf')
 	
 	
 	quit()

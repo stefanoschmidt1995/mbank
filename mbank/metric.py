@@ -766,7 +766,7 @@ class cbc_metric(object):
 		assert isinstance(antenna_patterns, (tuple, list, np.ndarray)), "Antenna pattern must be a tuple"
 		F_p, F_c = antenna_patterns
 		
-		metric_hessian = self.get_hessian(theta, overlap = overlap, order = None) #(N,D,D)
+		metric_hessian = self.get_hessian_symphony(theta, overlap = overlap, order = None) #(N,D,D)
 		#metric_hessian = self.get_block_diagonal_hessian(theta, overlap = overlap, order = None); warnings.warn("Using block diagonal hessian")#(N,D,D)
 		parabolae = []
 		metric = []

@@ -216,7 +216,7 @@ class cbc_metric(object):
 		"""
 		return np.sqrt(np.abs(np.linalg.det(self.get_metric(theta, overlap = overlap)))) #(N,)
 	
-	def get_metric_determinant(self, theta, overlap = False):
+	def get_metric_determinant(self, theta, **kwargs):
 		"""
 		Returns the metric determinant
 		
@@ -227,9 +227,8 @@ class cbc_metric(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
-		overlap: bool
-			Whether to compute the metric based on the local expansion of the overlap rather than of the match
-			In this context the match is the overlap maximized over time
+		**kwargs:
+			Any argument to pass to :func:`get_metric`
 
 		Returns
 		-------
@@ -239,9 +238,9 @@ class cbc_metric(object):
 			Determinant of the metric for the given input
 			
 		"""
-		return np.linalg.det(self.get_metric(theta, overlap = overlap)) #(N,)
+		return np.linalg.det(self.get_metric(theta, **kwargs)) #(N,)
 
-	def log_pdf(self, theta, boundaries = None):
+	def log_pdf(self, theta, boundaries = None, **kwargs):
 		"""
 		Returns the logarithm log(pdf) of the probability distribution function we want to sample from:
 		.. math::
@@ -262,6 +261,9 @@ class cbc_metric(object):
 			An optional array with the boundaries for the model. If a point is asked below the limit, -10000000 is returned
 			Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 			If None, no boundaries are implemented
+				
+		**kwargs:
+			Any argument to pass to :func:`get_metric`
 		
 		Returns
 		-------
@@ -284,13 +286,13 @@ class cbc_metric(object):
 			
 			ids_ok = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
 		else:
-			ids_ok = np.full((theta.shape[0],), True)
+			ids_ok = range(theta.shape[0])
 			
 		
 		res = np.zeros((theta.shape[0],)) -10000000
 		
 		if np.any(ids_ok):
-			det = self.get_metric_determinant(theta[ids_ok,:])
+			det = self.get_metric_determinant(theta[ids_ok,:], **kwargs)
 			det = np.log(np.abs(det))*0.5 #log(sqrt(|det|))
 			res[ids_ok] = det
 		
@@ -587,9 +589,13 @@ class cbc_metric(object):
 
 		metric_type: str
 			How to compute the metric. Available options are:
-				- 'hessian': Computes the hessian (calls ``cbc_metric.get_hessian``)
-				- 'numerical_hessian': computes the numerical hessian with finite difference methods (uses package ``numdifftools`` and calls ``cbc_metric.get_numerical_hessian``)
-				- 'WRITEME!'
+				- `hessian`: Computes the hessian of the standard match (calls :func:`get_hessian`)
+				- `numerical_hessian`: computes the numerical hessian with finite difference methods using the standard match (uses package ``numdifftools`` and calls :func:`get_numerical_hessian`)
+				- `symphony`: Computes the hessian of the symphony match (calls :func:`get_hessian_symphony`)
+				- `numerical_symphony`: computes the numerical hessian with finite difference methods using the symphony match (uses package ``numdifftools`` and calls :func:`get_numerical_hessian`)
+				- `parabolic_fit_hessian`: it updates the eigenvalues of the metric by doing a "parabolic fit" along each eigen-direction (calls :func:`get_parabolic_fit_hessian`) - *This method experimental and not validated!*
+			
+			There are a number of other methods but we don't guarantee on their performance: you shouldn't use, unless you really know what you're doing.
 
 		Returns
 		-------
@@ -825,10 +831,11 @@ class cbc_metric(object):
 	
 	def get_numerical_hessian(self, theta, overlap = False, symphony = False, epsilon = 1e-6, target_match = 0.97, antenna_patterns = None):
 		"""
-		Returns the Hessian matrix, obtained by finite difference differentiation. Within numerical erorrs, it should reproduce :func:`get_hessian_metric`.
-		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function `cbc_metric.get_hessian_metric`.
+		Returns the Hessian matrix, obtained by finite difference differentiation.
+		Within numerical erorrs, it should reproduce :func:`get_hessian` or :func:`get_hessian_symphony`, depending on the ``symphony`` option.
+		This function is slower and most prone to numerical errors than its counterparts, based on waveform gradients. For this reason it is mostly intended as a check of the recommended function :func:`get_hessian` and :func:`get_hessian_symphony`.
 		In particular the step size epsilon must be tuned carefully and the results are really sensible on this choice.
-		Uses package ``numdifftools``, not among the dependencies.
+		Uses package ``numdifftools``: it not among the dependencies, so it must be installed separately!
 		
 		Parameters
 		----------

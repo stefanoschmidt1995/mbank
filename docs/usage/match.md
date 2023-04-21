@@ -47,6 +47,7 @@ For the general signal, the match is also called _symphony_ match, after the tit
 \mathcal{M}_{\text{symphony}} = \sqrt{ \frac{1}{1-(\hat{h}_+|\hat{h}_\times)^2} \left[(\hat{s}|\hat{h}_+)^2 + (\hat{s}|\hat{h}_\times)^2 - 2(\hat{s}|\hat{h}_+)(\hat{s}|\hat{h}_\times)(\hat{h}_+|\hat{h}_\times)  \right]  }
 ```
 It can be computed with {func}`mbank.metric.cbc_metric.WF_symphony_match`.
+Note that in both the expressions above, we are omitting a maximisation over a constant time shift of the signal: this is performed by `mbank`. If you don't want it, you can set the option `overlap = True`.
 
 The match can be seen as a function of the parameters {math}`\theta_1, \theta_2` of two signals, by considering, in the equations above {math}`s(\theta_1) = F_+ h_+(\theta_1) + F_\times h_\times(\theta_1)` and {math}`h_+(\theta_2), h_\times(\theta_2)`.
 This is computed by function {func}`mbank.metric.cbc_metric.match`. Of course, in this case the match has a parametric dependence on the antenna patterns (or equivalently on the sky location of the GW source).
@@ -58,28 +59,32 @@ The match can be used to validate the performance of the bank, by evaluating the
 
 ## A distance between templates
 
-The definitions given above are not (yet) useful to define a distance between two points {math}`\theta_1, \theta_2` of the signal manifold, for two reasons:
-
-1. They are not symmetric on {math}`\theta_1, \theta_2`
-2. They rely on an arbitrary choice of {math}`F_+, F_\times`
-
 In the non-precessing case, we can introduce a _distance_ between points of the manifold as:
 
 ```{math}
-d^2(\theta_1, \theta_2) = 1 - \sqrt{(\hat{h}_+(\theta_1)|\hat{h}_+(\theta_2))^2 + [\hat{h}_+(\theta_1)|\hat{h}_+(\theta_2)]^2 }
+d^2(\theta_1, \theta_2) = 1 - (\hat{h}_+(\theta_1)|\hat{h}_+(\theta_2))^2 + [\hat{h}_+(\theta_1)|\hat{h}_+(\theta_2)]^2
 ```
 
 The distance does not take into account the cross polarization and it is equivalent to setting {math}`F_\times = 0` in the standard match.
 Indeed, for non-precessing signals {math}`\tilde{h}_+ = i \tilde{h}_\times` (hence {math}`(\hat{h}_+ | \hat{h}_\times) = 0` and {math}`[\hat{h}_+ | \hat{h}_\times] = 1`) and the standard match does not depend on the value of the antenna patterns: this allows to set {math}`F_\times = 0` and symmetrize the expression consistently.
 
-For the general case, the distance above is not suitable and a more general distance definition should be worked out. This is work in progress: for the moment, one can use the distance above to place templates. However, there is a great risk that the results will be unreliable.
+For the general case, the distance above is not suitable and a more general distance definition should be employed. Things are much more complicated:
+
+```{math}
+d^2(\theta_1, \theta_2) &= 1 -  \frac{1}{1- \hat{h}_{+\times}(\theta_2)^2} 
+		\biggl\{ \left({\hat{h}_+(\theta_1)}|{\hat{h}_+(\theta_2)}\right)^2 + \left({\hat{h}_+(\theta_1)}|{\hat{h}_\times(\theta_2)}\right)^2  \\
+		&-2h_{+\times}(\theta_2)\left({\hat{h}_+(\theta_1)}|{\hat{h}_\times(\theta_2)}\right)\left({\hat{h}_+(\theta_1)}|{\hat{h}_+(\theta_2)}\right) \biggl\}
+```
+where we defined {math}`h_{+\times} = (\hat{h}_+|\hat{h}_\times)`
+
+The general distance is motivate by the simphony match, where we assumed {math}`s(\theta) = h_+(\theta)`. Of course it is not symmetric (hence strictly speaking it's not a distance), but for our purposes it's more than enough!
 
 ## A metric distance between templates
 
-The distance above can be approximated by a metric distance {math}`d_\text{metric}`. A metric distance is a bilinear form, represented by a matrix  {math}`M_{ij}(\theta)` defined at each point of the space.
+The distances above can be approximated by a metric distance {math}`d_\text{metric}`. A metric distance is a bilinear form, represented by a matrix  {math}`M_{ij}(\theta)` defined at each point of the space.
 
 ```{math}
-d^2_\text{metric}(\theta_1, \theta_2) = M_{ij}(\frac{\theta_1+\theta_2}{2}) \Delta\theta_i \Delta\theta_j
+d^2_\text{metric}(\theta_1, \theta_2) = M_{ij}\left(\frac{\theta_1+\theta_2}{2}\right) \Delta\theta_i \Delta\theta_j
 ```
 where {math}`\Delta\theta = \theta_1 - \theta_2`.
 
@@ -89,6 +94,11 @@ The matrix {math}`M_{ij}(\theta)` can is built in such a way that the metric dis
 d_\text{metric}(\theta_1, \theta_2) \simeq d(\theta_1, \theta_2)
 ```
 
-The metric can be computed at any point {math}`\theta` of the manifold using {func}`mbank.metric.cbc_metric.get_metric`; once can also compute the match {math}`\mathcal{M}_\text{metric} = 1 - d^2_\text{metric}` approximated by the metric by calling {func}`mbank.metric.cbc_metric.metric_match`
+The metric can be computed at any point {math}`\theta` of the manifold using {func}`mbank.metric.cbc_metric.get_metric`. The option `metric_type` allows to you to decide the method used to compute the metric. Among many experimental methods, you may want to use:
+
+- `metric_type = 'hessian'`: it computes the hessian of the distance in the non-precessing case (default)
+- `metric_type = 'symphony'`: it computes the hessian of the distance in the general case
+
+You can also compute the match {math}`\mathcal{M}_\text{metric} = 1 - d^2_\text{metric}` approximated by the metric by calling {func}`mbank.metric.cbc_metric.metric_match`
 
 `mbank` heavily relies on such metric approximation to enourmously speed up the generation (and validation) of a template bank. 

@@ -625,7 +625,17 @@ class cbc_metric(object):
 			kwargs['symphony'] = True
 			kwargs['antenna_patterns'] = None
 		
-		return metric_dict[metric_type](theta, overlap = overlap, **kwargs)
+			###
+			#Being sustainable and doing things in batch
+		N, N_batch = theta.shape[0], 100
+		metric_list = []
+		
+		for i in range(0, N, N_batch):
+			metric_list.append(
+				metric_dict[metric_type](theta[i:i+N_batch], overlap = overlap, **kwargs)
+			)
+
+		return np.concatenate(metric_list, axis = 0)
 
 	def get_projected_hessian(self, theta, overlap = False,  min_eig = 1e-3, order = None, epsilon = 1e-5):
 		"""

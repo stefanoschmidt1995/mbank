@@ -225,8 +225,6 @@ def compare_probability_distribution(data_flow, data_true = None, variable_forma
 	if isinstance(savefile, str):plt.savefig(savefile)
 	if show: plt.show()
 
-	plt.close('all')
-	
 	return
 
 

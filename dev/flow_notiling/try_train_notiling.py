@@ -24,18 +24,31 @@ from torch import optim
 import os
 import subprocess
 
-def get_samples(N, boundaries):
-	theta = np.random.uniform(boundaries[0], boundaries[1], (N,3))
-	return theta
+def get_metric_determinant(theta, m_obj, **kwargs):
+	N, N_batch = theta.shape[0], 10
+	metric_list = []
+	overlap = kwargs.pop('overlap', False)
+		
+	for i in tqdm(range(0, N, N_batch)):
+		try:
+			metric_list.append(
+				m_obj.get_metric_determinant(theta[i:i+N_batch], overlap = overlap, **kwargs)
+			)
+		except ValueError:
+			metric_list.append(
+				np.zeros((theta[i:i+N_batch].shape[0],))+np.nan
+			)
+			continue
+			
+	return np.concatenate(metric_list, axis = 0)
 
 ##########################################################################################################################
 
-compute_tiling = not False
-compute_thetas = not False
-theta_file_suffix ='_Mq_s1xz_iota'# '_fromtiling'
-n_layers, hidden_features = 6,8
+compute_tiling = False
+compute_thetas = False
+theta_file_suffix ='_mceta_s1xz_s2z_iota'# '_fromtiling'
 
-variable_format = 'Mq_s1xz'
+variable_format = 'mceta_s1xz_s2z_iota'
 boundaries = np.array([[10, 1, 0., -np.pi/2], [100, 5, 0.9, np.pi]])
 f_min, f_max = 15, 1024.
 psd_file = 'aligo_O3actual_H1.txt'
@@ -56,44 +69,76 @@ else:
 	t_obj.load_flow('files/flow.zip')
 
 if compute_thetas:
-	train_theta = t_obj.sample_from_tiling(10000)
-	valid_theta = t_obj.sample_from_tiling(1000)
+
+		#Checking if the metric is right...
+	metric_from_tiling = t_obj[0].metric
+	metric_from_obj = m_obj.get_metric(t_obj[0].center, metric_type = 'symphony')
+	assert np.allclose(metric_from_tiling, metric_from_obj, atol = 0., rtol = 1e-6), "The metric is not compatibile with the tiling!"
+
+	train_theta = t_obj.sample_from_tiling(70_000)
+	valid_theta = t_obj.sample_from_tiling(10_000)
 	#train_theta = np.random.uniform(*boundaries, (20000,3))
 	#valid_theta = np.random.uniform(*boundaries, (2000,3))
-	train_pdf = np.sqrt(m_obj.get_metric_determinant(train_theta))
-	valid_pdf = np.sqrt(m_obj.get_metric_determinant(valid_theta))
+	train_pdf = np.sqrt(get_metric_determinant(train_theta, m_obj, metric_type = 'symphony', overlap = False))
+	valid_pdf = np.sqrt(get_metric_determinant(valid_theta, m_obj, metric_type = 'symphony', overlap = False))
 
 	np.savetxt('files/train_theta{}.dat'.format(theta_file_suffix), np.concatenate([train_theta,train_pdf[:,None]], axis = 1 ))
 	np.savetxt('files/valid_theta{}.dat'.format(theta_file_suffix), np.concatenate([valid_theta,valid_pdf[:,None]], axis = 1 ))
 else:
-	train_theta = np.loadtxt('files/train_theta.dat'.format(theta_file_suffix))
+	train_theta = np.loadtxt('files/train_theta{}.dat'.format(theta_file_suffix))
+	ids_ok, = np.where(~np.isnan(train_theta[:,-1]))
+	train_theta = train_theta[ids_ok]
+	np.random.shuffle(train_theta)
 	train_theta, train_pdf = train_theta[:,:-1], train_theta[:,-1]
 
-	valid_theta = np.loadtxt('files/train_theta.dat'.format(theta_file_suffix))
+	valid_theta = np.loadtxt('files/valid_theta{}.dat'.format(theta_file_suffix))#[:2000]
+	ids_ok, = np.where(~np.isnan(valid_theta[:,-1]))
+	valid_theta = valid_theta[ids_ok]
+	np.random.shuffle(valid_theta)
 	valid_theta, valid_pdf = valid_theta[:,:-1], valid_theta[:,-1]
 
-train_w = train_pdf/np.sqrt(np.linalg.det(t_obj.get_metric(train_theta)))
-valid_w = valid_pdf/np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta)))
+n_layers, hidden_features = t_obj.flow.n_layers, t_obj.flow.hidden_features
+
+train_w = train_pdf/np.sqrt(np.linalg.det(t_obj.get_metric(train_theta, kdtree= True)))
+valid_w = valid_pdf/np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, kdtree= True)))
+
+assert np.all(~np.isnan(train_w)) and np.all(~np.isnan(valid_w))
+
+#resample_theta_ids = np.random.choice(len(valid_theta), size = 1000, p = valid_w/np.sum(valid_w), replace = False)
+#compare_probability_distribution(valid_theta[resample_theta_ids], data_true = valid_theta[:1000],
+#	hue_labels=('resampling', 'tiling'),
+#	variable_format = variable_format, title = None,
+#	savefile = 'files/pdf_resampling_{}.png'.format(theta_file_suffix), show = True)
 
 #Training flow with IS
-flow = STD_GW_Flow(4, n_layers = n_layers, hidden_features = hidden_features)
-optimizer = optim.Adam(flow.parameters(), lr=0.001)
+n_layers, hidden_features = 10, 20
+print('Flow architecure: #layers | #hidden features ', n_layers, hidden_features)
+flow = STD_GW_Flow(train_theta.shape[-1], n_layers = n_layers, hidden_features = hidden_features)
+optimizer = optim.Adam(flow.parameters(), lr=0.0005)
+#history = flow.train_flow_forward_KL(1000, train_theta, valid_theta, optimizer,
+#	batch_size = 5000, validation_step = 30, callback = None, verbose = True)
+
 history = flow.train_flow_importance_sampling(1000, train_theta, train_w, valid_theta, valid_w, optimizer,
-	batch_size = None, validation_step = 30, callback = None, verbose = True)
+	batch_size = 10000, validation_step = 30, callback = None, verbose = True)
 
+	#Deleting the dataset
+del train_theta, train_w
 
-compare_probability_distribution(flow.sample(1000).detach().numpy(), data_true = t_obj.sample_from_tiling(1000), variable_format = variable_format, title = None, hue_labels = ('flow', 'tiling'), savefile = None, show = False)
+#compare_probability_distribution(flow.sample(1000).detach().numpy(), data_true = t_obj.sample_from_tiling(1000),
+#	variable_format = variable_format, title = None, hue_labels = ('flow', 'tiling'),
+#	savefile = 'files/pdf_comparison_{}.png'.format(theta_file_suffix), show = False)
+
 #compare_probability_distribution(t_obj.flow.sample(1000).detach().numpy(), data_true = t_obj.sample_from_tiling(1000), variable_format = variable_format, title = None, hue_labels = ('flow tiling', 'tiling'), savefile = None, show = False)
 
 #Computing the discrepancy between tiling and flow in terms of PDF!!
 
-volume_element_flow_std = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = True)))
-volume_element_noflow = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = False)))
+volume_element_flow_std = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = True, kdtree= True)))
+volume_element_noflow = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = False, kdtree= True)))
 
 t_obj.flow = flow
-volume_element_flow = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = True)))+1e-10
+volume_element_flow = np.sqrt(np.linalg.det(t_obj.get_metric(valid_theta, flow = True, kdtree= True)))+1e-10
 log_pdf_flow = flow.log_prob(valid_theta.astype(np.float32)).detach().numpy()
-log_pdf_flow = log_pdf_flow - log_pdf_flow[100] + valid_pdf[100]
+log_pdf_flow = log_pdf_flow - log_pdf_flow[10] + valid_pdf[10]
 bins = int(np.sqrt(len(volume_element_noflow)))
 
 plt.figure()
@@ -102,6 +147,7 @@ plt.hist(np.log10(volume_element_flow/valid_pdf), bins = bins, histtype = 'step'
 plt.hist(np.log10(volume_element_flow_std/valid_pdf), bins = bins, histtype = 'step', label = 'flow tiling')
 plt.hist(np.log10(volume_element_noflow/valid_pdf), bins = bins, histtype = 'step', label = 'no flow')
 plt.legend()
+plt.savefig('files/comparison_hist_{}.png'.format(theta_file_suffix))
 plt.show()
 
 

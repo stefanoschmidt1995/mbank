@@ -385,7 +385,7 @@ class GW_Flow(Flow):
 					ids_ = range(N_train)
 
 				optimizer.zero_grad()
-				loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights).mean()
+				loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights[ids_]).mean()
 				loss.backward()
 				optimizer.step()
 				

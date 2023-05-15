@@ -215,6 +215,40 @@ class cbc_metric(object):
 			
 		"""
 		return np.sqrt(np.abs(np.linalg.det(self.get_metric(theta, overlap = overlap)))) #(N,)
+
+	def get_hpc(self, theta):
+		"""
+		Returns the real part of the overlap between plus and cross polarization:
+		
+		.. math::
+		
+			h_{+\\times} = \Re \int df \\frac{\\tilde{h}_+(f) \\tilde{h}_\\times^*(f)}{S_n(f)}
+		
+		It is a good measurement of the amount of precession/HM present in a signal; for a non-precessing signal: :math:`h_{+\\times} = 0` 
+		
+		Parameters
+		----------
+		
+		theta: :class:`~numpy:numpy.ndarray`
+			shape: (N,D) -
+			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
+
+		Returns
+		-------
+		
+		h_pc : :class:`~numpy:numpy.ndarray`
+			shape: (N,) -
+			Overlap between plus and cross components
+			
+		"""
+		hp, hc = self.get_WF(theta, approx = None, plus_cross = True)
+		
+		hp_W = (hp/np.sqrt(self.PSD)) #whithened WF
+		hc_W = (hc/np.sqrt(self.PSD)) #whithened WF
+		
+		hpc = np.vdot(hp_W, hc_W)/np.sqrt(np.vdot(hp_W,hp_W)*np.vdot(hc_W,hc_W))
+		
+		return hpc.real
 	
 	def get_metric_determinant(self, theta, **kwargs):
 		"""

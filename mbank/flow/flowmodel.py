@@ -205,7 +205,7 @@ class GW_Flow(Flow):
 			low, _ = torch.min(train_data, axis = 0)
 			high, _ = torch.max(train_data, axis = 0)
 				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.01 #TODO: tune this number: previously it was 0.2
+			epsilon_ = 0.1 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_
@@ -351,7 +351,7 @@ class GW_Flow(Flow):
 			low, _ = torch.min(train_data, axis = 0)
 			high, _ = torch.max(train_data, axis = 0)
 				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.01 #TODO: tune this number: previously it was 0.2
+			epsilon_ = 0.1 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_

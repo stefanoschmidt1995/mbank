@@ -24,6 +24,13 @@ def test_metric(verbose = False):
 	theta = [[25., 4.5, 0.4075, np.pi/2., 2.4], [75., 4.5, 0.9075, 1.38656713, 0.9]]
 	overlap = not True
 
+	hpc_consistent = (metric.get_hpc([10, 3, 0.3, 0., 0.]) == 0.)
+	if not hpc_consistent:
+		print("h_pc test failed!")
+	hpc = metric.get_hpc(theta)
+	if verbose:
+		print('hpc = ', hpc)
+
 	metric_std = metric.get_hessian(theta, overlap = overlap)
 	metric_symphony = metric.get_hessian_symphony(theta, overlap = overlap, order = None, epsilon = 1e-5)
 	metric_std_numerical = metric.get_numerical_hessian(theta, overlap = overlap, symphony = False, antenna_patterns = None)
@@ -69,7 +76,7 @@ def test_metric(verbose = False):
 		print("symphony metric test failed!")
 	if symphony_consistent and metric_consistent:
 		print("'test_metric' passed")
-	return metric_consistent and symphony_consistent
+	return metric_consistent and symphony_consistent and hpc_consistent
 
 def test_variable_format():
 	import mbank

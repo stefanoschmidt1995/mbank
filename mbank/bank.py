@@ -601,16 +601,18 @@ class cbc_bank():
 		----------
 
 		boundaries: :class:`~numpy:numpy.ndarray`
-			shape: (2,4)/(2,2) -
+			shape: (2,D) -
 			An array with the boundaries for the model. Lower limit is boundaries[0,:] while upper limits is boundaries[1,:]
 		"""	
+		boundaries = np.asarray(boundaries)
 		if self.templates is None: return
 
 		ids_ok = np.logical_and(np.all(self.templates > boundaries[0,:], axis =1), np.all(self.templates < boundaries[1,:], axis = 1)) #(N,)
-		if len(ids_ok) == 0:
+		new_bank_size = sum(ids_ok)
+		if new_bank_size == 0:
 			self.templates = None
 			warnings.warn("No template fits into the boundaries")
-		elif len(ids_ok) < self.templates.shape[0]:
+		elif new_bank_size < self.templates.shape[0]:
 			self.templates = self.templates[ids_ok,:]
 		else:
 			pass

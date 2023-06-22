@@ -1556,7 +1556,8 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		if tile_id:
 			tile_id_vector = np.concatenate([np.full(c, t_id) for t_id, c in zip(tiles_rand_id, counts)])
 			return samples, tile_id_vector
-		return np.random.shuffle(samples)
+		np.random.shuffle(samples)
+		return samples
 
 
 	def split_tiling(self, d, split):

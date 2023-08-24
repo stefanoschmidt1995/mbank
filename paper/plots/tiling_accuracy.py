@@ -192,7 +192,7 @@ def plot_tiling_accuracy_study(res_dict):
 
 if __name__ == '__main__':
 	
-	#Tiling approximation sucks but it's fine since most of the points where it fails have low determinant anyway...
+	#Are you sure?? Tiling approximation sucks but it's fine since most of the points where it fails have low determinant anyway...
 	
 	tiling_folder = 'tiling_accuracy/'
 	
@@ -211,9 +211,11 @@ if __name__ == '__main__':
 
 	with open(save_file, 'rb') as f:
 		res_dict = pickle.load(f)
+
+	print(res_dict['Mq_s1xz_s2z_iota'].keys())
 	
 	#Plotting shit
-	plot_tiling_accuracy_study(res_dict)
+	#plot_tiling_accuracy_study(res_dict)
 	
 	
 

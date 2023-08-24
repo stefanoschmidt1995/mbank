@@ -364,36 +364,45 @@ def plot_placing_validation(format_files, placing_methods, savefile = None):
 
 	#plt.show()
 
-def plot_delta_M(file_list, savefile = None):
+def plot_delta_M(tiling_accuracy_file, savefile = None):
 	
-	D = len(file_list)
+	with open(tiling_accuracy_file, 'rb') as filehandler:
+		out_dict = pickle.load(filehandler)
+	
+	D = len(out_dict.keys())
 	
 	size = plt.rcParams.get('figure.figsize')
 	size = (size[0], size[1]*D*0.45)
 	fig, axes = plt.subplots(D, 1, sharex = not True, figsize = size)
 	
-	for f, ax in zip(file_list, axes):
-		with open(f, 'r') as filehandler:
-			out_dict = json.load(filehandler)
+	for k, ax in zip(out_dict.keys(), axes):
 
+		print(out_dict[k].keys())
+		
 		x = np.logspace(-4, 2, 1000)
-		kde_flow = sts.gaussian_kde(out_dict['logMratio_flow'])
-		kde_tiling = sts.gaussian_kde(out_dict['logMratio_tiling'])
+		kde_flow = sts.gaussian_kde(out_dict[k]['hist_8'])
+		kde_tiling = sts.gaussian_kde(out_dict[k]['hist_8'])
 		#ax.plot(x, kde_flow.pdf(x), lw=1, label='flow')
 		#ax.plot(x, kde_tiling.pdf(x), lw=1, label='tiling')
 		
-		nbins = int(np.sqrt(len(out_dict['deltaM_tiling'])))
+		nbins = int(np.sqrt(len(out_dict[k]['hist_8'])))
 		perc = 1.
-		bins = np.linspace(*np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]), nbins)
+		bins = np.linspace(*np.percentile(out_dict[k]['hist_8'], [perc,100 -perc]), nbins)
 		hist_args = {
 			'bins': bins,
 			'density': True,
 			'histtype': 'step'
 		}
 		
-		#next(ax._get_lines.prop_cycler)		
-		ax.hist(out_dict['logMratio_flow'], label = 'flow', **hist_args)
-		ax.hist(out_dict['logMratio_tiling'], label = 'no flow', **hist_args)
+		#next(ax._get_lines.prop_cycler)
+		ax.hist(out_dict[k]['hist_8'], label = 'flow', **hist_args)
+		#ax.hist(out_dict[k]['hist_8'], label = 'no flow', **hist_args)
+		
+		min_bins = [np.inf, -7, -6, -5, -4, -3, -2]
+		max_bins = [-7, -6, -5, -4, -3, -2, np.inf]
+		#for b, B in zip(min_bins, max_bins):
+		#	ids_, = np.where(np.logical_and(out_dict[k]['det_true_8']>10**b , out_dict[k]['det_true_8']<10**B))
+		#	ax.hist(out_dict[k]['hist_8'][ids_], label = b, **hist_args)
 		
 		ax.set_yscale('log')
 
@@ -402,7 +411,7 @@ def plot_delta_M(file_list, savefile = None):
 		
 		#ax.yaxis.get_minor_locator().set_params(numticks = 100000)
 		
-		ax.set_title(r'$\texttt{'+out_dict['variable_format']+'}$', fontsize = 10)
+		ax.set_title(r'$\texttt{'+k+'}$', fontsize = 10)
 		#ax.set_xlim(np.percentile(out_dict['logMratio_tiling'], [perc,100 -perc]))
 		
 	axes[1].legend(loc = 'upper right', fontsize = 8)
@@ -412,7 +421,9 @@ def plot_delta_M(file_list, savefile = None):
 
 	plt.tight_layout()	
 
-	if savefile is not None: plt.savefig(savefile, transparent = True)
+	#plt.show()
+	plt.savefig('tiling_accuracy.png', transparent = True)
+	#if savefile is not None: plt.savefig(savefile, transparent = True)
 		
 
 def plot_comparison_injections(files, labels, keys, title = None, c_list = None, MM = None, x_low_lim = 0.9, savefile = None):
@@ -650,13 +661,11 @@ if __name__ == '__main__':
 							'Mq_s1xz': 'placing_methods_accuracy/paper_Mq_s1xz/data_Mq_s1xz_{}.pkl',
 							'Mq_s1xz_s2z_iota': 'placing_methods_accuracy/paper_Mq_s1xz_s2z_iota/data_Mq_s1xz_s2z_iota_{}.pkl',}
 	placing_methods = ['uniform', 'random', 'stochastic']
-	plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
+	#plot_placing_validation(variable_format_files, placing_methods, savefile = img_folder+'placing_validation.pdf')
 
 		###
 		# Validation of the tiling
-	tiling_validation_list = ['tiling_accuracy/out_dict_Mq_chi.json',
-			'tiling_accuracy/out_dict_Mq_s1xz.json', 'tiling_accuracy/out_dict_Mq_s1xz_s2z_iota.json']
-	#plot_delta_M(tiling_validation_list, img_folder+'tiling_validation.pdf')
+	plot_delta_M('tiling_accuracy/tiling_accuracy_study.pkl', img_folder+'tiling_validation.pdf')
 
 		###
 		#Comparison with sbank - injections

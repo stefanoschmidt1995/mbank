@@ -375,17 +375,22 @@ class GW_Flow(Flow):
 		desc_str = 'Training loop - loss: {:5f}|{:5f}'
 		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf))
 		else: it = range(N_epochs)
+		if not isinstance(batch_size, int):
+			batch_size = N_train//10
 		
 		try:
 			for i in it:
 
-				if isinstance(batch_size, int):
-					ids_ = torch.randperm(N_train)[:batch_size]
-				else:
-					ids_ = range(N_train)
+				#if isinstance(batch_size, int):
+				#	ids_ = torch.randperm(N_train)[:batch_size]
+				#else:
+				#	ids_ = range(N_train)
+				ids_ = torch.multinomial(train_weights, batch_size, replacement = False)
+				#print(ids_)
 
 				optimizer.zero_grad()
-				loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights[ids_]).mean()
+				#loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights[ids_]).mean()
+				loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
 				loss.backward()
 				optimizer.step()
 				

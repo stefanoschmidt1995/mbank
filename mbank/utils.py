@@ -281,7 +281,7 @@ def get_boundaries_from_ranges(variable_format, M_range, q_range,
 	
 
 ####################################################################################################################
-def load_PSD(filename, asd = False, ifo = 'H1'):
+def load_PSD(filename, asd = False, ifo = 'H1', df = None):
 	"""
 	Loads a PSD from file and returns a grid of frequency and PSD values
 	
@@ -295,6 +295,10 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 		
 		ifo: str
 			Interferometer which the PSD refers to. Only for loading a PSD from xml
+		
+		df: float
+			Spacing for the grid on which the PSD is evaluated. It controls the resolution of the PSD (and also the speed of metric computation)
+			If `None` is given, the grid of the PSD won't be changed
 	
 	Returns
 	-------
@@ -320,6 +324,11 @@ def load_PSD(filename, asd = False, ifo = 'H1'):
 		f, PSD = np.loadtxt(filename)[:,:2].T
 
 	if asd: PSD = np.square(PSD)
+	
+	if df:
+		new_f = np.arange(f[0], f[-1]-f[0], df)
+		PSD = np.interp(new_f, f, PSD)
+		f = new_f
 
 	return f, PSD	
 
@@ -823,7 +832,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 	size_template = 20 if templates.shape[0] < 500 else 2
 	fsize = 4* templates.shape[1]-1
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (fsize, fsize))
-	plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+	#plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	if templates.shape[1]-1 == 1:
 		axes = np.array([[axes]])
 	for i,j in permutations(range(templates.shape[1]-1), 2):
@@ -851,7 +860,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		#Plot the tiling
 	if isinstance(tiling,list):
 		centers = tiling.get_centers()
-		plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+		#plt.suptitle('Templates + tiling of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 		for ax_ in combinations(range(templates.shape[1]), 2):
 			currentAxis = axes[ax_[1]-1, ax_[0]]
 			ax_ = list(ax_)
@@ -865,7 +874,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		#Plotting the injections, if it is the case
 	if isinstance(injections, np.ndarray):
 		inj_cmap = 'r' if inj_cmap is None else inj_cmap
-		plt.suptitle('Templates + tiling of the bank & {} injections'.format(injections.shape[0]), fontsize = fs+10)
+		#plt.suptitle('Templates + tiling of the bank & {} injections'.format(injections.shape[0]), fontsize = fs+10)
 		for ax_ in combinations(range(templates.shape[1]), 2):
 			currentAxis = axes[ax_[1]-1, ax_[0]]
 			ax_ = list(ax_)
@@ -880,7 +889,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 
 		#Plotting the ellipses, if it is the case
 	if isinstance(dist_ellipse, float):
-		plt.suptitle('Templates + tiling + ellipses of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+		#plt.suptitle('Templates + tiling + ellipses of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 		for ax_ in combinations(range(templates.shape[1]), 2):
 			currentAxis = axes[ax_[1]-1, ax_[0]]
 			ax_ = list(ax_)
@@ -893,7 +902,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
-	plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
+	#plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	hist_kwargs = {'bins': min(50, int(len(templates)/50 +1)), 'histtype':'step', 'color':'orange'}
 	for i, ax_ in enumerate(axes):
 		ax_.hist(templates[:,i], **hist_kwargs)

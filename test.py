@@ -9,13 +9,23 @@ def test_imports():
 	print("'test_imports' passed")
 	return True
 
+def test_psd(verbose = False):
+	import mbank.utils
+	psd_file = 'aligo_O3actual_H1.txt'
+	if not os.path.isfile(psd_file):
+		subprocess.run('wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt', shell = True)
+	for df in [0.1, 1, 4, 10]:
+		f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1', df = df)
+		assert np.allclose(f[1]-f[0], df)
+	return True
+	
 def test_metric(verbose = False):
 	import mbank
 	import mbank.utils
 	psd_file = 'aligo_O3actual_H1.txt'
 	if not os.path.isfile(psd_file):
 		subprocess.run('wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt', shell = True)
-	f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1')
+	f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1', df = 4)
 	variable_format = 'Mq_s1xz_iota'
 	f_min, f_max = 15, 1024.
 
@@ -152,6 +162,7 @@ if __name__ == '__main__':
 	import mbank.utils
 	vh = mbank.variable_handler()
 	test_imports()
+	test_psd()
 	test_metric(True)
 	test_variable_format()
 	test_bank_conversion()

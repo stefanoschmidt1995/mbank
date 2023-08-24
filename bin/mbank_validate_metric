@@ -127,6 +127,9 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
+	"--df",  default = None, type=float,
+	help="Spacing of the frequency grid where the PSD is evaluated")
+parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the metric computation")
 parser.add_argument(
@@ -172,7 +175,7 @@ if args.save_dir is not None:
 	#	Initializing the metric object
 	######
 
-f, PSD = load_PSD(args.psd, args.asd, args.ifo)
+f, PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df)
 m_obj = cbc_metric(args.variable_format,
 		PSD = (f,PSD),
 		approx = args.approximant,

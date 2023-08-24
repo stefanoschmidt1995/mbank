@@ -48,6 +48,9 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
+	"--df",  default = None, type=float,
+	help="Spacing of the frequency grid where the PSD is evaluated")
+parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
@@ -75,7 +78,7 @@ if args.psd is None:
 	f = np.arange(0., args.f_max, 0.25)
 	PSD = np.ones(f.shape)
 else:
-	f, PSD = load_PSD(args.psd, args.asd, args.ifo)
+	f, PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df)
 
 	######
 	#	Loading PSD and initializing metric
@@ -86,14 +89,13 @@ m = cbc_metric(args.variable_format,
 			approx = args.approximant,
 			f_min = args.f_min, f_max = args.f_max)
 
-
 metric = m.get_metric(args.theta, metric_type = args.metric_type)
 
 print("Evaluating the metric @ ", args.theta)
+print("with BBH components: ", *m.var_handler.get_BBH_components(args.theta, args.variable_format))
 print('Metric determinant\n\t', np.linalg.det(metric))
 print('Metric eigenvalues\n\t', np.linalg.eig(metric)[0])
 print('Matrix elements\n\t', np.array2string(metric).replace('\n', '\n\t'))
-
 
 
 

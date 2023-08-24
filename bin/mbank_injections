@@ -116,6 +116,9 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
+	"--df",  default = None, type=float,
+	help="Spacing of the frequency grid where the PSD is evaluated")
+parser.add_argument(
 	"--mm", type = float,
 	help="Minimum match for the bank - for plotting purposes")
 parser.add_argument(
@@ -174,7 +177,7 @@ if args.plot: plot_folder = args.run_dir
 	######
 if full_match: #in this case we need to load the PSD and instantiate the metric
 		#load PSD
-	f, PSD = load_PSD(args.psd, args.asd, args.ifo)
+	f, PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df)
 
 		#create metric
 	metric = cbc_metric(PSD = (f, PSD), approx = args.approximant,

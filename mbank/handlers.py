@@ -446,6 +446,37 @@ class variable_handler(object):
 		assert variable_format in self.valid_formats, "Wrong variable format given"
 		return self.format_info[variable_format]
 
+	def get_BBH_components_from_table(self, table):
+		"""
+		Given the ``BBH components``, it returns the components suitable for the bank.
+		**Currently it doesn't support eccentricity**
+		
+		Parameters
+		----------
+		
+		table: `ligolw.table`
+			A lsctable to load the parameters from. It has to be either a SimInspiral or a SnglInspiral table
+		
+		Returns
+		-------
+		
+		BBH_components: :class:`~numpy:numpy.ndarray`
+			shape: (N,12) -
+			Components of the BBH.
+			Columns of the array are `m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, e, meanano iota, phi`.
+		"""
+		BBH_components = []
+		for row in table:
+			if isinstance(row, lsctables.SnglInspiral):
+				iota, phi =  row.alpha3, row.alpha5
+			elif isinstance(row, lsctables.SimInspiral):
+				iota, phi = row.inclination, row.coa_phase
+			else:
+				raise ValueError("The given table is not recognized! Needed a  SimInspiral or a SnglInspiral table")
+			BBH_components.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, 0,0, iota, phi])			
+		return np.array(BBH_components)
+			
+
 	def get_theta(self, BBH_components, variable_format):
 		"""
 		Given the ``BBH components``, it returns the components suitable for the bank.

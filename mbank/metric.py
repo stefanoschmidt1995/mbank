@@ -319,6 +319,8 @@ class cbc_metric(object):
 				raise ValueError("Wrong shape of boundaries given: expected (2,{}), given {}".format(self.D, boundaries.shape))
 			
 			ids_ok = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+		elif callable(boundaries):
+			ids_ok = boundaries(theta)
 		else:
 			ids_ok = range(theta.shape[0])
 			
@@ -329,9 +331,48 @@ class cbc_metric(object):
 			det = self.get_metric_determinant(theta[ids_ok,:], **kwargs)
 			det = np.log(np.abs(det))*0.5 #log(sqrt(|det|))
 			res[ids_ok] = det
-		
+
+		if reshape: theta = np.squeeze(theta)
+
 		return res
 	
+	def get_metric_test(self, theta):
+		theta = np.atleast_2d(theta)
+		res = []
+		for i, t in enumerate(theta):
+			res.append(np.diag([100*theta[i,0]**(-8./3.), 10*theta[i,1]**(4), theta[i,2]**(2), 0.1*np.abs(theta[i,3])**(0.2)]))
+		return np.squeeze(np.array(res))
+	
+	def log_pdf_test(self, theta, boundaries = None):
+		theta = np.asarray(theta)
+		
+		if theta.ndim == 1:
+			theta = theta[None,:]
+			reshape = True
+		else:
+			reshape = False
+		
+		if isinstance(boundaries,np.ndarray):
+			if boundaries.shape != (2,self.D):
+				raise ValueError("Wrong shape of boundaries given: expected (2,{}), given {}".format(self.D, boundaries.shape))
+			
+			ids_ok = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+		elif callable(boundaries):
+			ids_ok = boundaries(theta)
+		else:
+			ids_ok = range(theta.shape[0])
+			
+		assert theta.shape[-1] == 4
+		res = np.zeros((theta.shape[0],)) -10000000
+		if np.any(ids_ok):
+			#res[ids_ok] = 0.5*np.log(np.abs(theta[ids_ok,0]**(-8./3.) * theta[ids_ok,1]**(4) * theta[ids_ok,2]**(2)*np.abs(theta[ids_ok,3])**(0.2)))
+			#check = 0.5*np.log(np.abs(100*theta[ids_ok,0]**(-8./3.) * 10*theta[ids_ok,1]**(4) * theta[ids_ok,2]**(2)* 0.1*np.abs(theta[ids_ok,3])**(0.2)))
+			res[ids_ok] = 0.5*np.log(np.abs(np.linalg.det(self.get_metric_test(theta[ids_ok]))))
+		
+		return res
+		
+		
+		
 	def log_pdf_gauss(self, theta, boundaries = None):
 		return -0.5*np.sum(np.square(theta-10.), axis =-1) #DEBUG!!!!!
 	
@@ -661,6 +702,9 @@ class cbc_metric(object):
 		
 			###
 			#Being sustainable and doing things in batch
+		theta = np.asarray(theta)
+		squeeze = (theta.ndim == 1)
+		theta = np.atleast_2d(theta)
 		N, N_batch = theta.shape[0], 100
 		metric_list = []
 		
@@ -669,7 +713,10 @@ class cbc_metric(object):
 				metric_dict[metric_type](theta[i:i+N_batch], overlap = overlap, **kwargs)
 			)
 
-		return np.concatenate(metric_list, axis = 0)
+		metric = np.concatenate(metric_list, axis = 0)
+		if squeeze: metric = np.squeeze(metric)
+
+		return metric
 
 	def get_projected_hessian(self, theta, overlap = False,  min_eig = 1e-3, order = None, epsilon = 1e-5):
 		"""

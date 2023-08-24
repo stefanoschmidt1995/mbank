@@ -80,6 +80,9 @@ parser.add_argument(
 	"--f-max",  default = 1024., type=float,
 	help="Maximum frequency for the scalar product")
 parser.add_argument(
+	"--df",  default = None, type=float,
+	help="Spacing of the frequency grid where the PSD is evaluated")
+parser.add_argument(
 	"--approximant", default = 'IMRPhenomPv2',
 	help="LAL approximant for the bank generation")
 parser.add_argument(
@@ -274,7 +277,7 @@ boundaries = get_boundaries_from_ranges(args.variable_format,
 	#	Loading PSD and initializing metric
 	######
 m = cbc_metric(args.variable_format,
-			PSD = load_PSD(args.psd, args.asd, args.ifo),
+			PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df),
 			approx = args.approximant,
 			f_min = args.f_min, f_max = args.f_max)
 

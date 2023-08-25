@@ -91,6 +91,7 @@ class GW_Flow(Flow):
 				The base distribution of the flow that generates the noise (in the `nflows` style)
 		"""
 		super().__init__(transform=transform, distribution=distribution)
+		#self.constant = torch.nn.Parameter(torch.randn([1], dtype=torch.float32), requires_grad = True)
 	
 	def save_weigths(self, filename):
 		"""
@@ -381,16 +382,18 @@ class GW_Flow(Flow):
 		try:
 			for i in it:
 
-				#if isinstance(batch_size, int):
-				#	ids_ = torch.randperm(N_train)[:batch_size]
-				#else:
-				#	ids_ = range(N_train)
-				ids_ = torch.multinomial(train_weights, batch_size, replacement = False)
+				if isinstance(batch_size, int):
+					ids_ = torch.randperm(N_train)[:batch_size]
+				else:
+					ids_ = range(N_train)
+				#ids_ = torch.multinomial(torch.exp(train_weights), batch_size, replacement = False)
 				#print(ids_)
 
 				optimizer.zero_grad()
 				#loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights[ids_]).mean()
-				loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
+				#loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
+				#loss = torch.square(self.log_prob(inputs=train_data[ids_,:]) - train_weights[ids_] + self.constant).mean()
+				loss = torch.square(self.log_prob(inputs=train_data[ids_,:]) - train_weights[ids_]).mean()
 				loss.backward()
 				optimizer.step()
 				
@@ -398,7 +401,9 @@ class GW_Flow(Flow):
 
 				if not (i%validation_step):
 					with torch.no_grad():			
-						loss = -(self.log_prob(inputs=validation_data)*validation_weights).mean()
+						#loss = -(self.log_prob(inputs=validation_data)*validation_weights).mean()
+						#loss = torch.square(self.log_prob(inputs=validation_data) - validation_weights + self.constant).mean()
+						loss = torch.square(self.log_prob(inputs=validation_data) - validation_weights).mean()
 					val_loss.append(loss)
 					
 				if callable(callback) and not (i%callback_step): callback(self, i)

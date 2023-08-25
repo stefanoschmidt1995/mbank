@@ -1,0 +1,419 @@
+#!/usr/bin/env python
+"""
+mbank_train_flow
+----------------
+
+Executable to train a normalizing flow to reproduce the volume element of the probability distribution:
+
+.. math
+				
+	p(\\theta) \propto \sqrt{|M(\\theta)|}
+
+The script will create a dataset with random points drawn within the space an will train the flow with it.
+The first part can be omitted by providing a home-made dataset.
+
+To train a flow:
+
+	mbank_train_flow --options-you-like
+
+You can also load (some) options from an ini-file:
+
+	mbank_train_flow --some-options other_options.ini
+
+Make sure that the mbank is properly installed.
+
+To know which options are available:
+
+	mbank_train_flow --help
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import warnings
+from ligo.lw.utils import load_filename
+
+import torch
+from torch import optim
+
+from mbank import variable_handler, cbc_metric
+from mbank.utils import updates_args_from_ini, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.flow import STD_GW_Flow
+
+from tqdm import tqdm
+import argparse
+import os
+
+############################################################################à
+# Some boundaries related functions, credit goes to https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py
+
+def tau0tau3_to_m1m2(tau0, tau3):
+    # compute mtotal in seconds
+    mtotal = 5. / (32 * np.pi**2 * args.f_min) * (tau3 / tau0)
+    eta = (A0 / tau0) * mtotal**(-5./3)
+    m1 = mtotal * (0.5 + (0.25 - eta)**0.5)
+
+    return m1, mtotal - m1
+
+
+def m1m2_to_tau0tau3(m1, m2):
+    # compute mass-dependent terms
+    mtotal = m1 + m2
+    eta = m1 * m2 / mtotal**2
+
+    # eqn B4 for tau0,tau3
+    tau0 = (A0 / eta) * mtotal**(-5./3)
+    tau3 = (A3 / eta) * mtotal**(-2./3)
+
+    return tau0, tau3
+
+
+def is_inside(theta):
+	theta = np.atleast_2d(theta)
+	ids_inside = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+	
+	m1, m2 = var_handler.get_BBH_components(theta, args.variable_format)[:,:2].T
+
+	if args.m1_range:
+		ids_inside = np.logical_and(ids_inside, np.logical_and(m1>args.m1_range[0], m1<args.m1_range[1]))
+	if args.m2_range:
+		ids_inside = np.logical_and(ids_inside, np.logical_and(m2>args.m2_range[0], m2<args.m2_range[1]))
+	if args.mtot_range:
+		M = m1 + m2
+		ids_inside = np.logical_and(ids_inside, np.logical_and(M>args.mtot_range[0], M<args.mtot_range[1]))
+	if args.q_range:
+		q = m1/m2
+		ids_inside = np.logical_and(ids_inside, np.logical_and(q>args.q_range[0], q<args.q_range[1]))
+	if args.mc_range:
+		mc = (m1*m2)**(3/5)/(m1+m2)**(1/5)
+		ids_inside = np.logical_and(ids_inside, np.logical_and(mc>args.mc_range[0], mc<args.mc_range[1]))
+	if args.eta_range:
+		eta = (m1*m2)/np.square(m1+m2)
+		ids_inside = np.logical_and(ids_inside, np.logical_and(eta>args.eta_range[0], eta<args.eta_range[1]))
+	
+	return ids_inside
+
+
+##### Creating parser
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument(
+	"--variable-format", required = False,
+	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
+parser.add_argument(
+	"--psd",  required = False,
+	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
+parser.add_argument(
+	"--asd",  default = False, action='store_true',
+	help="Whether the input file has an ASD (sqrt of the PSD)")
+parser.add_argument(
+	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
+	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
+parser.add_argument(
+	"--f-min",  default = 10., type=float,
+	help="Minium frequency for the scalar product")
+parser.add_argument(
+	"--f-max",  default = 1024., type=float,
+	help="Maximum frequency for the scalar product")
+parser.add_argument(
+	"--df",  default = None, type=float,
+	help="Spacing of the frequency grid where the PSD is evaluated")
+parser.add_argument(
+	"--approximant", default = 'IMRPhenomPv2',
+	help="LAL approximant for the bank generation")
+
+parser.add_argument(
+	"--plot", action='store_true',
+	help="Whether to make some plots. They will be store in run-dir")
+parser.add_argument(
+	"--show", action='store_true',
+	help="Whether to show the plots.")
+parser.add_argument(
+	"--run-dir", default = None,
+	help="Output directory in which the bank will be saved. If default is used, the run name will be appended.")
+parser.add_argument(
+	"--run-name", default = 'flow_training',
+	help="Name for the bank and tiling output file")
+
+parser.add_argument(
+	"--metric-type", default = 'symphony', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symphony'],
+	help="Method to use to compute the metric.")
+
+parser.add_argument(
+	"--n-layers", default = 2, type = int,
+	help="Number of layers for the flow model to train (applicable only if --train-flow)")
+parser.add_argument(
+	"--hidden-features", default = 4, type = int,
+	help="Number of hidden features for the masked autoregressive flow to train. (applicable only if --train-flow)")
+parser.add_argument(
+	"--n-epochs", default = 10000, type = int,
+	help="Number of training epochs for the flow (applicable only if --train-flow)")
+parser.add_argument(
+	"--learning-rate", default = 1e-3, type = float,
+	help="Learning rate for the flow")
+parser.add_argument(
+	"--train-fraction", default = 0.85, type = float,
+	help="Fraction of the dataset to use for training")
+parser.add_argument(
+	"--batch-size", default = 10000, type = int,
+	help="Batch size for the training")
+
+parser.add_argument(
+	"--n-datapoints", default = 10000, type = int,
+	help="Number of datapoints to be stored in the dataset")
+parser.add_argument(
+	"--dataset", default = ['dataset.dat'], type = str, nargs = '+',
+	help="Files with the datasets (more than one are accpted). If the file does not exist, the dataset will be created.")
+parser.add_argument(
+	"--flow-file", default = 'flow.zip', type = str,
+	help="File where the normalizing flow is saved (in zip format).")
+parser.add_argument(
+	"--load-flow", default = False, action = 'store_true',
+	help="Whether to load the flow from file (useful for plotting purposes)")	
+
+	#ranges for physical parameters
+parser.add_argument(
+	"--m1-range", default = None, type=float, nargs = 2,
+	help="Range values for the mass 1 (in solar masses)")
+parser.add_argument(
+	"--m2-range", default = None, type=float, nargs = 2,
+	help="Range values for the mass 2 (in solar masses)")
+parser.add_argument(
+	"--mtot-range", default = None, type=float, nargs = 2,
+	help="Range values for the total masses (in solar masses).")
+parser.add_argument(
+	"--q-range", default = None, type=float, nargs = 2,
+	help="Range values for the mass ratio.")
+parser.add_argument(
+	"--mc-range", default = None, type=float, nargs = 2,
+	help="Range values for the total masses (in solar masses).")
+parser.add_argument(
+	"--eta-range", default = None, type=float, nargs = 2,
+	help="Range values for the mass ratio.")
+parser.add_argument(
+	"--s1-range", default = [-0.99,0.99], type=float, nargs = 2,
+	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--s2-range", default = [-0.99,0.99], type=float, nargs = 2,
+	help="Range values for magnitude of spin 1 (if applicable)")
+parser.add_argument(
+	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
+	help="Range values for effective spin parameter (if applicable)")
+parser.add_argument(
+	"--theta-range", default = [-np.pi, np.pi], type=float, nargs = 2,
+	help="Range values for theta angles of spins (if applicable)")
+parser.add_argument(
+	"--phi-range", default = [-np.pi/2, np.pi/2], type=float, nargs = 2,
+	help="Range values for phi angles of spins (if applicable)")
+parser.add_argument(
+	"--e-range", default = [0., 0.5], type=float, nargs = 2,
+	help="Range values for the eccentricity (if applicable)")
+parser.add_argument(
+	"--meanano-range", default = [0., 1], type=float, nargs = 2,
+	help="Range values for the mean anomaly (if applicable). TODO: find a nice default...")
+parser.add_argument(
+	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
+	help="Range values for iota (if applicable)")
+parser.add_argument(
+	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
+	help="Range values for reference phase (if applicable)")
+
+parser.add_argument(
+	"--verbose", default = False, action = 'store_true',
+	help="Whether to be verbose")
+
+args, filenames = parser.parse_known_args()
+
+	#updating from the ini file(s), if it's the case
+for f in filenames:
+	args = updates_args_from_ini(f, args, parser)
+
+####################################################################################################
+	######
+	#	Interpreting the parser and initializing variables
+	######
+
+if (args.psd is None) or (args.variable_format is None):
+	raise ValueError("The arguments psd and variable_format must be set!")
+
+var_handler = variable_handler()
+assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+
+if args.run_dir is None: args.run_dir = './out_{}/'.format(args.run_name)
+if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
+if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
+if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
+if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
+
+for i, f in enumerate(args.dataset):
+	if f.find('/') <0: f = args.run_dir+f
+	args.dataset[i] = f
+
+generate_dataset = not np.any([os.path.isfile(f) for f in args.dataset])
+
+	#Ranges for quantities other than masses
+s1_min, s1_max = args.s1_range
+s2_min, s2_max = args.s2_range
+chi_min, chi_max = args.chi_range
+theta_min, theta_max = args.theta_range
+e_min, e_max = args.e_range
+meanano_min, meanano_max = args.meanano_range
+phi_min, phi_max = args.phi_range
+iota_min, iota_max = args.iota_range
+ref_phase_min, ref_phase_max = args.ref_phase_range
+
+plot_folder = args.run_dir if args.plot else None
+
+D = var_handler.D(args.variable_format)
+
+if args.verbose: print("## Running: ", args.run_name)
+
+if generate_dataset:
+
+	######
+	#	Loading PSD and initializing metric
+	######
+	m = cbc_metric(args.variable_format,
+		PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df),
+		approx = args.approximant,
+		f_min = args.f_min, f_max = args.f_max)
+
+	######
+	#	Setting boundaries
+	#	Mass boundaries are complicated, while the rest is just a rectangle in the coordinates
+	######
+
+	assert args.variable_format.startswith('Mq'), "Temporary limitation: only Mq mass format can be dealt with"
+
+		#setting spin & angles boundaries
+	boundaries = get_boundaries_from_ranges(args.variable_format,
+		#(-np.inf, np.inf), (-np.inf, np.inf),
+		args.mtot_range, args.q_range, #TEMP
+		chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
+		theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
+		iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
+		e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
+
+
+	datapoints = []
+	while len(datapoints)<args.n_datapoints:
+		new_points = np.random.uniform(*boundaries, (args.n_datapoints//10, D))
+		ids_inside = is_inside(new_points)
+		datapoints = np.concatenate([datapoints, new_points[ids_inside]], axis = 0) if len(datapoints) else np.array(new_points[ids_inside])
+
+	datapoints = datapoints[:args.n_datapoints]
+
+	metric_list = []
+	for d in tqdm(datapoints, disable = not args.verbose, desc = 'Generating dataset'):
+		try:
+			metric = m.get_metric(d, metric_type = args.metric_type)
+			metric_list.append(np.array([*metric.flatten(), 0.5*np.log(np.abs(np.linalg.det(metric)))]))
+		except KeyboardInterrupt:
+			warnings.warn("KeyboardInterrupt: interuppting dataset generation and continuing with the program")
+			break
+	
+	to_save = np.concatenate([datapoints[:len(metric_list)], metric_list], axis = 1)
+	np.savetxt(args.dataset[0], to_save,
+		header = 'variable format: {0}\ntheta ({1},) | metric ({1}*{1},) | log_pdf (1,) '.format(args.variable_format, D))
+
+	if args.verbose: print("Dataset saved")
+	del datapoints, to_save
+
+	######
+	#	Loading the dataset(s) and performing train and test splitting
+	######
+
+dataset = []
+for f in args.dataset:
+	if not os.path.isfile(f): continue
+	
+	new_dataset = np.loadtxt(f)
+	assert new_dataset.ndim == 2, "Wrong dimensionality of the dataset, must be 2 dimensional"
+	assert new_dataset.shape[1] == D**2+D+1, "Wrong format of the datset! Each row must be {} dimensional, i.e. with format D | D**2 | 1".format(D*(D+1)+1)
+	dataset.append(new_dataset)
+
+dataset = np.concatenate(dataset, axis = 0)
+if args.verbose: print('Loaded dataset(s) with {} entries'.format(len(dataset)))
+
+N_train = int(args.train_fraction*len(dataset))
+train_data, validation_data = dataset[:N_train,:D], dataset[N_train:,:D]
+train_ll, validation_ll = dataset[:N_train, -1], dataset[N_train:, -1]
+
+if args.verbose: print('Train {} | Validation {}'.format(len(train_data), len(validation_data)))
+
+	######
+	#	Training the flow and saving the output
+	######
+
+if args.load_flow:
+	flow = STD_GW_Flow.load_flow(args.flow_file)
+else:
+	flow = STD_GW_Flow(D, n_layers = args.n_layers, hidden_features = args.hidden_features)
+
+	optimizer = optim.Adam(flow.parameters(), lr=args.learning_rate)
+
+	#history = flow.train_flow_forward_KL(N_epochs = 10000, train_data = train_data, validation_data = validation_data,
+	#	optimizer = optimizer, batch_size = 10000, validation_step = 20, verbose = True)
+	history = flow.train_flow_importance_sampling(N_epochs = args.n_epochs,
+		train_data = train_data, train_weights = train_ll,
+		validation_data = validation_data, validation_weights = validation_ll,
+		optimizer = optimizer, batch_size = args.batch_size, validation_step = 100, verbose = args.verbose)
+
+	flow.save_weigths(args.flow_file)
+
+
+	######
+	#	Plotting
+	######
+
+if args.plot:
+	with torch.no_grad():
+		train_ll_flow = flow.log_prob(torch.Tensor(train_data[:10000])).numpy()
+		validation_ll_flow = flow.log_prob(torch.Tensor(validation_data[:10000])).numpy()
+		plot_samples = flow.sample(10000).numpy()
+
+	shift = np.nanmedian(train_ll[:len(train_ll_flow)]-train_ll_flow)
+
+	plt.figure()
+	plt.hist((validation_ll_flow - validation_ll[:len(validation_ll_flow)]+shift)/np.log(10), histtype = 'step', bins = 100, label = 'flow', density = True)
+	plt.legend()
+	plt.xlabel(r"$\log_{10}(M_{flow}/M_{true})$")
+	plt.savefig(args.run_dir+'flow_accuracy.png')
+
+	plt.figure()
+	m, M = int(np.min(validation_ll)/np.log(10)), int(np.max(validation_ll)/np.log(10))+1
+	b_list = [i for i in range(m, M, 2)]
+	b_list.insert(0, -np.inf)
+	b_list.append(np.inf)
+	log_M_diff = (validation_ll_flow - validation_ll[:len(validation_ll_flow)])+shift
+
+	for start, stop in zip(b_list[:-1], b_list[1:]):
+		ids_, = np.where(np.logical_and(
+			validation_ll[:len(validation_ll_flow)]/np.log(10)>start,
+			validation_ll[:len(validation_ll_flow)]/np.log(10)<stop)
+		)
+		print('[{}, {}]: {}'.format(start, stop, len(ids_)))
+		if len(ids_)>10:
+			plt.hist(log_M_diff[ids_]/np.log(10),
+				histtype = 'step', bins = int(np.sqrt(len(ids_))), density = True,
+				label = r"$\log_{10}M_{true} \in $"+'[{}, {}]'.format(start, stop))
+	plt.xlabel(r"$\log_{10}(M_{pred}/M_{true})$")
+	plt.legend(loc = 'upper left')
+
+
+	plot_tiles_templates(plot_samples, args.variable_format,
+		tiling = None, dist_ellipse = None, save_folder = args.run_dir, show = False)
+	if args.show: plt.show()
+		
+	
+
+
+
+
+
+
+
+
+
+
+
+
+

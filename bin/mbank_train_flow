@@ -39,39 +39,18 @@ from mbank import variable_handler, cbc_metric
 from mbank.utils import updates_args_from_ini, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
 from mbank.flow import STD_GW_Flow
 
+import emcee
 from tqdm import tqdm
 import argparse
 import os
+from lal import MTSUN_SI
 
 ############################################################################à
-# Some boundaries related functions, credit goes to https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/tau0tau3.py
-
-def tau0tau3_to_m1m2(tau0, tau3):
-    # compute mtotal in seconds
-    mtotal = 5. / (32 * np.pi**2 * args.f_min) * (tau3 / tau0)
-    eta = (A0 / tau0) * mtotal**(-5./3)
-    m1 = mtotal * (0.5 + (0.25 - eta)**0.5)
-
-    return m1, mtotal - m1
-
-
-def m1m2_to_tau0tau3(m1, m2):
-    # compute mass-dependent terms
-    mtotal = m1 + m2
-    eta = m1 * m2 / mtotal**2
-
-    # eqn B4 for tau0,tau3
-    tau0 = (A0 / eta) * mtotal**(-5./3)
-    tau3 = (A3 / eta) * mtotal**(-2./3)
-
-    return tau0, tau3
-
-
-def is_inside(theta):
+def is_inside(theta, boundaries, variable_format):
 	theta = np.atleast_2d(theta)
 	ids_inside = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
 	
-	m1, m2 = var_handler.get_BBH_components(theta, args.variable_format)[:,:2].T
+	m1, m2 = var_handler.get_BBH_components(theta, variable_format)[:,:2].T
 
 	if args.m1_range:
 		ids_inside = np.logical_and(ids_inside, np.logical_and(m1>args.m1_range[0], m1<args.m1_range[1]))
@@ -92,6 +71,18 @@ def is_inside(theta):
 	
 	return ids_inside
 
+def get_random_masses(boundaries):
+
+	#TODO: come up with something better here :D
+	masses = []
+	while len(masses)<args.n_datapoints:
+		new_points = np.random.uniform(*boundaries, (args.n_datapoints//10, 2))
+		ids_inside = is_inside(new_points, boundaries, sample_format)
+		masses = np.concatenate([masses, new_points[ids_inside]], axis = 0) if len(masses) else np.array(new_points[ids_inside])
+
+	masses = masses[:args.n_datapoints]
+
+	return masses
 
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
@@ -162,6 +153,9 @@ parser.add_argument(
 parser.add_argument(
 	"--dataset", default = ['dataset.dat'], type = str, nargs = '+',
 	help="Files with the datasets (more than one are accpted). If the file does not exist, the dataset will be created.")
+parser.add_argument(
+	"--datapoints-file", default = None, type = str,
+	help="Csv with a list of points to build the dataset: for each of them the likelihood will be computed and stored in the dataset")
 parser.add_argument(
 	"--flow-file", default = 'flow.zip', type = str,
 	help="File where the normalizing flow is saved (in zip format).")
@@ -249,6 +243,22 @@ for i, f in enumerate(args.dataset):
 
 generate_dataset = not np.any([os.path.isfile(f) for f in args.dataset])
 
+format_info = var_handler.format_info[args.variable_format]
+if format_info['mass_format'] == 'm1m2':
+	assert args.m1_range and args.m2_range, "If mass format is m1m2, --m1-range and --m2-range must be given"
+	var1_min, var1_max = args.m1_range
+	var2_min, var2_max = args.m2_range
+elif format_info['mass_format'] in ['Mq', 'logMq']:
+	assert args.mtot_range and args.q_range, "If mass format is Mq, --mtot-range and --q-range must be given"
+	var1_min, var1_max = args.mtot_range
+	var2_min, var2_max = args.q_range
+elif format_info['mass_format'] == 'mceta':
+	assert args.mtot_range and args.q_range, "If mass format is mceta, --mc-range and --eta-range must be given"
+	var1_min, var1_max = args.mc_range
+	var2_min, var2_max = args.eta_range
+sample_format = '{}_nonspinning'.format(args.variable_format.split('_')[0])
+print('sample_format', sample_format)
+
 	#Ranges for quantities other than masses
 s1_min, s1_max = args.s1_range
 s2_min, s2_max = args.s2_range
@@ -277,29 +287,29 @@ if generate_dataset:
 		f_min = args.f_min, f_max = args.f_max)
 
 	######
-	#	Setting boundaries
+	#	Drawing initial points (either from file or from sampling)
 	#	Mass boundaries are complicated, while the rest is just a rectangle in the coordinates
 	######
 
-	assert args.variable_format.startswith('Mq'), "Temporary limitation: only Mq mass format can be dealt with"
+	if args.datapoints_file:
+	
+		datapoints = np.loadtxt(args.datapoints_file)[:args.n_datapoints]
 
-		#setting spin & angles boundaries
-	boundaries = get_boundaries_from_ranges(args.variable_format,
-		#(-np.inf, np.inf), (-np.inf, np.inf),
-		args.mtot_range, args.q_range, #TEMP
-		chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
-		theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
-		iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
-		e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
+	else:
+	
+		#Random sampling
+			#setting spin & angles boundaries
+		boundaries = get_boundaries_from_ranges(args.variable_format,
+			(var1_min, var1_max), (var2_min, var2_max),
+			chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
+			theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
+			iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
+			e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
 
-
-	datapoints = []
-	while len(datapoints)<args.n_datapoints:
-		new_points = np.random.uniform(*boundaries, (args.n_datapoints//10, D))
-		ids_inside = is_inside(new_points)
-		datapoints = np.concatenate([datapoints, new_points[ids_inside]], axis = 0) if len(datapoints) else np.array(new_points[ids_inside])
-
-	datapoints = datapoints[:args.n_datapoints]
+		datapoints = np.random.uniform(*boundaries, (args.n_datapoints, D))
+		
+		new_masses = get_random_masses(boundaries[:,:2])
+		datapoints[:,:2] = new_masses
 
 	metric_list = []
 	for d in tqdm(datapoints, disable = not args.verbose, desc = 'Generating dataset'):
@@ -307,7 +317,7 @@ if generate_dataset:
 			metric = m.get_metric(d, metric_type = args.metric_type)
 			metric_list.append(np.array([*metric.flatten(), 0.5*np.log(np.abs(np.linalg.det(metric)))]))
 		except KeyboardInterrupt:
-			warnings.warn("KeyboardInterrupt: interuppting dataset generation and continuing with the program")
+			warnings.warn("KeyboardInterrupt: interuppting dataset generation and continuing with the flow training")
 			break
 	
 	to_save = np.concatenate([datapoints[:len(metric_list)], metric_list], axis = 1)
@@ -360,17 +370,19 @@ else:
 	flow.save_weigths(args.flow_file)
 
 
+with torch.no_grad():
+	train_ll_flow = flow.log_prob(torch.Tensor(train_data[:10000])).numpy()
+shift = np.nanmedian(train_ll[:len(train_ll_flow)]-train_ll_flow)
+if args.verbose: print('Volume of the space: ', np.exp(-shift))
+
 	######
 	#	Plotting
 	######
 
 if args.plot:
 	with torch.no_grad():
-		train_ll_flow = flow.log_prob(torch.Tensor(train_data[:10000])).numpy()
 		validation_ll_flow = flow.log_prob(torch.Tensor(validation_data[:10000])).numpy()
 		plot_samples = flow.sample(10000).numpy()
-
-	shift = np.nanmedian(train_ll[:len(train_ll_flow)]-train_ll_flow)
 
 	plt.figure()
 	plt.hist((validation_ll_flow - validation_ll[:len(validation_ll_flow)]+shift)/np.log(10), histtype = 'step', bins = 100, label = 'flow', density = True)

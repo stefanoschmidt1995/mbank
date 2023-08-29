@@ -48,9 +48,13 @@ from lal import MTSUN_SI
 ############################################################################à
 def is_inside(theta, boundaries, variable_format):
 	theta = np.atleast_2d(theta)
-	ids_inside = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+	if boundaries is not None:
+		ids_inside = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
+	else:
+		ids_inside = np.full((theta.shape[0],), True)
 	
-	m1, m2 = var_handler.get_BBH_components(theta, variable_format)[:,:2].T
+	m1, m2 = np.full(theta[:,0].shape, 0.), np.full(theta[:,0].shape, 0.)
+	m1[ids_inside], m2[ids_inside] = var_handler.get_BBH_components(theta[ids_inside], variable_format)[:,:2].T
 
 	if args.m1_range:
 		ids_inside = np.logical_and(ids_inside, np.logical_and(m1>args.m1_range[0], m1<args.m1_range[1]))
@@ -68,21 +72,47 @@ def is_inside(theta, boundaries, variable_format):
 	if args.eta_range:
 		eta = (m1*m2)/np.square(m1+m2)
 		ids_inside = np.logical_and(ids_inside, np.logical_and(eta>args.eta_range[0], eta<args.eta_range[1]))
-	
 	return ids_inside
+
+def initial_dataset_log_prob(mceta):
+	squeeze = (np.asarray(mceta).ndim == 1)
+	mceta = np.atleast_2d(mceta)
+	res = np.full(mceta[:,0].shape, -100000)
+	ids_inside = is_inside(mceta, np.array([[-np.inf, -np.inf],[np.inf, 0.25]]), sample_format)
+	if np.any(ids_inside):
+		res[ids_inside] = -(np.log(2048/(5*np.pi)) + 13/3 * np.log(np.pi*args.f_min) + 10/3 * np.log(mceta[ids_inside,0]) + 8/5 * np.log(mceta[ids_inside,1]))
+	if squeeze: res = res[0]
+	return res
+	
 
 def get_random_masses(boundaries):
 
-	#TODO: come up with something better here :D
-	masses = []
-	while len(masses)<args.n_datapoints:
-		new_points = np.random.uniform(*boundaries, (args.n_datapoints//10, 2))
-		ids_inside = is_inside(new_points, boundaries, sample_format)
-		masses = np.concatenate([masses, new_points[ids_inside]], axis = 0) if len(masses) else np.array(new_points[ids_inside])
+	assert boundaries.shape == (2,2)
 
-	masses = masses[:args.n_datapoints]
+	n_walkers = 100
+	start_points = []
+	out_variable_format = '{}_nonspinning'.format(var_handler.format_info[args.variable_format]['mass_format'])
 
-	return masses
+	while len(start_points)<n_walkers:
+		new_points = var_handler.convert_theta(np.random.uniform(*boundaries, (100, 2)), out_variable_format, sample_format)
+		new_points = new_points[is_inside(new_points, None, sample_format)]
+		if len(new_points)>0:
+			start_points.extend(new_points)
+	start_points = np.array(start_points)[:n_walkers]
+	
+	sampler = emcee.EnsembleSampler(n_walkers, 2, initial_dataset_log_prob)
+		#Burn-in
+	points = sampler.run_mcmc(start_points, 400, tune=True, store=False, progress=args.verbose, progress_kwargs={'desc': 'Burn-in for mass samples'})
+	
+	new_masses = []
+	for i in tqdm(range(args.n_datapoints//n_walkers+1), desc = 'Generating mass samples', disable = not args.verbose):
+		points = sampler.run_mcmc(points, 20, tune=False, store=False, progress=False)
+		new_masses.append(points.coords)
+
+	new_masses = np.concatenate(new_masses, axis = 0)
+	new_masses = var_handler.convert_theta(new_masses[:args.n_datapoints], sample_format, out_variable_format)
+
+	return new_masses
 
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
@@ -148,8 +178,8 @@ parser.add_argument(
 	help="Batch size for the training")
 
 parser.add_argument(
-	"--n-datapoints", default = 10000, type = int,
-	help="Number of datapoints to be stored in the dataset")
+	"--n-datapoints", default = None, type = int,
+	help="Number of datapoints to be stored or loaded in the dataset")
 parser.add_argument(
 	"--dataset", default = ['dataset.dat'], type = str, nargs = '+',
 	help="Files with the datasets (more than one are accpted). If the file does not exist, the dataset will be created.")
@@ -211,6 +241,9 @@ parser.add_argument(
 	help="Range values for reference phase (if applicable)")
 
 parser.add_argument(
+	"--ignore-boundaries", default = False, action = 'store_true',
+	help="Whether to ignore the ranges given by command line. If set, the boudaries will be extracted from the dataset")
+parser.add_argument(
 	"--verbose", default = False, action = 'store_true',
 	help="Whether to be verbose")
 
@@ -230,6 +263,7 @@ if (args.psd is None) or (args.variable_format is None):
 
 var_handler = variable_handler()
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+D = var_handler.D(args.variable_format)
 
 if args.run_dir is None: args.run_dir = './out_{}/'.format(args.run_name)
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
@@ -243,40 +277,49 @@ for i, f in enumerate(args.dataset):
 
 generate_dataset = not np.any([os.path.isfile(f) for f in args.dataset])
 
-format_info = var_handler.format_info[args.variable_format]
-if format_info['mass_format'] == 'm1m2':
-	assert args.m1_range and args.m2_range, "If mass format is m1m2, --m1-range and --m2-range must be given"
-	var1_min, var1_max = args.m1_range
-	var2_min, var2_max = args.m2_range
-elif format_info['mass_format'] in ['Mq', 'logMq']:
-	assert args.mtot_range and args.q_range, "If mass format is Mq, --mtot-range and --q-range must be given"
-	var1_min, var1_max = args.mtot_range
-	var2_min, var2_max = args.q_range
-elif format_info['mass_format'] == 'mceta':
-	assert args.mtot_range and args.q_range, "If mass format is mceta, --mc-range and --eta-range must be given"
-	var1_min, var1_max = args.mc_range
-	var2_min, var2_max = args.eta_range
-sample_format = '{}_nonspinning'.format(args.variable_format.split('_')[0])
-print('sample_format', sample_format)
+boundaries = None
+if not args.ignore_boundaries:
+	format_info = var_handler.format_info[args.variable_format]
+	if format_info['mass_format'] == 'm1m2':
+		assert args.m1_range and args.m2_range, "If mass format is m1m2, --m1-range and --m2-range must be given"
+		var1_min, var1_max = args.m1_range
+		var2_min, var2_max = args.m2_range
+	elif format_info['mass_format'] in ['Mq', 'logMq']:
+		assert args.mtot_range and args.q_range, "If mass format is Mq, --mtot-range and --q-range must be given"
+		var1_min, var1_max = args.mtot_range
+		var2_min, var2_max = args.q_range
+	elif format_info['mass_format'] == 'mceta':
+		assert args.mc_range and args.eta_range, "If mass format is mceta, --mc-range and --eta-range must be given"
+		var1_min, var1_max = args.mc_range
+		var2_min, var2_max = args.eta_range
+	sample_format = 'mceta_nonspinning'
+	print('sample_format', sample_format)
 
-	#Ranges for quantities other than masses
-s1_min, s1_max = args.s1_range
-s2_min, s2_max = args.s2_range
-chi_min, chi_max = args.chi_range
-theta_min, theta_max = args.theta_range
-e_min, e_max = args.e_range
-meanano_min, meanano_max = args.meanano_range
-phi_min, phi_max = args.phi_range
-iota_min, iota_max = args.iota_range
-ref_phase_min, ref_phase_max = args.ref_phase_range
+		#Ranges for quantities other than masses
+	s1_min, s1_max = args.s1_range
+	s2_min, s2_max = args.s2_range
+	chi_min, chi_max = args.chi_range
+	theta_min, theta_max = args.theta_range
+	e_min, e_max = args.e_range
+	meanano_min, meanano_max = args.meanano_range
+	phi_min, phi_max = args.phi_range
+	iota_min, iota_max = args.iota_range
+	ref_phase_min, ref_phase_max = args.ref_phase_range
 
-plot_folder = args.run_dir if args.plot else None
+	plot_folder = args.run_dir if args.plot else None
 
-D = var_handler.D(args.variable_format)
+	if args.verbose: print("## Running: ", args.run_name)
 
-if args.verbose: print("## Running: ", args.run_name)
+	boundaries = get_boundaries_from_ranges(args.variable_format,
+				(var1_min, var1_max), (var2_min, var2_max),
+				chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
+				theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
+				iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
+				e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
 
 if generate_dataset:
+
+	assert args.n_datapoints, "--n-datapoints must be set if the dataset is generated"
 
 	######
 	#	Loading PSD and initializing metric
@@ -299,13 +342,7 @@ if generate_dataset:
 	
 		#Random sampling
 			#setting spin & angles boundaries
-		boundaries = get_boundaries_from_ranges(args.variable_format,
-			(var1_min, var1_max), (var2_min, var2_max),
-			chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
-			theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
-			iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
-			e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
-
+		assert boundaries is not None, "If dataset has to be generated, option --ignore-boundaries must be removed"
 		datapoints = np.random.uniform(*boundaries, (args.n_datapoints, D))
 		
 		new_masses = get_random_masses(boundaries[:,:2])
@@ -335,12 +372,34 @@ dataset = []
 for f in args.dataset:
 	if not os.path.isfile(f): continue
 	
+	if args.verbose: print("Loading dataset {}".format(f))
+	
 	new_dataset = np.loadtxt(f)
 	assert new_dataset.ndim == 2, "Wrong dimensionality of the dataset, must be 2 dimensional"
 	assert new_dataset.shape[1] == D**2+D+1, "Wrong format of the datset! Each row must be {} dimensional, i.e. with format D | D**2 | 1".format(D*(D+1)+1)
+	
+		#removing possible nans
+	new_dataset = new_dataset[np.where(~np.any(np.isnan(new_dataset), axis = 1))]
+	
 	dataset.append(new_dataset)
 
 dataset = np.concatenate(dataset, axis = 0)
+
+if not args.ignore_boundaries:
+	ids_ = is_inside(dataset[:,:D], boundaries, args.variable_format)
+	dataset = dataset[ids_]
+
+if not True:
+	#dataset = dataset[np.where(dataset[:,-1]>-12)]
+	dataset = dataset[np.where(dataset[:,-1]<=-12)]
+	np.random.shuffle(dataset)
+	np.savetxt('out_O3_bank_flow/dataset_paper_precessing_IMBH.dat', dataset)
+	plt.scatter(*dataset[:,:2].T)
+	plt.show()
+	quit()
+#dataset = dataset[np.where(dataset[:,-1]>-10)]
+
+if args.n_datapoints: dataset = dataset[:args.n_datapoints]
 if args.verbose: print('Loaded dataset(s) with {} entries'.format(len(dataset)))
 
 N_train = int(args.train_fraction*len(dataset))
@@ -360,12 +419,11 @@ else:
 
 	optimizer = optim.Adam(flow.parameters(), lr=args.learning_rate)
 
-	#history = flow.train_flow_forward_KL(N_epochs = 10000, train_data = train_data, validation_data = validation_data,
-	#	optimizer = optimizer, batch_size = 10000, validation_step = 20, verbose = True)
-	history = flow.train_flow_importance_sampling(N_epochs = args.n_epochs,
+	history = flow.train_flow('ll_mse', N_epochs = args.n_epochs,
 		train_data = train_data, train_weights = train_ll,
 		validation_data = validation_data, validation_weights = validation_ll,
-		optimizer = optimizer, batch_size = args.batch_size, validation_step = 100, verbose = args.verbose)
+		optimizer = optimizer, batch_size = args.batch_size, validation_step = 100,
+		boundaries = boundaries, verbose = args.verbose)
 
 	flow.save_weigths(args.flow_file)
 
@@ -383,6 +441,14 @@ if args.plot:
 	with torch.no_grad():
 		validation_ll_flow = flow.log_prob(torch.Tensor(validation_data[:10000])).numpy()
 		plot_samples = flow.sample(10000).numpy()
+
+	if not True: #DEBUG: see what happens to the tiling
+		from mbank import tiling_handler
+		t = tiling_handler('out_high_dimensional_bank_flow/tiling_high_dimensional_bank_flow.npy')
+		t.flow = flow
+		validation_ll_flow = 0.5*np.log(np.linalg.det(t.get_metric(validation_data[:10000], flow = True, kdtree = True)))
+		shift = 0
+
 
 	plt.figure()
 	plt.hist((validation_ll_flow - validation_ll[:len(validation_ll_flow)]+shift)/np.log(10), histtype = 'step', bins = 100, label = 'flow', density = True)
@@ -409,10 +475,13 @@ if args.plot:
 				label = r"$\log_{10}M_{true} \in $"+'[{}, {}]'.format(start, stop))
 	plt.xlabel(r"$\log_{10}(M_{pred}/M_{true})$")
 	plt.legend(loc = 'upper left')
+	plt.savefig(args.run_dir+'flow_accuracy_detailed.png')
 
 
 	plot_tiles_templates(plot_samples, args.variable_format,
-		tiling = None, dist_ellipse = None, save_folder = args.run_dir, show = False)
+		tiling = None, dist_ellipse = None, save_folder = args.run_dir, show = False, title = 'Flow samples')
+	plot_tiles_templates(validation_data[:10000], args.variable_format,
+		tiling = None, dist_ellipse = None, save_folder = None, show = False, title = 'Validation data')
 	if args.show: plt.show()
 		
 	

@@ -74,7 +74,11 @@ class cross_entropy_metric(validation_metric):
 		return self.flow._distribution.log_prob(data).mean()
 	
 ########################################################################
+
 	
+
+########################################################################	
+
 def plot_loss_functions(history, savefolder = None):
 	"""
 	Given a history dict, returned by :func:`mbank.flow.flowmodel.GW_Flow.train_flow_forward_KL`, it plots the loss function and the validation metric as a function of the epoch
@@ -141,7 +145,7 @@ def create_gif(folder, savefile, fps = 1):
 	return
 
 
-def plotting_callback(model, epoch, dirname, data_to_plot, variable_format, basefilename = None):
+def plotting_callback(model, epoch, train_loss, validation_loss, dirname, data_to_plot, variable_format, basefilename = None):
 	"An example callback for plotting the KDE pairplots."
 
 	if not os.path.isdir(dirname): os.mkdir(dirname)
@@ -155,7 +159,7 @@ def plotting_callback(model, epoch, dirname, data_to_plot, variable_format, base
 	
 	data_flow = model.sample(data_to_plot.shape[0]).detach().numpy()
 	compare_probability_distribution(data_flow, data_true = data_to_plot, variable_format = variable_format, title = 'epoch = {}'.format(epoch), savefile = savefile )
-	return
+	return False
 
 def compare_probability_distribution(data_flow, data_true = None, variable_format = None, title = None, hue_labels = ('flow', 'train'), savefile = None, show = False):
 	"""

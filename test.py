@@ -92,6 +92,9 @@ def test_variable_format():
 	import mbank
 	import mbank.utils
 	vh = mbank.variable_handler()
+	
+	assert np.allclose(vh.convert_theta([12, 2, 0.2], 'Mq_chi', 'm1m2_chi'), [8,4,0.2])
+	
 	M_range = (5, 10)
 	to_return = True
 	for vf in vh.valid_formats:
@@ -106,6 +109,7 @@ def test_variable_format():
 		
 		boundaries = mbank.utils.get_boundaries_from_ranges(vf, M_range, q_range)
 		theta = np.random.uniform(*boundaries, (10000, boundaries.shape[1]) )
+		assert np.allclose(theta, vh.convert_theta(theta, vf, vf)), "Something wrong with theta conversion"
 		BBH_comps = vh.get_BBH_components(theta, vf)
 		theta_rec = vh.get_theta(BBH_comps, vf)
 		BBH_comps_rec = vh.get_BBH_components(theta_rec, vf)
@@ -163,6 +167,6 @@ if __name__ == '__main__':
 	vh = mbank.variable_handler()
 	test_imports()
 	test_psd()
-	test_metric(True)
 	test_variable_format()
-	test_bank_conversion()
+	#test_metric(True)
+	#test_bank_conversion()

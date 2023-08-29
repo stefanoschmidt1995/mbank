@@ -475,7 +475,39 @@ class variable_handler(object):
 				raise ValueError("The given table is not recognized! Needed a  SimInspiral or a SnglInspiral table")
 			BBH_components.append([row.mass1, row.mass2, row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, 0,0, iota, phi])			
 		return np.array(BBH_components)
-			
+
+	def convert_theta(self, theta, in_format, out_format):
+		"""
+		Converts the input `theta` in the `in_format` to the chosen `out_format`.
+		
+		This is equivalent to:
+		
+		.. code-block:: python
+		
+			from mbank import variable_handler
+			vh = variable_handler()
+			vh.get_theta(vh.get_BBH_components(theta, in_format), out_format)
+		
+		Parameters
+		----------
+		
+		theta: :class:`~numpy:numpy.ndarray`
+			shape: (N,D) -
+			Parameters of the BBHs. The dimensionality depends on in_format
+
+		in_format: str
+			Variable format of the input theta
+
+		out_format: str
+			Variable format for the output theta
+		
+		Returns
+		-------
+			theta: :class:`~numpy:numpy.ndarray`
+				shape: (N,D)/(D,) -
+				Components of the BBH in the chosen out_format
+		"""
+		return self.get_theta(self.get_BBH_components(theta, in_format), out_format)
 
 	def get_theta(self, BBH_components, variable_format):
 		"""
@@ -1738,7 +1770,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		-------
 			history: dict
 				A dict with the training history.
-				See `mbank.flow.GW_flow.train_flow_forward_KL` for more information
+				See `mbank.flow.GW_flow.train_flow` for more information
 		"""
 		from torch import optim
 		
@@ -1757,7 +1789,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		
 		optimizer = optim.Adam(self.flow.parameters(), lr=0.001)
 		
-		history = self.flow.train_flow_forward_KL(N_epochs, train_data, validation_data, optimizer, batch_size = batch_size, validation_step = 30, callback = None, validation_metric = 'cross_entropy', verbose = verbose)
+		history = self.flow.train_flow('forward_KL', N_epochs, train_data, validation_data, optimizer, batch_size = batch_size, validation_step = 30, callback = None, verbose = verbose)
 	
 		return history
 

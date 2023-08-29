@@ -133,10 +133,22 @@ class GW_Flow(Flow):
 			raise ValueError(msg)
 		return
 	
-	#TODO: train_data and validation_data should be called train_samples and validation_samples!!
-	def train_flow_forward_KL(self, N_epochs, train_data, validation_data, optimizer, batch_size = None, validation_step = 10, callback = None, validation_metric = 'cross_entropy', verbose = False):
+	def forward_KL_loss(self, data, weights):
+		return -self.log_prob(inputs=data).mean()
+
+	def ll_mse_loss(self, data, weights):
+		return torch.square(self.log_prob(inputs=data) - weights).mean()
+
+	def train_flow(self, loss, N_epochs, train_data, validation_data, optimizer, train_weights = None, validation_weights = None, batch_size = None, validation_step = 10, callback = None, boundaries = None, verbose = False):
 		"""
-		Trains the flow with forward KL: see eq. (13) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
+		Trains the normalizing flow.
+		
+		It can use several loss functions:
+			- 'forward_KL': uses the forward KL entropy. In this case, train_data and validation_data must be *samples* and train_weights and validation_weights will be ignored. See eq. (13) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
+			- 'll_mse': uses the means squared error of the log likelihood between the flow and the target distribution. In this case, train_weights and validation_weights must be provided and have the meaning of log likelihood of each train_data and validation_data respectively. The data doesn't need to be drawn from any particular distribution
+		
+		The training supports callbacks and learning rate decay. Early stop can be implemented through callbacks.
+
 		
 		Parameters
 		----------
@@ -148,7 +160,7 @@ class GW_Flow(Flow):
 			
 			validation_data: :class:`~numpy:numpy.ndarray`
 				Validation data. They need to fit the dimensionality of the flow and be convertible into a torch tensor
-			
+
 			optimizer: torch.optim
 				An torch optimizer object. Typical usage is:
 				
@@ -158,152 +170,11 @@ class GW_Flow(Flow):
 					flow = GW_Flow(**args)
 					optimizer = optim.Adam(flow.parameters(), lr=0.001)
 
-			batch_size: int
-				Batch size: number of points of the training set to be used at each iteration
-			
-			validation_step: int
-				Number of training steps after which the validation metric is computed
-			
-			callback: callable
-				A callable, called at each validation step of the training.
-				It has to have call signature ``callback(GW_Flow, epoch)``: see :func:`mbank.flow.utils.plotting_callback` for an example.
-
-			validation_metric: str
-				Name for the validation metric to use: options are `cross_entropy` and `ks` (Kolmogorov-Smirnov). Default is cross entropy
-
-			verbose: bool
-				Whether to print a progress bar during the training
-
-		Returns
-		-------
-			history: dict
-				A dictionary keeping the historical values of training & validation loss function + KS metric.
-				It has the following entries:
-				
-				- `validation_step`: number of epochs between two consecutive evaluation of the validation metrics
-				- `train_loss`: values of the loss function at each iteration
-				- `validation_loss`: values of the validation loss function at each validation iteration
-				- `valmetric_value`: values of the validation metric at each validation iteration
-				- `valmetric_mean`: expected value of the validation metric for a perfectly trained flow
-				- `valmetric_std`: standard deviation of the validation metric for a perfectly trained flow
-				- `validation_metric`: name of the validation metric being used
-		"""
-		#TODO: implement early stopping!!
-		#FIXME: there's something weird with cross entropy: why do you exceed the threshold even though the loss function still goes down?
-
-		if isinstance(callback, tuple): callback, callback_step = callback
-		else: callback_step = 10
-		
-			#Are you sure you want float32?
-		train_data = torch.tensor(train_data, dtype=torch.float32)
-		validation_data = torch.tensor(validation_data, dtype=torch.float32)
-		
-		N_train = train_data.shape[0]
-		
-				#Dealing with the first transformation
-				#Setting low and high
-		if isinstance(self._transform._transforms[0], TanhTransform):
-			low, _ = torch.min(train_data, axis = 0)
-			high, _ = torch.max(train_data, axis = 0)
-				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.1 #TODO: tune this number: previously it was 0.2
-			diff = high-low
-			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
-			low = low - diff*epsilon_
-			high = high + diff*epsilon_
-
-			for param, val in zip(self._transform._transforms[0].parameters(), [low, high]):
-				param.data = val
-			#print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
-			#print("train low high ", [torch.min(train_data, axis = 0)[0],  torch.max(train_data, axis = 0)[0]])
-			#print("val low high ",[torch.min(validation_data, axis = 0)[0],
-			#			torch.max(validation_data, axis = 0)[0]])
-
-		else:
-			msg = "The first layer is not of the kind 'TanhTransform': although this will not break anything, it is *really* recommended to have it as a first layer. It is much needed to transform bounded data into unbounded ones."
-			warnings.warn(msg)
-
-		if validation_metric == 'ks': metric_computer = ks_metric(validation_data, self, 1000)
-		elif validation_metric == 'cross_entropy': metric_computer = cross_entropy_metric(validation_data, self, 1000)
-		else: raise ValueError("Wrong value '{}' given for the validation metric: please choose either 'ks' or 'cross_entropy'.".format(validation_metric))
-		
-		val_loss=[]
-		train_loss=[]
-		metric = [] #Kolmogorov–Smirnov metric (kind of)
-				
-		desc_str = 'Training loop - loss: {:5f}|{:5f}'
-		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf))
-		else: it = range(N_epochs)
-		
-		try:
-			for i in it:
-
-				if isinstance(batch_size, int):
-					ids_ = torch.randperm(N_train)[:batch_size]
-				else:
-					ids_ = range(N_train)
-
-				optimizer.zero_grad()
-				loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
-				loss.backward()
-				optimizer.step()
-				
-				train_loss.append(loss.item())
-
-				if not (i%validation_step):
-					with torch.no_grad():			
-						loss = -self.log_prob(inputs=validation_data).mean()
-					val_loss.append(loss)
-					
-					metric.append(metric_computer.get_validation_metric())
-					
-				if callable(callback) and not (i%callback_step): callback(self, i)
-				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
-		except KeyboardInterrupt:
-			if verbose: print("KeyboardInterrupt: quitting the training loop")
-
-		#TODO: change the name of log_pvalue to validation_metric (or something)
-		history = {'validation_step': validation_step,
-			'train_loss': np.array(train_loss),
-			'validation_loss': np.array(val_loss),
-			'valmetric_value': np.array(metric),
-			'valmetric_mean': metric_computer.metric_mean,
-			'valmetric_std': metric_computer.metric_std,
-			'validation_metric': validation_metric
-		}
-
-		return history
-
-	def train_flow_importance_sampling(self, N_epochs, train_data, train_weights, validation_data, validation_weights, optimizer, batch_size = None, validation_step = 10, callback = None, verbose = False):
-		"""
-		Trains the flow with forward KL plus importance sampling
-		We use importance sampling to have a MC estimation of Eq. (13) of `1912.02762 <https://arxiv.org/abs/1912.02762>`_.
-		
-		Parameters
-		----------
-			N_epochs: int
-				Number of training epochs
-			
-			train_data: :class:`~numpy:numpy.ndarray`
-				Training data. They need to fit the dimensionality of the flow and be convertible into a torch tensor
-			
 			train_weights: :class:`~numpy:numpy.ndarray`
 				Weights for each of the training data
 			
-			validation_data: :class:`~numpy:numpy.ndarray`
-				Validation data. They need to fit the dimensionality of the flow and be convertible into a torch tensor
-			
 			validation_weights: :class:`~numpy:numpy.ndarray`
 				Weights for each of the validation data
-			
-			optimizer: torch.optim
-				An torch optimizer object. Typical usage is:
-				
-				.. code-block:: python
-				
-					from torch import optim
-					flow = GW_Flow(**args)
-					optimizer = optim.Adam(flow.parameters(), lr=0.001)
 
 			batch_size: int
 				Batch size: number of points of the training set to be used at each iteration
@@ -314,6 +185,11 @@ class GW_Flow(Flow):
 			callback: callable
 				A callable, called at each validation step of the training.
 				It has to have call signature ``callback(GW_Flow, epoch)``: see :func:`mbank.flow.utils.plotting_callback` for an example.
+			
+			boundaries: :class:`~numpy:numpy.ndarray`
+				shape: (2,D) -
+				Rectangular boundaries for the dataset: the flow will only be able to sample points within this rectangle.
+				If not given, its value will be inferred from the data.
 
 			verbose: bool
 				Whether to print a progress bar during the training
@@ -333,7 +209,11 @@ class GW_Flow(Flow):
 				- `validation_metric`: name of the validation metric being used
 		"""
 		#TODO: implement early stopping!!
-		#FIXME: there's something weird with cross entropy: why do you exceed the threshold even though the loss function still goes down?
+		
+		loss_dict = {
+			'forward_KL':self.forward_KL_loss,
+			'll_mse': self.ll_mse_loss
+		}
 
 		if isinstance(callback, tuple): callback, callback_step = callback
 		else: callback_step = 10
@@ -341,18 +221,25 @@ class GW_Flow(Flow):
 			#Are you sure you want float32?
 		train_data = torch.tensor(train_data, dtype=torch.float32)
 		validation_data = torch.tensor(validation_data, dtype=torch.float32)
-		train_weights = torch.tensor(train_weights, dtype=torch.float32)
-		validation_weights = torch.tensor(validation_weights, dtype=torch.float32)
+		if train_weights is not None: train_weights = torch.tensor(train_weights, dtype=torch.float32)
+		if validation_weights is not None: validation_weights = torch.tensor(validation_weights, dtype=torch.float32)
 		
 		N_train = train_data.shape[0]
 		
 				#Dealing with the first transformation
 				#Setting low and high
 		if isinstance(self._transform._transforms[0], TanhTransform):
-			low, _ = torch.min(train_data, axis = 0)
-			high, _ = torch.max(train_data, axis = 0)
+			if boundaries is None:
+				low, _ = torch.min(train_data, axis = 0)
+				high, _ = torch.max(train_data, axis = 0)
+				#high[0] = high[0]*1.1 #DEBUG
+				#warnings.warn("Exploration for high limits of the flow :D")
+			else:
+				assert np.asarray(boundaries).shape == (2, self.D), "Wrong shape for the boundaries of the training flow"
+				low, high = torch.Tensor(boundaries[0]), torch.Tensor(boundaries[1])
 				#the interval between low and high is made larger by a factor epsilon
-			epsilon_ = 0.1 #TODO: tune this number: previously it was 0.2
+
+			epsilon_ = 1e-2 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_
@@ -386,27 +273,26 @@ class GW_Flow(Flow):
 					ids_ = torch.randperm(N_train)[:batch_size]
 				else:
 					ids_ = range(N_train)
-				#ids_ = torch.multinomial(torch.exp(train_weights), batch_size, replacement = False)
-				#print(ids_)
 
 				optimizer.zero_grad()
-				#loss = -(self.log_prob(inputs=train_data[ids_,:])*train_weights[ids_]).mean()
-				#loss = -self.log_prob(inputs=train_data[ids_,:]).mean()
-				#loss = torch.square(self.log_prob(inputs=train_data[ids_,:]) - train_weights[ids_] + self.constant).mean()
-				loss = torch.square(self.log_prob(inputs=train_data[ids_,:]) - train_weights[ids_]).mean()
-				loss.backward()
+				loss_ = loss_dict[loss](train_data[ids_,:], None if train_weights is None else train_weights[ids_])
+				#with torch.no_grad():
+				#	print('###', i)
+				#	print('\tnan in prediction: ',np.any(np.isnan(self.log_prob(inputs=train_data[ids_,:]).numpy())))
+				#	print('\tnan in dataset: ',np.any(np.isnan(train_weights[ids_].numpy())))
+				#	print('\tnan in loss: ',np.any(np.isnan(loss_.numpy())))
+				loss_.backward()
 				optimizer.step()
 				
-				train_loss.append(loss.item())
+				train_loss.append(loss_.item())
 
 				if not (i%validation_step):
 					with torch.no_grad():			
-						#loss = -(self.log_prob(inputs=validation_data)*validation_weights).mean()
-						#loss = torch.square(self.log_prob(inputs=validation_data) - validation_weights + self.constant).mean()
-						loss = torch.square(self.log_prob(inputs=validation_data) - validation_weights).mean()
-					val_loss.append(loss)
+						loss_ = loss_dict[loss](validation_data, validation_weights)
+					val_loss.append(loss_)
 					
-				if callable(callback) and not (i%callback_step): callback(self, i)
+				if callable(callback) and not (i%callback_step):
+					if callback(self, i, train_loss[-1], val_loss[-1]): break
 				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
 		except KeyboardInterrupt:
 			if verbose: print("KeyboardInterrupt: quitting the training loop")
@@ -441,7 +327,7 @@ class GW_Flow(Flow):
 		if isinstance(self._transform._transforms[0], TanhTransform):
 			low, _ = torch.min(train_samples, axis = 0)
 			high, _ = torch.max(train_samples, axis = 0)
-				#the interval between low and high is made larger by a factor epsilon
+					#the interval between low and high is made larger by a factor epsilon
 			epsilon_ = 0.01 #TODO: tune this number: previously it was 0.2
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
@@ -450,10 +336,10 @@ class GW_Flow(Flow):
 
 			for param, val in zip(self._transform._transforms[0].parameters(), [low, high]):
 				param.data = val
-			print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
-			print("train low high ", [torch.min(train_samples, axis = 0)[0],  torch.max(train_samples, axis = 0)[0]])
-			print("val low high ",[torch.min(validation_samples, axis = 0)[0],
-						torch.max(validation_samples, axis = 0)[0]])
+			#print("params: ",[p.data for p in self._transform._transforms[0].parameters()])
+			#print("train low high ", [torch.min(train_samples, axis = 0)[0],  torch.max(train_samples, axis = 0)[0]])
+			#print("val low high ",[torch.min(validation_samples, axis = 0)[0],
+			#			torch.max(validation_samples, axis = 0)[0]])
 
 		#else:
 		#	msg = "The first layer is not of the kind 'TanhTransform': although this will not break anything, it is *really* recommended to have it as a first layer. It is much needed to transform bounded data into unbounded ones."
@@ -657,6 +543,7 @@ class STD_GW_Flow(GW_Flow):
 		super().__init__(transform=transform_list, distribution=base_dist)
 		self.n_layers = n_layers
 		self.hidden_features = hidden_features
+		self.D = D
 		return
 	
 	@classmethod

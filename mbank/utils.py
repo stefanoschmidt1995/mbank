@@ -767,7 +767,7 @@ def plot_match_histogram(matches_metric = None, matches = None, mm = None, bank_
 
 	return 
 
-def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False):
+def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, title = None):
 	"""
 	Make some plots of the templates and the tiling.
 		
@@ -805,6 +805,9 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		
 		show: bool
 			Whether to show the plots
+		
+		title: str
+			A title for all the plots
 
 	"""
 	var_handler = variable_handler()
@@ -832,6 +835,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 	size_template = 20 if templates.shape[0] < 500 else 2
 	fsize = 4* templates.shape[1]-1
 	fig, axes = plt.subplots(templates.shape[1]-1, templates.shape[1]-1, figsize = (fsize, fsize))
+	if title: fig.suptitle(title)
 	#plt.suptitle('Templates of the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	if templates.shape[1]-1 == 1:
 		axes = np.array([[axes]])
@@ -902,6 +906,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
+	if title: fig.suptitle(title)
 	#plt.suptitle('Histograms for the bank: {} points'.format(templates.shape[0]), fontsize = fs+10)
 	hist_kwargs = {'bins': min(50, int(len(templates)/50 +1)), 'histtype':'step', 'color':'orange'}
 	for i, ax_ in enumerate(axes):

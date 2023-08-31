@@ -16,15 +16,15 @@ from torch.utils.data import DataLoader, random_split
 from torch.distributions.utils import broadcast_all
 from torch.autograd.functional import jacobian
 
-from glasflow.nflows.flows.base import Flow
-from glasflow.nflows.distributions.base import Distribution
-from glasflow.nflows.distributions.normal import StandardNormal
-from glasflow.nflows.utils import torchutils
-from glasflow.nflows.transforms.base import InputOutsideDomain
-from glasflow.nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
-from glasflow.nflows.transforms.linear import NaiveLinear
+from nflows.flows.base import Flow
+from nflows.distributions.base import Distribution
+from nflows.distributions.normal import StandardNormal
+from nflows.utils import torchutils
+from nflows.transforms.base import InputOutsideDomain
+from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
+from nflows.transforms.linear import NaiveLinear
 
-from glasflow.nflows.transforms.base import Transform, CompositeTransform
+from nflows.transforms.base import Transform, CompositeTransform
 
 from .utils import ks_metric, cross_entropy_metric
 
@@ -79,7 +79,7 @@ class GW_Flow(Flow):
 	It offers an interface to loading and saving the model as well as to the training.
 	"""
 	
-	def __init__(self, transform, distribution):
+	def __init__(self, transform, distribution, has_constant = True):
 		"""
 		Constructor.
 		
@@ -91,7 +91,19 @@ class GW_Flow(Flow):
 				The base distribution of the flow that generates the noise (in the `nflows` style)
 		"""
 		super().__init__(transform=transform, distribution=distribution)
-		#self.constant = torch.nn.Parameter(torch.randn([1], dtype=torch.float32), requires_grad = True)
+		if has_constant:
+			self.constant = torch.nn.Parameter(torch.tensor([0], dtype=torch.float32), requires_grad = True)
+		else: self.constant = 0.
+		
+		self.loss_dict = {
+			'forward_KL':self.forward_KL_loss,
+			'll_mse': self.ll_mse_loss,
+			'weighted_ll_mse': self.weighted_ll_mse_loss
+		}
+	
+	@property
+	def available_losses(self):
+		return list(self.loss_dict.keys())
 	
 	def save_weigths(self, filename):
 		"""
@@ -105,15 +117,15 @@ class GW_Flow(Flow):
 		Parameters
 		----------
 			filename: str
-				Name of the file to save the weights at
+				Name of the file to save the weights at (a file-like object)
 		"""
 		#TODO: this should be called save_weights
 		torch.save(self.state_dict(), filename)
 
 	
-	def load_weigths(self, filename):
+	def load_weights(self, filename):
 		"""
-		Load the weigths of the flow from file. The weights must match the architecture of the flow.
+		Load the weights of the flow from file. The weights must match the architecture of the flow.
 		It is equivalent to
 		
 		::
@@ -137,9 +149,14 @@ class GW_Flow(Flow):
 		return -self.log_prob(inputs=data).mean()
 
 	def ll_mse_loss(self, data, weights):
-		return torch.square(self.log_prob(inputs=data) - weights).mean()
+		return torch.square(self.log_prob(inputs=data) - weights + self.constant).mean()
 
-	def train_flow(self, loss, N_epochs, train_data, validation_data, optimizer, train_weights = None, validation_weights = None, batch_size = None, validation_step = 10, callback = None, boundaries = None, verbose = False):
+	def weighted_ll_mse_loss(self, data, weights):
+		w = torch.sqrt(weights - torch.min(weights))
+		#w /= torch.sum(w)
+		return torch.square((self.log_prob(inputs=data) - weights + self.constant)*w).mean()
+
+	def train_flow(self, loss, N_epochs, train_data, validation_data, optimizer, train_weights = None, validation_weights = None, batch_size = None, validation_step = 10, callback = None, lr_scheduler = None, boundaries = None, verbose = False):
 		"""
 		Trains the normalizing flow.
 		
@@ -186,6 +203,17 @@ class GW_Flow(Flow):
 				A callable, called at each validation step of the training.
 				It has to have call signature ``callback(GW_Flow, epoch)``: see :func:`mbank.flow.utils.plotting_callback` for an example.
 			
+			lr_scheduler: torch.optim.lr_scheduler
+				A torch learning rate scheduler. Typical example would be:
+				
+				.. code-block:: python
+				
+					from torch import optim
+					flow = GW_Flow(**args)
+					optimizer = optim.Adam(flow.parameters(), lr=0.001)
+					scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
+
+			
 			boundaries: :class:`~numpy:numpy.ndarray`
 				shape: (2,D) -
 				Rectangular boundaries for the dataset: the flow will only be able to sample points within this rectangle.
@@ -210,14 +238,6 @@ class GW_Flow(Flow):
 		"""
 		#TODO: implement early stopping!!
 		
-		loss_dict = {
-			'forward_KL':self.forward_KL_loss,
-			'll_mse': self.ll_mse_loss
-		}
-
-		if isinstance(callback, tuple): callback, callback_step = callback
-		else: callback_step = 10
-		
 			#Are you sure you want float32?
 		train_data = torch.tensor(train_data, dtype=torch.float32)
 		validation_data = torch.tensor(validation_data, dtype=torch.float32)
@@ -225,6 +245,8 @@ class GW_Flow(Flow):
 		if validation_weights is not None: validation_weights = torch.tensor(validation_weights, dtype=torch.float32)
 		
 		N_train = train_data.shape[0]
+		if not isinstance(batch_size, int):
+			batch_size = N_train//10
 		
 				#Dealing with the first transformation
 				#Setting low and high
@@ -260,11 +282,8 @@ class GW_Flow(Flow):
 		train_loss=[]
 		metric = [] #Kolmogorov–Smirnov metric (kind of)
 				
-		desc_str = 'Training loop - loss: {:5f}|{:5f}'
-		if verbose: it = tqdm(range(N_epochs), desc = desc_str.format(np.inf, np.inf))
-		else: it = range(N_epochs)
-		if not isinstance(batch_size, int):
-			batch_size = N_train//10
+		desc_str = 'Training loop - lr: {:2f} - loss: {:5f}|{:5f}'
+		it = tqdm(range(N_epochs), desc = desc_str.format(optimizer.state_dict()['param_groups'][0]['lr'], np.inf, np.inf), disable = not verbose)
 		
 		try:
 			for i in it:
@@ -275,7 +294,7 @@ class GW_Flow(Flow):
 					ids_ = range(N_train)
 
 				optimizer.zero_grad()
-				loss_ = loss_dict[loss](train_data[ids_,:], None if train_weights is None else train_weights[ids_])
+				loss_ = self.loss_dict[loss](train_data[ids_,:], None if train_weights is None else train_weights[ids_])
 				#with torch.no_grad():
 				#	print('###', i)
 				#	print('\tnan in prediction: ',np.any(np.isnan(self.log_prob(inputs=train_data[ids_,:]).numpy())))
@@ -288,12 +307,17 @@ class GW_Flow(Flow):
 
 				if not (i%validation_step):
 					with torch.no_grad():			
-						loss_ = loss_dict[loss](validation_data, validation_weights)
+						loss_ = self.loss_dict[loss](validation_data, validation_weights)
 					val_loss.append(loss_)
+
+					if lr_scheduler: lr_scheduler.step(loss_)
 					
-				if callable(callback) and not (i%callback_step):
-					if callback(self, i, train_loss[-1], val_loss[-1]): break
-				if not (i%int(N_epochs//1000+1)) and verbose: it.set_description(desc_str.format(train_loss[i], val_loss[-1]))
+					if callable(callback):
+						if callback(self, i, train_loss[-1], val_loss[-1]): break
+	
+				if not (i%int(N_epochs//1000+1)) and verbose:
+					lr_ = optimizer.state_dict()['param_groups'][0]['lr']
+					it.set_description(desc_str.format(lr_, train_loss[i], val_loss[-1]))
 		except KeyboardInterrupt:
 			if verbose: print("KeyboardInterrupt: quitting the training loop")
 
@@ -512,7 +536,7 @@ class STD_GW_Flow(GW_Flow):
 	An implementation of the standard flow: the flow is composed by one TanhTransform layer and a stack of layers made by NaiveLinear+MaskedAffineAutoregressiveTransform.
 	All the applications within mbank, use of this class.
 	"""
-	def __init__(self, D, n_layers, hidden_features = 2):
+	def __init__(self, D, n_layers, hidden_features = 2, has_constant = True):
 		"""
 		Initialization of the flow
 		
@@ -540,7 +564,7 @@ class STD_GW_Flow(GW_Flow):
 			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=hidden_features))
 		transform_list = CompositeTransform(transform_list)
 		
-		super().__init__(transform=transform_list, distribution=base_dist)
+		super().__init__(transform=transform_list, distribution=base_dist, has_constant = has_constant)
 		self.n_layers = n_layers
 		self.hidden_features = hidden_features
 		self.D = D
@@ -570,6 +594,7 @@ class STD_GW_Flow(GW_Flow):
 	
 		w = torch.load(weigth_file)
 		try:
+			has_constant = ('constant' in w)
 			D = w['_transform._transforms.0.low'].shape[0]
 			n_layers = re.findall(r'\d+', list(w.keys())[-1])
 			assert len(n_layers)==1
@@ -579,7 +604,7 @@ class STD_GW_Flow(GW_Flow):
 			hidden_features = w[hidden_features].shape[1]
 		except:
 			raise ValueError("The given weight file does not match the architecture of a `STD_GW_Flow`")
-		new_flow = cls(D, n_layers, hidden_features)
+		new_flow = cls(D, n_layers, hidden_features, has_constant)
 		new_flow.load_state_dict(w)
 		return new_flow
 		

@@ -23,7 +23,8 @@ import numpy as np
 
 from mbank import cbc_metric, cbc_bank
 from mbank.handlers import tile, variable_handler, tiling_handler
-from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.utils import int_tuple_type, load_PSD, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.parser import updates_args_from_ini
 
 from scipy.spatial import Rectangle
 import argparse

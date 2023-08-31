@@ -6,7 +6,7 @@ lalsuite>=6.70
 tqdm
 ray
 torch>=1.11.0
-glasflow
+nflows
 seaborn
 pandas
 imageio

@@ -31,8 +31,8 @@ from ligo.lw import table as lw_table
 from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict, initialize_inj_stat_dict
-from mbank.utils import updates_args_from_ini, read_xml
+from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict, initialize_inj_stat_dict, read_xml
+from mbank.parser import updates_args_from_ini
 
 from itertools import combinations, permutations
 

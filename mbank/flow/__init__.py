@@ -23,7 +23,7 @@ The module has two submodules:
 - :mod:`mbank.flow.flowmodel`: defines the normalizing flow model and the functions to train it
 - :mod:`mbank.flow.utils`: gathers some utitilies to plot and validate the performance of the flow
 
-The module relies on `pytorch <https://pytorch.org/>`_ for a general Machine Learning library and on `glasflow <https://github.com/uofgravity/glasflow>`_ for the flow implementation. The latter is a fork of `nflows <https://github.com/uofgravity/glasflow>`_, which is no longer maintened.
+The module relies on `pytorch <https://pytorch.org/>`_ for a general Machine Learning library and on `nflows <https://github.com/bayesiains/nflows>`_ for the flow implementation.
 
 The module :mod:`mbank.flow.utils` depends on `seaborn <https://seaborn.pydata.org/>`_, `pandas <https://pandas.pydata.org/>`_ and `imageio <https://imageio.readthedocs.io/en/stable/>`_. To keep the distribution light, they are not among the dependencies of the package. If you want to use the full functionalities, you will need to install them manually.
 

@@ -10,6 +10,7 @@ import warnings
 
 import scipy.stats
 import numpy as np
+import tempfile
 
 import os
 import re
@@ -75,6 +76,40 @@ class cross_entropy_metric(validation_metric):
 	
 ########################################################################
 
+class early_stopper:
+	def __init__(self, patience=10, min_delta=0, temp_file = None, return_best_model = True, verbose = False):
+		self.patience = patience
+		self.min_delta = np.abs(min_delta)
+		self.counter = 0
+		self.min_validation_loss = np.inf
+		if temp_file is None:
+			self.temp = '.temp_flow_{}.zip'.format(np.random.randint(0, np.iinfo(np.int32).max))
+		else:
+			self.temp = temp_file
+		self.verbose = verbose
+		self.return_best_model = return_best_model
+		if self.verbose: print("Storing checkpoint flow in: ", self.temp)
+
+	def __call__(self, flow, epoch, train_loss, validation_loss):
+		#print('##')
+		#print(validation_loss, self.min_validation_loss, self.counter)
+		#print(validation_loss, self.min_validation_loss + self.min_delta)
+		if torch.isnan(validation_loss):
+			validation_loss, self.counter = np.inf, self.patience
+			if self.verbose: print("nans appearing in the validation loss: terminating the training")
+			
+		if validation_loss > self.min_validation_loss - self.min_delta:
+			self.counter += 1
+			if self.counter >= self.patience:
+				if self.return_best_model: flow.load_weights(self.temp)
+				if self.verbose: print("Terminating training due to early stopping")
+				return True
+		else:
+			self.counter = 0
+		if validation_loss < self.min_validation_loss:
+			self.min_validation_loss = validation_loss
+			flow.save_weigths(self.temp)
+		return False
 	
 
 ########################################################################	
@@ -140,8 +175,8 @@ def create_gif(folder, savefile, fps = 1):
 	
 	with iio.get_writer(savefile, mode='I', fps=fps) as writer:
 		for id_ in ids_:
-		    image = iio.imread(folder+good_files[id_])
-		    writer.append_data(image)
+			image = iio.imread(folder+good_files[id_])
+			writer.append_data(image)
 	return
 
 

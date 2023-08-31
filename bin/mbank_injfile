@@ -27,7 +27,7 @@ import warnings
 
 from mbank import cbc_bank, variable_handler, tiling_handler
 from mbank.utils import  save_injs
-from mbank.utils import updates_args_from_ini
+from mbank.parser import updates_args_from_ini
 
 import argparse
 import os

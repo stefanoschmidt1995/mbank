@@ -37,7 +37,8 @@ from torch import optim
 
 from mbank import variable_handler, cbc_metric
 from mbank.utils import updates_args_from_ini, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
-from mbank.flow import STD_GW_Flow
+from mbank.flow import STD_GW_Flow, GW_Flow
+from mbank.flow.utils import early_stopper
 
 import emcee
 from tqdm import tqdm
@@ -159,6 +160,9 @@ parser.add_argument(
 	help="Method to use to compute the metric.")
 
 parser.add_argument(
+	"--loss-function", default = 'll_mse', type = str, choices = STD_GW_Flow(1, 1).available_losses,
+	help="Method to use to compute the metric.")
+parser.add_argument(
 	"--n-layers", default = 2, type = int,
 	help="Number of layers for the flow model to train (applicable only if --train-flow)")
 parser.add_argument(
@@ -176,6 +180,12 @@ parser.add_argument(
 parser.add_argument(
 	"--batch-size", default = 10000, type = int,
 	help="Batch size for the training")
+parser.add_argument(
+	"--min-delta", default = 0., type = float,
+	help="Parameter for early stopping. If the validation loss doesn't decrease of more than min-delta for --patience times, the training will stop")
+parser.add_argument(
+	"--patience", default = 5, type = int,
+	help="Patience for early stopping. If the validation loss does not decrease enough for patience times, the training will stop")
 
 parser.add_argument(
 	"--n-datapoints", default = None, type = int,
@@ -403,6 +413,8 @@ if args.n_datapoints: dataset = dataset[:args.n_datapoints]
 if args.verbose: print('Loaded dataset(s) with {} entries'.format(len(dataset)))
 
 N_train = int(args.train_fraction*len(dataset))
+#max_ll = np.max(dataset[:, -1])
+#dataset[:, -1] = dataset[:, -1] - max_ll + 1
 train_data, validation_data = dataset[:N_train,:D], dataset[N_train:,:D]
 train_ll, validation_ll = dataset[:N_train, -1], dataset[N_train:, -1]
 
@@ -415,23 +427,29 @@ if args.verbose: print('Train {} | Validation {}'.format(len(train_data), len(va
 if args.load_flow:
 	flow = STD_GW_Flow.load_flow(args.flow_file)
 else:
-	flow = STD_GW_Flow(D, n_layers = args.n_layers, hidden_features = args.hidden_features)
+	flow = STD_GW_Flow(D, n_layers = args.n_layers, hidden_features = args.hidden_features, has_constant = True)
 
+	early_stopper_callback = early_stopper(patience = args.patience, min_delta = args.min_delta, temp_file = args.flow_file+'.checkpoint', verbose = args.verbose)
 	optimizer = optim.Adam(flow.parameters(), lr=args.learning_rate)
-
-	history = flow.train_flow('ll_mse', N_epochs = args.n_epochs,
+	scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', threshold = .02, factor = 0.5, patience = 4)
+	
+	history = flow.train_flow(args.loss_function, N_epochs = args.n_epochs,
 		train_data = train_data, train_weights = train_ll,
 		validation_data = validation_data, validation_weights = validation_ll,
 		optimizer = optimizer, batch_size = args.batch_size, validation_step = 100,
+		callback = early_stopper_callback, lr_scheduler = scheduler,
 		boundaries = boundaries, verbose = args.verbose)
 
+	if os.path.isfile(args.flow_file+'.checkpoint'): os.remove(args.flow_file+'.checkpoint')
 	flow.save_weigths(args.flow_file)
 
-
-with torch.no_grad():
-	train_ll_flow = flow.log_prob(torch.Tensor(train_data[:10000])).numpy()
-shift = np.nanmedian(train_ll[:len(train_ll_flow)]-train_ll_flow)
-if args.verbose: print('Volume of the space: ', np.exp(-shift))
+if flow.constant:
+	shift = flow.constant.detach().numpy()
+else:
+	with torch.no_grad():
+		train_ll_flow = flow.log_prob(torch.Tensor(train_data[:10000])).numpy()
+	shift = np.nanmedian(train_ll[:len(train_ll_flow)]-train_ll_flow)
+if args.verbose: print('Log volume of the space (a.k.a. constant shift): ', shift)
 
 	######
 	#	Plotting
@@ -485,6 +503,16 @@ if args.plot:
 	if args.show: plt.show()
 		
 	
+#### To access all the weights of the flow
+#
+#for transform in flow._transform._transforms:
+#	for m in transform.modules():
+#		for mm in m.parameters():
+#			assert isinstance(mm, torch.nn.Parameter)
+
+# For each mm, you can set requires_grad to False to disable training...
+
+#[[isinstance(mm, torch.nn.Parameter) for mm in m.parameters()] for m in flow._transform._transforms[2].modules()]
 
 
 

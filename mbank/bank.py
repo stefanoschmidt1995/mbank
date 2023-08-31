@@ -21,8 +21,8 @@ import ray
 
 import scipy.spatial
 
-from .utils import place_stochastically_in_tile, place_stochastically, place_iterative, place_random, place_pruning
-from .utils import DefaultSnglInspiralTable, avg_dist, read_xml, partition_tiling, split_boundaries, plawspace, create_mesh, get_boundary_box
+from .placement import place_stochastically_in_tile, place_stochastically, place_iterative, place_random, place_pruning, create_mesh
+from .utils import DefaultSnglInspiralTable, avg_dist, read_xml, partition_tiling, split_boundaries, plawspace, get_boundary_box
 
 from .handlers import variable_handler, tiling_handler
 from .metric import cbc_metric
@@ -619,13 +619,6 @@ class cbc_bank():
 			#print("The bank already fits into the boundaries")
 
 		return
-
-###########################
-###########################
-# OLD GARBAGE
-###########################
-###########################
-
 
 	def generate_bank_mcmc(self, metric_obj, N_templates, boundaries, n_walkers = 100, use_ray = False, thin_factor = None, load_chain = None, save_chain = None, verbose = True):
 		"""

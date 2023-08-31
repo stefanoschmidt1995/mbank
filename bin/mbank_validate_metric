@@ -34,7 +34,8 @@ from tqdm import tqdm
 
 from mbank.metric import cbc_metric
 from mbank.handlers import tiling_handler, tile, variable_handler
-from mbank.utils import plot_tiles_templates, parse_from_file, updates_args_from_ini, load_PSD, get_boundaries_from_ranges
+from mbank.utils import plot_tiles_templates, load_PSD, get_boundaries_from_ranges
+from mbank.parser import updates_args_from_ini
 
 import argparse
 import os

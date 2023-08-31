@@ -9,7 +9,7 @@ except ImportError:
 		raise ImportErorr("sphinx modules not found: impossibile to build the documents.\nTry: pip install -r docs/requirements.txt")
 
 required_packages =['scipy>=1.9.3', 'numpy', 'matplotlib',
-	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow',
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'nflows',
 	'seaborn', 'imageio', 'pandas'] #you will want to remove the last 3 dependencies
 #required_packages =[]
 
@@ -34,7 +34,7 @@ setuptools.setup(
 	scripts = ["bin/mbank_run", "bin/mbank_injfile", "bin/mbank_mcmc", 
 		"bin/mbank_place_templates", "bin/mbank_merge",
 		"bin/mbank_validate_metric", "bin/mbank_print_metric",
-		"bin/mbank_injections", "bin/mbank_injections_workflow"],
+		"bin/mbank_injections", "bin/mbank_injections_workflow", "bin/mbank_train_flow"],
 	python_requires='>=3.7',
 	install_requires=required_packages,
 	command_options={

@@ -30,7 +30,8 @@ import warnings
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.utils import updates_args_from_ini, int_tuple_type, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.parser import updates_args_from_ini, int_tuple_type
+from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
 from mbank.flow.utils import compare_probability_distribution
 
 import argparse
@@ -89,7 +90,7 @@ parser.add_argument(
 	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 	help="Which placing method to use for each tile")
 parser.add_argument(
-	"--n-livepoints", default = 10000, type = float,
+	"--n-livepoints", default = 10000, type = int,
 	help="Parameter to control the number of livepoints to use in the `random` and `pruning` placing method. For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction. For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.")
 parser.add_argument(
 	"--covering-fraction", default = 0.01, type = float,

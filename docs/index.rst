@@ -27,7 +27,9 @@ Welcome to ``mbank``'s documentation!
    package_reference/metric.rst
    package_reference/handlers.rst
    package_reference/bank.rst
+   package_reference/placement.rst
    package_reference/utils.rst
+   package_reference/parser.rst
    package_reference/mbankflow.rst
 
 .. toctree::

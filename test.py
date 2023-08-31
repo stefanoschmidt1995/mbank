@@ -168,5 +168,5 @@ if __name__ == '__main__':
 	test_imports()
 	test_psd()
 	test_variable_format()
-	#test_metric(True)
-	#test_bank_conversion()
+	test_metric(True)
+	test_bank_conversion()

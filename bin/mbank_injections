@@ -32,7 +32,7 @@ from ligo.lw import lsctables
 
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
 from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict, initialize_inj_stat_dict, read_xml
-from mbank.parser import updates_args_from_ini
+import mbank.parser
 
 from itertools import combinations, permutations
 
@@ -46,18 +46,10 @@ class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 ##################################
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument(
-	"--n-injs", type = int, default = None,
-	help="Number of injections. If inj-file is specified, they will be read from it; otherwise they will be randomly drawn from the tiling and saved to file. If None, all the injections will be read from inj-file and it will throw an error if such file is not provided.")
-parser.add_argument(
-	"--fixed-sky-loc-polarization", type = float, nargs = 3, default = None,
-	help="Sky localization and polarization angles for the signal injections. They must be a tuple of float in the format (longitude,latitude,polarization). If None, the angles will be loaded from the injection file, if given, or uniformly drawn from the sky otherwise.")
-parser.add_argument(
-	"--inj-file", type = str, default = None,
-	help="An xml injection file to load the injections from. If not provided, the injections will be performed at random in each tile (injs-per-tile). If no path to the file is provided, it is understood it is located in run-dir.")
-parser.add_argument(
-	"--stat-dict", type = str, default = None,
-	help="The name of the file in which the results of the injection study will be saved (either json or pkl). If None, a suitable default will be provided.")
+mbank.parser.add_general_options(parser)
+mbank.parser.add_metric_options(parser)
+mbank.parser.add_injections_options(parser)
+
 parser.add_argument(
 	"--bank-file", required = False, type = str,
 	help="Path to the file of a bank. If no path to the file is provided, it is understood it is located in run-dir.")
@@ -67,69 +59,15 @@ parser.add_argument(
 parser.add_argument(
 	"--flow-file", required = False, type = str,
 	help="An optional file with weigths for a normalizing flow model. If provided it will be used to interpolate the metric when computing the metric injection match.")
-	#If not given, it is understood that a file 'tiling_${RUN_NAME}.npy' is located in run dir
-parser.add_argument(
-	"--mchirp-window", type = float, default = 0.1,
-	help="The window in relative chirp mass inside which the templates are considered for full match (if --full-match is specified)")
-parser.add_argument(
-	"--full-match", action='store_true', default = False,
-	help="Whether to perform the full standard match computation. If False, a metric approximation to the match will be used")
-parser.add_argument(
-	"--full-symphony-match", action='store_true', default = False,
-	help="Whether to perform the full symphony match computation. If False, a metric approximation to the match will be used")
-parser.add_argument(
-	"--seed", type = int, default = None,
-	help="Random seed for extracting the random injections (if it applies)")
-parser.add_argument(
-	"--use-ray", action='store_true', default = False,
-	help="Whether to use ray package to parallelize the match computation")
-
-###########
-parser.add_argument(
-	"--variable-format", required = False,
-	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
-parser.add_argument(
-	"--psd",  required = False,
-	help="The input file for the PSD: it can be either a txt either a ligolw xml file. Only applies if full-match is True")
-parser.add_argument(
-	"--asd",  default = False, action='store_true',
-	help="Whether the input file has an ASD (sqrt of the PSD)")
-parser.add_argument(
-	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
-	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml PSD file")
-parser.add_argument(
-	"--plot", action='store_true',
-	help="Whether to make some plots. They will be store in run-dir")
-parser.add_argument(
-	"--show", action='store_true',
-	help="Whether to show the plots. (It authomatically sets the --plot option)")
-parser.add_argument(
-	"--verbose", action='store_true',
-	help="Whether to print the output.")
-parser.add_argument(
-	"--run-dir", default = None,
-	help="Output directory in which the output will be saved. If None, it will be the same folder of --bank-file. Unless explicitly stated, every input file will be understood to be in this run-dir")
-parser.add_argument(
-	"--f-min",  default = 10., type=float,
-	help="Minium frequency for the scalar product")
-parser.add_argument(
-	"--f-max",  default = 1024., type=float,
-	help="Maximum frequency for the scalar product")
-parser.add_argument(
-	"--df",  default = None, type=float,
-	help="Spacing of the frequency grid where the PSD is evaluated")
 parser.add_argument(
 	"--mm", type = float,
 	help="Minimum match for the bank - for plotting purposes")
-parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
-	help="LAL approximant for the bank generation")
 
 args, filenames = parser.parse_known_args()
 
 	#updating from the ini file(s), if it's the case
 for f in filenames:
-	args = updates_args_from_ini(f, args, parser)
+	args = mbank.parser.updates_args_from_ini(f, args, parser)
 
 ##################################################
 	######

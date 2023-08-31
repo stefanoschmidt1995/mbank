@@ -8,6 +8,7 @@ A lot of placement methods, both for the tiling and the normalizing flow. Most o
 import numpy as np
 import scipy
 from scipy.spatial import ConvexHull, Rectangle
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from .utils import dummy_iterator

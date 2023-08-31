@@ -36,7 +36,10 @@ import torch
 from torch import optim
 
 from mbank import variable_handler, cbc_metric
-from mbank.utils import updates_args_from_ini, load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.parser import get_boundary_box_from_args
+import mbank.parser
+
 from mbank.flow import STD_GW_Flow, GW_Flow
 from mbank.flow.utils import early_stopper
 
@@ -47,7 +50,7 @@ import os
 from lal import MTSUN_SI
 
 ############################################################################à
-def is_inside(theta, boundaries, variable_format):
+def is_inside(theta, boundaries, variable_format, args):
 	theta = np.atleast_2d(theta)
 	if boundaries is not None:
 		ids_inside = np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1)) #(N,)
@@ -117,76 +120,13 @@ def get_random_masses(boundaries):
 
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument(
-	"--variable-format", required = False,
-	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
-parser.add_argument(
-	"--psd",  required = False,
-	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
-parser.add_argument(
-	"--asd",  default = False, action='store_true',
-	help="Whether the input file has an ASD (sqrt of the PSD)")
-parser.add_argument(
-	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
-	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
-parser.add_argument(
-	"--f-min",  default = 10., type=float,
-	help="Minium frequency for the scalar product")
-parser.add_argument(
-	"--f-max",  default = 1024., type=float,
-	help="Maximum frequency for the scalar product")
-parser.add_argument(
-	"--df",  default = None, type=float,
-	help="Spacing of the frequency grid where the PSD is evaluated")
-parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
-	help="LAL approximant for the bank generation")
 
-parser.add_argument(
-	"--plot", action='store_true',
-	help="Whether to make some plots. They will be store in run-dir")
-parser.add_argument(
-	"--show", action='store_true',
-	help="Whether to show the plots.")
-parser.add_argument(
-	"--run-dir", default = None,
-	help="Output directory in which the bank will be saved. If default is used, the run name will be appended.")
-parser.add_argument(
-	"--run-name", default = 'flow_training',
-	help="Name for the bank and tiling output file")
+mbank.parser.add_general_options(parser)
+mbank.parser.add_metric_options(parser)
+mbank.parser.add_range_options(parser)
+mbank.parser.add_flow_options(parser)
 
-parser.add_argument(
-	"--metric-type", default = 'symphony', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symphony'],
-	help="Method to use to compute the metric.")
-
-parser.add_argument(
-	"--loss-function", default = 'll_mse', type = str, choices = STD_GW_Flow(1, 1).available_losses,
-	help="Method to use to compute the metric.")
-parser.add_argument(
-	"--n-layers", default = 2, type = int,
-	help="Number of layers for the flow model to train (applicable only if --train-flow)")
-parser.add_argument(
-	"--hidden-features", default = 4, type = int,
-	help="Number of hidden features for the masked autoregressive flow to train. (applicable only if --train-flow)")
-parser.add_argument(
-	"--n-epochs", default = 10000, type = int,
-	help="Number of training epochs for the flow (applicable only if --train-flow)")
-parser.add_argument(
-	"--learning-rate", default = 1e-3, type = float,
-	help="Learning rate for the flow")
-parser.add_argument(
-	"--train-fraction", default = 0.85, type = float,
-	help="Fraction of the dataset to use for training")
-parser.add_argument(
-	"--batch-size", default = 10000, type = int,
-	help="Batch size for the training")
-parser.add_argument(
-	"--min-delta", default = 0., type = float,
-	help="Parameter for early stopping. If the validation loss doesn't decrease of more than min-delta for --patience times, the training will stop")
-parser.add_argument(
-	"--patience", default = 5, type = int,
-	help="Patience for early stopping. If the validation loss does not decrease enough for patience times, the training will stop")
-
+	#Options specific to this program
 parser.add_argument(
 	"--n-datapoints", default = None, type = int,
 	help="Number of datapoints to be stored or loaded in the dataset")
@@ -196,72 +136,16 @@ parser.add_argument(
 parser.add_argument(
 	"--datapoints-file", default = None, type = str,
 	help="Csv with a list of points to build the dataset: for each of them the likelihood will be computed and stored in the dataset")
-parser.add_argument(
-	"--flow-file", default = 'flow.zip', type = str,
-	help="File where the normalizing flow is saved (in zip format).")
-parser.add_argument(
-	"--load-flow", default = False, action = 'store_true',
-	help="Whether to load the flow from file (useful for plotting purposes)")	
-
-	#ranges for physical parameters
-parser.add_argument(
-	"--m1-range", default = None, type=float, nargs = 2,
-	help="Range values for the mass 1 (in solar masses)")
-parser.add_argument(
-	"--m2-range", default = None, type=float, nargs = 2,
-	help="Range values for the mass 2 (in solar masses)")
-parser.add_argument(
-	"--mtot-range", default = None, type=float, nargs = 2,
-	help="Range values for the total masses (in solar masses).")
-parser.add_argument(
-	"--q-range", default = None, type=float, nargs = 2,
-	help="Range values for the mass ratio.")
-parser.add_argument(
-	"--mc-range", default = None, type=float, nargs = 2,
-	help="Range values for the total masses (in solar masses).")
-parser.add_argument(
-	"--eta-range", default = None, type=float, nargs = 2,
-	help="Range values for the mass ratio.")
-parser.add_argument(
-	"--s1-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for magnitude of spin 1 (if applicable)")
-parser.add_argument(
-	"--s2-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for magnitude of spin 1 (if applicable)")
-parser.add_argument(
-	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for effective spin parameter (if applicable)")
-parser.add_argument(
-	"--theta-range", default = [-np.pi, np.pi], type=float, nargs = 2,
-	help="Range values for theta angles of spins (if applicable)")
-parser.add_argument(
-	"--phi-range", default = [-np.pi/2, np.pi/2], type=float, nargs = 2,
-	help="Range values for phi angles of spins (if applicable)")
-parser.add_argument(
-	"--e-range", default = [0., 0.5], type=float, nargs = 2,
-	help="Range values for the eccentricity (if applicable)")
-parser.add_argument(
-	"--meanano-range", default = [0., 1], type=float, nargs = 2,
-	help="Range values for the mean anomaly (if applicable). TODO: find a nice default...")
-parser.add_argument(
-	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
-	help="Range values for iota (if applicable)")
-parser.add_argument(
-	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
-	help="Range values for reference phase (if applicable)")
 
 parser.add_argument(
 	"--ignore-boundaries", default = False, action = 'store_true',
 	help="Whether to ignore the ranges given by command line. If set, the boudaries will be extracted from the dataset")
-parser.add_argument(
-	"--verbose", default = False, action = 'store_true',
-	help="Whether to be verbose")
 
 args, filenames = parser.parse_known_args()
 
 	#updating from the ini file(s), if it's the case
 for f in filenames:
-	args = updates_args_from_ini(f, args, parser)
+	args = mbank.parser.updates_args_from_ini(f, args, parser)
 
 ####################################################################################################
 	######
@@ -287,48 +171,14 @@ for i, f in enumerate(args.dataset):
 
 generate_dataset = not np.any([os.path.isfile(f) for f in args.dataset])
 
-boundaries = None
-if not args.ignore_boundaries:
-	format_info = var_handler.format_info[args.variable_format]
-	if format_info['mass_format'] == 'm1m2':
-		assert args.m1_range and args.m2_range, "If mass format is m1m2, --m1-range and --m2-range must be given"
-		var1_min, var1_max = args.m1_range
-		var2_min, var2_max = args.m2_range
-	elif format_info['mass_format'] in ['Mq', 'logMq']:
-		assert args.mtot_range and args.q_range, "If mass format is Mq, --mtot-range and --q-range must be given"
-		var1_min, var1_max = args.mtot_range
-		var2_min, var2_max = args.q_range
-	elif format_info['mass_format'] == 'mceta':
-		assert args.mc_range and args.eta_range, "If mass format is mceta, --mc-range and --eta-range must be given"
-		var1_min, var1_max = args.mc_range
-		var2_min, var2_max = args.eta_range
-	sample_format = 'mceta_nonspinning'
-	print('sample_format', sample_format)
+plot_folder = args.run_dir if args.plot else None
+if args.verbose: print("## Running: ", args.run_name)
 
-		#Ranges for quantities other than masses
-	s1_min, s1_max = args.s1_range
-	s2_min, s2_max = args.s2_range
-	chi_min, chi_max = args.chi_range
-	theta_min, theta_max = args.theta_range
-	e_min, e_max = args.e_range
-	meanano_min, meanano_max = args.meanano_range
-	phi_min, phi_max = args.phi_range
-	iota_min, iota_max = args.iota_range
-	ref_phase_min, ref_phase_max = args.ref_phase_range
-
-	plot_folder = args.run_dir if args.plot else None
-
-	if args.verbose: print("## Running: ", args.run_name)
-
-	boundaries = get_boundaries_from_ranges(args.variable_format,
-				(var1_min, var1_max), (var2_min, var2_max),
-				chi_range = (chi_min, chi_max), s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max),
-				theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
-				iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
-				e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
+boundaries = None if args.ignore_boundaries else get_boundary_box_from_args(args)
 
 if generate_dataset:
 
+	sample_format = 'mceta_nonspinning'
 	assert args.n_datapoints, "--n-datapoints must be set if the dataset is generated"
 
 	######

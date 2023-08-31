@@ -30,144 +30,30 @@ import warnings
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.parser import updates_args_from_ini, int_tuple_type
+from mbank.parser import get_boundary_box_from_args
 from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
 from mbank.flow.utils import compare_probability_distribution
+import mbank.parser
 
 import argparse
 import os
 
-def int_tuple_type(strings):
-	strings = strings.replace("(", "").replace(")", "")
-	mapped_int = map(int, strings.split(","))
-	return tuple(mapped_int)
-
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument(
-	"--variable-format", required = False,
-	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
-parser.add_argument(
-	"--mm", required = False, type = float, default = 0.97,
-	help="Minimum match for the bank (a.k.a. average distance between templates)")
-parser.add_argument(
-	"--psd",  required = False,
-	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
-parser.add_argument(
-	"--asd",  default = False, action='store_true',
-	help="Whether the input file has an ASD (sqrt of the PSD)")
-parser.add_argument(
-	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
-	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
-parser.add_argument(
-	"--plot", action='store_true',
-	help="Whether to make some plots. They will be store in run-dir")
-parser.add_argument(
-	"--show", action='store_true',
-	help="Whether to show the plots.")
-parser.add_argument(
-	"--run-dir", default = './out_$(run_name)',
-	help="Output directory in which the bank will be saved. If default is used, the bank name will be appended.")
-parser.add_argument(
-	"--run-name", default = 'cbc_mbank',
-	help="Name for the bank and tiling output file")
-parser.add_argument(
-	"--grid-size", default = None, type=int_tuple_type,
-	help="Number of grid points for each dimension. The number of grid must match the number extra dimensions. If None, the grid size will be a set of ones")
-parser.add_argument(
-	"--f-min",  default = 10., type=float,
-	help="Minium frequency for the scalar product")
-parser.add_argument(
-	"--f-max",  default = 1024., type=float,
-	help="Maximum frequency for the scalar product")
-parser.add_argument(
-	"--df",  default = None, type=float,
-	help="Spacing of the frequency grid where the PSD is evaluated")
-parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
-	help="LAL approximant for the bank generation")
-parser.add_argument(
-	"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
-	help="Which placing method to use for each tile")
-parser.add_argument(
-	"--n-livepoints", default = 10000, type = int,
-	help="Parameter to control the number of livepoints to use in the `random` and `pruning` placing method. For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction. For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.")
-parser.add_argument(
-	"--covering-fraction", default = 0.01, type = float,
-	help="Parameter to control the maximum fraction of livepoints alive before terminating the bank generation with the `random` and `pruning` placing method. The smaller the threshold, the higher the nuber of templates in the final bank.")
-parser.add_argument(
-	"--empty-iterations", default = 100, type = float,
-	help="Number of consecutive rejected proposal after which the `stochastic` placing method stops.")
-parser.add_argument(
-	"--tile-tolerance", default = 0.1, type = float,
-	help="Maximum tolerated variation of the relative difference of the metric determinant between parent and child in the iterative splitting procedure")
-parser.add_argument(
-	"--max-depth", default = 6, type = int,
-	help="Maximum number of iterative splitting before terminating.")
-parser.add_argument(
-	"--metric-type", default = 'hessian', type = str, choices = ['hessian', 'parabolic_fit_hessian', 'symphony'],
-	help="Method to use to compute the metric.")
+
+mbank.parser.add_general_options(parser)
+mbank.parser.add_metric_options(parser)
+mbank.parser.add_range_options(parser)
+mbank.parser.add_tiling_generation_options(parser)
+mbank.parser.add_template_placement_options(parser)
+mbank.parser.add_flow_options(parser)
+
 parser.add_argument(
 	"--use-ray", action='store_true', default = False,
-	help="Whether to use ray package to parallelize the metric computation")
-
+	help="Whether to use ray package to parallelize the code execution")
 parser.add_argument(
 	"--train-flow", action='store_true', default = False,
 	help="Whether to train a normalizing flow model for the tiling. It will be used for metric interpolation")
-parser.add_argument(
-	"--n-layers", default = 2, type = int,
-	help="Number of layers for the flow model to train (applicable only if --train-flow)")
-parser.add_argument(
-	"--hidden-features", default = 4, type = int,
-	help="Number of hidden features for the masked autoregressive flow to train. (applicable only if --train-flow)")
-parser.add_argument(
-	"--n-epochs", default = 1000, type = int,
-	help="Number of training epochs for the flow (applicable only if --train-flow)")
-	
-	#ranges for physical parameters
-parser.add_argument(
-	"--m-range", default = [10., 100], type=float, nargs = 2,
-	help="Range values for the masses (in solar masses)")
-parser.add_argument(
-	"--mtot-range", default = [10., 100], type=float, nargs = 2,
-	help="Range values for the total masses (in solar masses).")
-parser.add_argument(
-	"--q-range", default = [1., 10.], type=float, nargs = 2,
-	help="Range values for the mass ratio.")
-parser.add_argument(
-	"--mc-range", default = [10., 100], type=float, nargs = 2,
-	help="Range values for the total masses (in solar masses).")
-parser.add_argument(
-	"--eta-range", default = [.18, .25], type=float, nargs = 2,
-	help="Range values for the mass ratio.")
-parser.add_argument(
-	"--s1-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for magnitude of spin 1 (if applicable)")
-parser.add_argument(
-	"--s2-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for magnitude of spin 1 (if applicable)")
-parser.add_argument(
-	"--chi-range", default = [-0.99,0.99], type=float, nargs = 2,
-	help="Range values for effective spin parameter (if applicable)")
-parser.add_argument(
-	"--theta-range", default = [-np.pi, np.pi], type=float, nargs = 2,
-	help="Range values for theta angles of spins (if applicable)")
-parser.add_argument(
-	"--phi-range", default = [-np.pi/2, np.pi/2], type=float, nargs = 2,
-	help="Range values for phi angles of spins (if applicable)")
-parser.add_argument(
-	"--e-range", default = [0., 0.5], type=float, nargs = 2,
-	help="Range values for the eccentricity (if applicable)")
-parser.add_argument(
-	"--meanano-range", default = [0., 1], type=float, nargs = 2,
-	help="Range values for the mean anomaly (if applicable). TODO: find a nice default...")
-parser.add_argument(
-	"--iota-range", default = [0., np.pi], type=float, nargs = 2,
-	help="Range values for iota (if applicable)")
-parser.add_argument(
-	"--ref-phase-range", default = [-np.pi, np.pi], type=float, nargs = 2,
-	help="Range values for reference phase (if applicable)")
-
 parser.add_argument(
 	"--make-sub",  default = False, action='store_true',
 	help="If set, it will make a condor submit file that the user can use to launch the job through condor.")
@@ -190,7 +76,7 @@ queue
 
 	#updating from the ini file(s), if it's the case
 for f in filenames:
-	args = updates_args_from_ini(f, args, parser)
+	args = mbank.parser.updates_args_from_ini(f, args, parser)
 
 ####################################################################################################
 	######
@@ -233,21 +119,6 @@ if args.make_sub:
 	print(sub_file_str)
 	quit()
 
-m_min, m_max = args.m_range
-mtot_min, mtot_max = args.mtot_range
-q_min, q_max = args.q_range
-mc_min, mc_max = args.mc_range
-eta_min, eta_max = args.eta_range
-s1_min, s1_max = args.s1_range
-s2_min, s2_max = args.s2_range
-chi_min, chi_max = args.chi_range
-theta_min, theta_max = args.theta_range
-e_min, e_max = args.e_range
-meanano_min, meanano_max = args.meanano_range
-phi_min, phi_max = args.phi_range
-iota_min, iota_max = args.iota_range
-ref_phase_min, ref_phase_max = args.ref_phase_range
-
 plot_folder = None
 if args.plot: plot_folder = args.run_dir
 
@@ -256,23 +127,7 @@ format_info = var_handler.format_info[args.variable_format]
 	######
 	#	Setting boundaries: shape (2,D)
 	######
-	#setting mass boundaries
-if format_info['mass_format'] == 'm1m2':
-	var1_min, var1_max = m_min, m_max
-	var2_min, var2_max = m_min, m_max
-elif format_info['mass_format'] in ['Mq', 'logMq']:
-	var1_min, var1_max = mtot_min, mtot_max
-	var2_min, var2_max = q_min, q_max
-elif format_info['mass_format'] == 'mceta':
-	var1_min, var1_max = mc_min, mc_max
-	var2_min, var2_max = eta_min, eta_max
-
-	#setting spin boundaries
-boundaries = get_boundaries_from_ranges(args.variable_format,
-	(var1_min, var1_max), (var2_min, var2_max), chi_range = (chi_min, chi_max),
-	s1_range = (s1_min, s1_max), s2_range = (s2_min, s2_max), theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
-	iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
-	e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
+boundaries = get_boundary_box_from_args(args)
 
 	######
 	#	Loading PSD and initializing metric

@@ -35,7 +35,7 @@ from tqdm import tqdm
 from mbank.metric import cbc_metric
 from mbank.handlers import tiling_handler, tile, variable_handler
 from mbank.utils import plot_tiles_templates, load_PSD, get_boundaries_from_ranges
-from mbank.parser import updates_args_from_ini
+import mbank.parser
 
 import argparse
 import os
@@ -100,9 +100,10 @@ def plot_parabolae(center, metric_hessian, parabolae):
 
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument(
-	"--variable-format", required = False,
-	help="Defines the variable that enters the metric. Valid formats are those of `mbank.handlers.variable_format`")
+
+mbank.parser.add_general_options(parser)
+mbank.parser.add_metric_options(parser)
+
 parser.add_argument(
 	"--center", required = False, type = float, nargs = '+',
 	help="The points at which the metric is evaluated at")
@@ -110,38 +111,8 @@ parser.add_argument(
 	"--match", required = False, default = 0.97, type = float,
 	help="Match for plotting the constant match ellipse and metric accuracy histogram")
 parser.add_argument(
-	"--save-dir", default = None,
-	help="Directory where the plots will be saved. If None, no plots will be produced")
-parser.add_argument(
-	"--psd",  required = False,
-	help="The input file for the PSD: it can be either a txt either a ligolw xml file")
-parser.add_argument(
-	"--asd",  default = False, action='store_true',
-	help="Whether the input file has an ASD (sqrt of the PSD)")
-parser.add_argument(
-	"--ifo", default = 'L1', type=str, choices = ['L1', 'H1', 'V1'],
-	help="Interferometer name: it can be L1, H1, V1. This is a field for the xml files for the PSD and the bank")
-parser.add_argument(
-	"--f-min",  default = 10., type=float,
-	help="Minium frequency for the scalar product")
-parser.add_argument(
-	"--f-max",  default = 1024., type=float,
-	help="Maximum frequency for the scalar product")
-parser.add_argument(
-	"--df",  default = None, type=float,
-	help="Spacing of the frequency grid where the PSD is evaluated")
-parser.add_argument(
-	"--approximant", default = 'IMRPhenomPv2',
-	help="LAL approximant for the metric computation")
-parser.add_argument(
-	"--epsilon",  default = 1e-6, type=float,
-	help="Infinitesimal step for the numerical gradients")
-parser.add_argument(
 	"--overlap",  default = False, action='store_true',
 	help="Whether to compute the metric based on the overlap rather than the match")
-parser.add_argument(
-	"--metric-type", default = 'hessian',
-	help="The metric computation method to use")
 parser.add_argument(
 	"--symphony-match", default = False, action='store_true',
 	help="Whether to compute the match with the symphony match")
@@ -149,8 +120,8 @@ parser.add_argument(
 	"--on-boundaries",  default = False, action='store_true',
 	help="Whether the sampled points for validation should be drawn on the boundaries of the constant match ellipse. If False (default) points will be drawn inside.")
 parser.add_argument(
-	"--show", type = bool, default = True,
-	help="Whether to show the plots")
+	"--epsilon",  default = 1e-6, type=float,
+	help="Infinitesimal step for the numerical gradients")
 parser.add_argument(
 	"--N-points",  default = 500, type=int,
 	help="Number of points to sample inside constant match ellipse")
@@ -159,7 +130,7 @@ args, filenames = parser.parse_known_args()
 
 	#updating from the ini file(s), if it's the case
 for f in filenames:
-	args = updates_args_from_ini(f, args, parser)
+	args = mbank.parser.updates_args_from_ini(f, args, parser)
 
 ##################################################
 	######
@@ -168,9 +139,9 @@ for f in filenames:
 if (args.center is None) or (args.variable_format is None) or (args.psd is None):
 	raise ValueError("The arguments center, variable_format and psd must be set!")
 
-if args.save_dir is not None:
-	if not args.save_dir.endswith('/'): args.save_dir = args.save_dir+'/'
-	if not os.path.exists(args.save_dir): os.makedirs(args.save_dir)
+if args.run_dir is not None:
+	if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
+	if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
 	######
 	#	Initializing the metric object
@@ -214,7 +185,7 @@ print("  Eig block diagonal: ", np.linalg.eig(metric_block_diagonal)[0], np.lina
 print("  Eig numerical hessian: ", np.linalg.eig(metric_numerical)[0], np.linalg.det(metric_numerical))
 print("  Eig parabola metric: ", np.linalg.eig(metric_parabolae)[0], np.linalg.det(metric_parabolae))
 
-if args.save_dir is None and not args.show: quit()
+if args.run_dir is None and not args.show: quit()
 
 	######
 	# Sampling from the ellipse and computing match
@@ -238,7 +209,7 @@ if sum(ids_inside)>0:
 	# Plotting the parabolae
 	######
 plot_parabolae(center, original_parabola_metric, parabolae)
-if args.save_dir is not None: plt.savefig(args.save_dir+"parabolae.png")
+if args.run_dir is not None: plt.savefig(args.run_dir+"parabolae.png")
 
 	######
 	# Plotting the ellipses and histogram
@@ -259,7 +230,7 @@ with warnings.catch_warnings():
 		save_folder = None, show = False) 
 plt.close(plt.get_fignums()[-1])
 plt.suptitle("{} - {}\ncenter = {}".format(args.variable_format, args.approximant, center), fontsize = 25)
-if args.save_dir is not None: plt.savefig(args.save_dir+"ellipses.png")
+if args.run_dir is not None: plt.savefig(args.run_dir+"ellipses.png")
 
 	#histogram
 plt.figure()
@@ -269,7 +240,7 @@ plt.hist(matches, label = 'mbank', **hist_kwargs)
 plt.axvline(args.match, c = 'r')
 plt.yscale('log')
 plt.legend()
-if args.save_dir is not None: plt.savefig(args.save_dir+"validation_hist.png")
+if args.run_dir is not None: plt.savefig(args.run_dir+"validation_hist.png")
 
 	
 	######
@@ -314,7 +285,7 @@ for i, order in enumerate(order_list):
 plt.legend()
 plt.xlabel(r'$\epsilon$')
 plt.ylabel(r'$|M|$')
-if args.save_dir is not None: plt.savefig(args.save_dir+"epsilon_det.png")
+if args.run_dir is not None: plt.savefig(args.run_dir+"epsilon_det.png")
 
 fig, axes = plt.subplots(len(center), 1, sharex = True)
 plt.suptitle("{} - theta = {}\napproximant = {}".format(args.variable_format, center, args.approximant))
@@ -331,7 +302,7 @@ for d, ax in enumerate(axes):
 plt.legend()
 plt.xlabel(r'$\epsilon$')
 plt.tight_layout()
-if args.save_dir is not None: plt.savefig(args.save_dir+"epsilon_grad_norm.png")
+if args.run_dir is not None: plt.savefig(args.run_dir+"epsilon_grad_norm.png")
 
 if args.show: plt.show()
 

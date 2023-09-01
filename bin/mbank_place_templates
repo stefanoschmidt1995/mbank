@@ -3,7 +3,10 @@
 mbank_place_templates
 ---------------------
 
-A script to place the templates given a tiling file.
+A script to place the templates,
+It operates in two modes:
+	- If a tiling file is given, the templates are placed according to the tiling file (plus an optional flow)
+	- If only a flow is given, the templates are placed according to the flow. In this case a dataset needs to be provided as a source of livepoints
 
 To generate a bank:
 
@@ -24,7 +27,9 @@ import sys
 
 from mbank import cbc_bank, tiling_handler, variable_handler
 from mbank.utils import plot_tiles_templates, avg_dist
+from mbank.placement import place_random_flow
 from mbank.flow.utils import compare_probability_distribution
+from mbank.flow import STD_GW_Flow
 import mbank.parser
 
 import argparse
@@ -36,6 +41,7 @@ parser = argparse.ArgumentParser(__doc__)
 mbank.parser.add_general_options(parser)
 mbank.parser.add_template_placement_options(parser)
 mbank.parser.add_flow_options(parser)
+mbank.parser.add_range_options(parser) #only for the flow
 
 parser.add_argument(
 	"--variable-format", required = False,
@@ -48,7 +54,10 @@ parser.add_argument(
 	help="Final frequency for the templates stored in the bank (only for the xml format)")
 parser.add_argument(
 	"--train-flow", action='store_true', default = False,
-	help="Whether to train a normalizing flow model for the tiling. It will be used for metric interpolation")
+	help="Whether to train a normalizing flow model for the tiling. It will be used for metric interpolation (only applicable if a tiling is provided)")
+parser.add_argument(
+	"--dataset", default = None, type = str,
+	help="File with the dataset to be used as a source of livepoints. The livepoints will be taken starting from the end of the array (only applicable when the a tiling is not provided)")
 
 args, filenames = parser.parse_known_args()
 
@@ -60,19 +69,32 @@ for f in filenames:
 	######
 	#	Interpreting the parser and initializing variables
 	######
-if (args.mm is None) or (args.variable_format is None) or (args.tiling_file is None):
-	raise ValueError("The arguments --mm, --variable-format and --tiling-file must be set!")
+if (args.mm is None) or (args.variable_format is None):
+	raise ValueError("The arguments --mm, --variable-formatmust be set!")
+assert args.tiling_file or args.flow_file, "At least one argument between --tiling-file and --flow-file"
 
-assert args.variable_format in variable_handler().valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+var_handler = mbank.variable_handler()
+assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
+D = var_handler.D(args.variable_format)
 
-if args.run_dir is None: args.run_dir = args.tiling_file.replace(os.path.basename( args.tiling_file), '')
+if not args.run_dir:
+	args.run_dir = './out_{}/'.format(args.run_name)
+	if args.tiling_file:
+		if args.tiling_file.find('/') >=0: args.run_dir = args.tiling_file.replace(os.path.basename( args.tiling_file), '')
+	elif args.flow_file:
+		if args.flow_file.find('/') >=0: args.run_dir = args.flow_file.replace(os.path.basename( args.flow_file), '')
+
 if args.run_dir =='': args.run_dir = './'
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
-if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
+if args.tiling_file:
+	if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
+else:
+	assert args.dataset, "If tiling file is not provided, a --dataset must be provided"
+	if args.dataset.find('/') <0: args.dataset = args.run_dir+args.dataset	
 
-if isinstance(args.flow_file, str):
+if args.flow_file:
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
 elif args.train_flow:
 		#giving a default name in case the --flow-file is not given but the training is required
@@ -88,17 +110,37 @@ if args.plot: plot_folder = args.run_dir
 
 bank = cbc_bank(args.variable_format)
 
-t_obj = tiling_handler(args.tiling_file)
+if args.tiling_file:
+	t_obj = tiling_handler(args.tiling_file)
 
-	#Loading the flow, if it's the case
-t_obj = tiling_handler(args.tiling_file)
+		#Loading the flow, if it's the case
+	t_obj = tiling_handler(args.tiling_file)
 
-if args.train_flow:
-	t_obj.train_flow(N_epochs = args.n_epochs, n_layers = args.n_layers, hidden_features = args.hidden_features, verbose = True)
-	t_obj.flow.save_weigths(args.flow_file)
-elif isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)
+	if args.train_flow:
+		t_obj.train_flow(N_epochs = args.n_epochs, n_layers = args.n_layers, hidden_features = args.hidden_features, verbose = True)
+		t_obj.flow.save_weigths(args.flow_file)
+	elif args.flow_file: t_obj.load_flow(args.flow_file)
 
-bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, N_livepoints = args.n_livepoints, covering_fraction = args.covering_fraction, empty_iterations = args.empty_iterations, verbose = True)
+	bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, N_livepoints = args.n_livepoints, covering_fraction = args.covering_fraction, empty_iterations = args.empty_iterations, verbose = True)
+
+else:
+	flow = STD_GW_Flow.load_flow(args.flow_file)
+	livepoints_dataset = np.loadtxt(args.dataset)[-args.n_livepoints:]
+
+	livepoints, metric = livepoints_dataset[:,:D], livepoints_dataset[:,D:-1]
+	metric = metric.reshape((args.n_livepoints, D,D))
+
+		#WEIRD: why does this happens??
+	good_ids, = np.where(np.linalg.det(metric)>0)
+	livepoints, metric = livepoints[good_ids], metric[good_ids]
+
+	bk = mbank.parser.boundary_keeper(args)
+	def boundaries_checker(theta):
+		return bk(theta, args.variable_format)
+
+	new_templates = place_random_flow(0.97, flow, livepoints, metric, boundaries_checker, covering_fraction = args.covering_fraction, verbose = args.verbose)
+	bank.add_templates(new_templates)
+
 
 	######
 	#	Plotting & saving
@@ -111,14 +153,15 @@ bank.save_bank(args.run_dir+'bank_{}.xml.gz'.format(args.run_name), args.f_max)
 
 if args.plot:
 	dist = None #avg_dist(args.mm, bank.D) if bank.D == 2 else None
-	plot_tiles_templates(bank.templates, args.variable_format, #t_obj,
+	plot_tiles_templates(bank.templates, args.variable_format,
 			dist_ellipse = dist, save_folder = plot_folder, show = args.show)
 
-	if t_obj.flow:
-		compare_probability_distribution(t_obj.flow.sample(5000).detach().numpy(), data_true = t_obj.sample_from_tiling(5000),
-			variable_format = args.variable_format,
-			title = None, hue_labels = ['flow', 'tiling'],
-			savefile = '{}/flow.png'.format(plot_folder), show = args.show)
+	if args.tiling_file:
+		if t_obj.flow:
+			compare_probability_distribution(t_obj.flow.sample(5000).detach().numpy(), data_true = t_obj.sample_from_tiling(5000),
+				variable_format = args.variable_format,
+				title = None, hue_labels = ['flow', 'tiling'],
+				savefile = '{}/flow.png'.format(plot_folder), show = args.show)
 
 
 

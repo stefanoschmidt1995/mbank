@@ -21,7 +21,7 @@ import ray
 
 import scipy.spatial
 
-from .placement import place_stochastically_in_tile, place_stochastically, place_iterative, place_random, place_pruning, create_mesh
+from .placement import place_stochastically_in_tile, place_stochastically, place_iterative, place_random_tiling, place_pruning, create_mesh
 from .utils import DefaultSnglInspiralTable, avg_dist, read_xml, partition_tiling, split_boundaries, plawspace, get_boundary_box
 
 from .handlers import variable_handler, tiling_handler
@@ -416,7 +416,7 @@ class cbc_bank():
 				new_templates_ = place_stochastically_in_tile(minimum_match, t)
 			elif placing_method == 'tile_random':
 				temp_t_ = tiling_handler(t)
-				new_templates_ = place_random(minimum_match, temp_t_, N_livepoints = N_livepoints, tolerance = 0.01, verbose = False)
+				new_templates_ = place_random_tiling(minimum_match, temp_t_, N_livepoints = N_livepoints, tolerance = 0.01, verbose = False)
 		
 			new_templates.extend(new_templates_)
 
@@ -431,7 +431,7 @@ class cbc_bank():
 			else: new_templates = tiling.sample_from_tiling(N_templates, qmc = (placing_method=='qmc'))
 		
 		if placing_method in ['random', 'random_stochastic']:
-			new_templates = place_random(minimum_match, tiling, N_livepoints = N_livepoints, covering_fraction = covering_fraction, verbose = verbose)
+			new_templates = place_random_tiling(minimum_match, tiling, N_livepoints = N_livepoints, covering_fraction = covering_fraction, verbose = verbose)
 		
 		if placing_method in ['geo_stochastic', 'random_stochastic', 'iterative_stochastic', 'stochastic']:
 			new_templates = place_stochastically(minimum_match, tiling,

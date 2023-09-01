@@ -150,6 +150,7 @@ if args.verbose: print("## Running: ", args.run_name)
 
 boundaries = None if args.ignore_boundaries else get_boundary_box_from_args(args)
 
+#TODO: should generate dataset be a standalone script mbank_generate_dataset?
 if generate_dataset:
 
 	sample_format = 'mceta_nonspinning'

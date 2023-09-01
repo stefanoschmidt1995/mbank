@@ -430,37 +430,3 @@ class boundary_keeper:
 			ids_inside = np.logical_and(ids_inside, np.logical_and(eta>self.b_args.eta_range[0], eta<self.b_args.eta_range[1]))
 		return ids_inside
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

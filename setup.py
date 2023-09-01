@@ -34,7 +34,7 @@ setuptools.setup(
 	scripts = ["bin/mbank_run", "bin/mbank_injfile", "bin/mbank_mcmc", 
 		"bin/mbank_place_templates", "bin/mbank_merge",
 		"bin/mbank_validate_metric", "bin/mbank_print_metric",
-		"bin/mbank_injections", "bin/mbank_injections_workflow", "bin/mbank_train_flow"],
+		"bin/mbank_injections", "bin/mbank_injections_workflow", "bin/mbank_train_flow", "bin/mbank_generate_flow_dataset"],
 	python_requires='>=3.7',
 	install_requires=required_packages,
 	command_options={

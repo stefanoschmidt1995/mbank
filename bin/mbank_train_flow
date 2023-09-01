@@ -9,8 +9,8 @@ Executable to train a normalizing flow to reproduce the volume element of the pr
 				
 	p(\\theta) \propto \sqrt{|M(\\theta)|}
 
-The script will create a dataset with random points drawn within the space an will train the flow with it.
-The first part can be omitted by providing a home-made dataset.
+The script will train a normalizing flow from a dataset with random points drawn within the space.
+A dataset can be generated with mbank_generate_flow_dataset. Multiple datasets are supported
 
 To train a flow:
 
@@ -50,67 +50,23 @@ import os
 from lal import MTSUN_SI
 
 ############################################################################
-def log_prob_initial_dataset(mceta, b_checker, sample_format):
-	squeeze = (np.asarray(mceta).ndim == 1)
-	mceta = np.atleast_2d(mceta)
-	res = np.full(mceta[:,0].shape, -100000)
-	ids_inside = b_checker(mceta, sample_format)
-	if np.any(ids_inside):
-		res[ids_inside] = -(np.log(2048/(5*np.pi)) + 13/3 * np.log(np.pi*args.f_min) + 10/3 * np.log(mceta[ids_inside,0]) + 8/5 * np.log(mceta[ids_inside,1]))
-	if squeeze: res = res[0]
-	return res
-	
-
-def get_random_masses(boundaries):
-
-	assert boundaries.shape == (2,2)
-
-	n_walkers = 100
-	start_points = []
-	out_variable_format = '{}_nonspinning'.format(var_handler.format_info[args.variable_format]['mass_format'])
-
-	boundaries_checker = boundary_keeper(args)
-
-	while len(start_points)<n_walkers:
-		new_points = var_handler.convert_theta(np.random.uniform(*boundaries, (100, 2)), out_variable_format, sample_format)
-		new_points = new_points[boundaries_checker(new_points, sample_format)]
-		if len(new_points)>0:
-			start_points.extend(new_points)
-	start_points = np.array(start_points)[:n_walkers]
-	
-	sampler = emcee.EnsembleSampler(n_walkers, 2, log_prob_initial_dataset, args=[boundaries_checker, sample_format])
-		#Burn-in
-	points = sampler.run_mcmc(start_points, 400, tune=True, store=False, progress=args.verbose, progress_kwargs={'desc': 'Burn-in for mass samples'})
-	
-	new_masses = []
-	for i in tqdm(range(args.n_datapoints//n_walkers+1), desc = 'Generating mass samples', disable = not args.verbose):
-		points = sampler.run_mcmc(points, 10, tune=False, store=False, progress=False)
-		new_masses.append(points.coords)
-
-	new_masses = np.concatenate(new_masses, axis = 0)
-	new_masses = var_handler.convert_theta(new_masses[:args.n_datapoints], sample_format, out_variable_format)
-
-	return new_masses
-
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
 
 mbank.parser.add_general_options(parser)
-mbank.parser.add_metric_options(parser)
 mbank.parser.add_range_options(parser)
 mbank.parser.add_flow_options(parser)
 
 	#Options specific to this program
 parser.add_argument(
+	"--variable-format", required = False,
+	help="Choose which variables to include in the bank. Valid formats are those of `mbank.handlers.variable_format`")
+parser.add_argument(
 	"--n-datapoints", default = None, type = int,
-	help="Number of datapoints to be stored or loaded in the dataset")
+	help="Number of datapoints to be loaded from the dataset")
 parser.add_argument(
 	"--dataset", default = ['dataset.dat'], type = str, nargs = '+',
 	help="Files with the datasets (more than one are accpted). If the file does not exist, the dataset will be created.")
-parser.add_argument(
-	"--datapoints-file", default = None, type = str,
-	help="Csv with a list of points to build the dataset: for each of them the likelihood will be computed and stored in the dataset")
-
 parser.add_argument(
 	"--ignore-boundaries", default = False, action = 'store_true',
 	help="Whether to ignore the ranges given by command line. If set, the boudaries will be extracted from the dataset")
@@ -126,8 +82,8 @@ for f in filenames:
 	#	Interpreting the parser and initializing variables
 	######
 
-if (args.psd is None) or (args.variable_format is None):
-	raise ValueError("The arguments psd and variable_format must be set!")
+if (args.variable_format is None):
+	raise ValueError("The argument --variable-format must be set!")
 
 var_handler = variable_handler()
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
@@ -136,73 +92,14 @@ D = var_handler.D(args.variable_format)
 if args.run_dir is None: args.run_dir = './out_{}/'.format(args.run_name)
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
-if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
 
 for i, f in enumerate(args.dataset):
 	if f.find('/') <0: f = args.run_dir+f
 	args.dataset[i] = f
 
-generate_dataset = not np.any([os.path.isfile(f) for f in args.dataset])
-
 plot_folder = args.run_dir if args.plot else None
-if args.verbose: print("## Running: ", args.run_name)
-
-boundaries = None if args.ignore_boundaries else get_boundary_box_from_args(args)
-
-#TODO: should generate dataset be a standalone script mbank_generate_dataset?
-if generate_dataset:
-
-	sample_format = 'mceta_nonspinning'
-	assert args.n_datapoints, "--n-datapoints must be set if the dataset is generated"
-
-	######
-	#	Loading PSD and initializing metric
-	######
-	m = cbc_metric(args.variable_format,
-		PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df),
-		approx = args.approximant,
-		f_min = args.f_min, f_max = args.f_max)
-
-	######
-	#	Drawing initial points (either from file or from sampling)
-	#	Mass boundaries are complicated, while the rest is just a rectangle in the coordinates
-	######
-
-	if args.datapoints_file:
-	
-		datapoints = np.loadtxt(args.datapoints_file)[:args.n_datapoints]
-
-	else:
-	
-		#Random sampling
-			#setting spin & angles boundaries
-		assert boundaries is not None, "If dataset has to be generated, option --ignore-boundaries must be removed"
-		datapoints = np.random.uniform(*boundaries, (args.n_datapoints, D))
-		
-			#Checking boundaries
-		if False:
-			plot_tiles_templates(datapoints[boundary_keeper(args)(datapoints, args.variable_format)], args.variable_format, show = True)
-			quit()
-		
-		new_masses = get_random_masses(boundaries[:,:2])
-		datapoints[:,:2] = new_masses
-		
-	metric_list = []
-	for d in tqdm(datapoints, disable = not args.verbose, desc = 'Generating dataset'):
-		try:
-			metric = m.get_metric(d, metric_type = args.metric_type)
-			metric_list.append(np.array([*metric.flatten(), 0.5*np.log(np.abs(np.linalg.det(metric)))]))
-		except KeyboardInterrupt:
-			warnings.warn("KeyboardInterrupt: interuppting dataset generation and continuing with the flow training")
-			break
-	
-	to_save = np.concatenate([datapoints[:len(metric_list)], metric_list], axis = 1)
-	np.savetxt(args.dataset[0], to_save,
-		header = 'variable format: {0}\ntheta ({1},) | metric ({1}*{1},) | log_pdf (1,) '.format(args.variable_format, D))
-
-	if args.verbose: print("Dataset saved")
-	del datapoints, to_save
+if args.verbose: print("## Running training of the flow: ", args.run_name)
 
 	######
 	#	Loading the dataset(s) and performing train and test splitting
@@ -225,20 +122,11 @@ for f in args.dataset:
 
 dataset = np.concatenate(dataset, axis = 0)
 
+boundaries = None if args.ignore_boundaries else get_boundary_box_from_args(args)
 if not args.ignore_boundaries:
 	boundaries_checker = boundary_keeper(args)
 	ids_ = boundaries_checker(dataset[:,:D], args.variable_format)
 	dataset = dataset[ids_]
-
-if not True:
-	#dataset = dataset[np.where(dataset[:,-1]>-12)]
-	dataset = dataset[np.where(dataset[:,-1]<=-12)]
-	np.random.shuffle(dataset)
-	np.savetxt('out_O3_bank_flow/dataset_paper_precessing_IMBH.dat', dataset)
-	plt.scatter(*dataset[:,:2].T)
-	plt.show()
-	quit()
-#dataset = dataset[np.where(dataset[:,-1]>-10)]
 
 if args.n_datapoints: dataset = dataset[:args.n_datapoints]
 if args.verbose: print('Loaded dataset(s) with {} entries'.format(len(dataset)))

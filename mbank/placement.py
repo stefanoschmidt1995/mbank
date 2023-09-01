@@ -11,7 +11,7 @@ from scipy.spatial import ConvexHull, Rectangle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from .utils import dummy_iterator
+from .utils import dummy_iterator, avg_dist
 
 #############DEBUG LINE PROFILING
 try:

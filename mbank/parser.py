@@ -7,6 +7,7 @@ Gathers group of options useful for the many executables that make mbank handy
 
 import configparser
 import numpy as np
+import types
 import os
 from .flow.flowmodel import STD_GW_Flow
 from .bank import cbc_bank
@@ -325,7 +326,6 @@ def add_injections_options(parser):
 		"--use-ray", action='store_true', default = False,
 		help="Whether to use ray package to parallelize the match computation")
 
-
 def get_boundary_box_from_args(args):
 	"""
 	Given the arguments stored in a parser, it returns a rectangular boundary box for the parameter space defined by the arguments
@@ -368,3 +368,99 @@ def get_boundary_box_from_args(args):
 				theta_range = (theta_min, theta_max), phi_range = (phi_min, phi_max),
 				iota_range = (iota_min, iota_max), ref_phase_range = (ref_phase_min, ref_phase_max),
 				e_range = (e_min, e_max), meanano_range = (meanano_min, meanano_max))
+
+class boundary_keeper:
+	"""
+	Class to keep a set of boundaries on the masses defined by the argument parsers.
+	The object is callable to check whether a given point, with a given variable format is inside the mass boundaries.
+	An extra boundary box can be specified at each call to enforce other type of boundaries
+	"""
+	def __init__(self, args):
+			#Making a copy of the interesting args inside a SimpleNamespace object
+		
+		defaults = {
+			'mtot_range': (0, np.inf),
+			'mc_range': (0, np.inf),
+			'm1_range': (0, np.inf),
+			'm2_range': (0, np.inf),
+			'q_range': (1, np.inf),
+			'eta_range': (0., 0.25),
+		}
+		
+		self.b_args = types.SimpleNamespace()
+		for k in dir(args):
+			v = getattr(args, k)
+			if k in defaults.keys() and not v:
+				v = defaults[k]
+			if k.endswith('_range'): setattr(self.b_args, k, v)
+		
+			#cache for the boundaries for a given variable format
+		self.b_cache_format = ''
+		self.b_cache = None
+		self.var_handler = variable_handler() 
+	
+	def __call__(self, theta, variable_format):
+		theta = np.atleast_2d(theta)
+		if self.b_cache_format != variable_format:
+			self.b_cache_format = variable_format
+			setattr(self.b_args, 'variable_format', variable_format)
+			self.b_cache = get_boundary_box_from_args(self.b_args)
+		#ids_inside = np.full((theta.shape[0],), True)
+		ids_inside = np.logical_and(np.all(theta > self.b_cache[0,:], axis =1), np.all(theta < self.b_cache[1,:], axis = 1)) #(N,)
+		
+			#Checking for masses
+		m1, m2 = np.full(theta[:,0].shape, 0.), np.full(theta[:,0].shape, 0.)
+		m1[ids_inside], m2[ids_inside] = self.var_handler.get_BBH_components(theta[ids_inside], variable_format)[:,:2].T
+
+		if self.b_args.m1_range:
+			ids_inside = np.logical_and(ids_inside, np.logical_and(m1>self.b_args.m1_range[0], m1<self.b_args.m1_range[1]))
+		if self.b_args.m2_range:
+			ids_inside = np.logical_and(ids_inside, np.logical_and(m2>self.b_args.m2_range[0], m2<self.b_args.m2_range[1]))
+		if self.b_args.mtot_range:
+			M = m1 + m2
+			ids_inside = np.logical_and(ids_inside, np.logical_and(M>self.b_args.mtot_range[0], M<self.b_args.mtot_range[1]))
+		if self.b_args.q_range:
+			q = m1/m2
+			ids_inside = np.logical_and(ids_inside, np.logical_and(q>self.b_args.q_range[0], q<self.b_args.q_range[1]))
+		if self.b_args.mc_range:
+			mc = (m1*m2)**(3/5)/(m1+m2)**(1/5)
+			ids_inside = np.logical_and(ids_inside, np.logical_and(mc>self.b_args.mc_range[0], mc<self.b_args.mc_range[1]))
+		if self.b_args.eta_range:
+			eta = (m1*m2)/np.square(m1+m2)
+			ids_inside = np.logical_and(ids_inside, np.logical_and(eta>self.b_args.eta_range[0], eta<self.b_args.eta_range[1]))
+		return ids_inside
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

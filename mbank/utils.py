@@ -163,6 +163,9 @@ def get_boundaries_from_ranges(variable_format, M_range, q_range,
 	
 	if format_info['mass_format'] == 'logMq':
 		M_range = np.log10(np.asarray(M_range))
+	if format_info['mass_format'] == 'logm1logm2':
+		M_range = np.log10(np.asarray(M_range))
+		q_range = np.log10(np.asarray(q_range))
 		
 		#setting spin boundaries
 	if format_info['spin_format'] == 'nonspinning':
@@ -1223,8 +1226,9 @@ def read_xml(filename, table, N = None):
 		filename: str
 			Name of the file to load
 		
-		table: ligo.lw.lsctables.table.Table
-			A ligo.lw table type. User typically will want to set `ligo.lw.lsctables.SnglInspiralTable` for a bank and `ligo.lw.lsctables.SimInspiralTable` for injections
+		table: ligo.lw.lsctables.table.Table, str
+			A ligo.lw table type. User typically will want to set `ligo.lw.lsctables.SnglInspiralTable` for a bank and `ligo.lw.lsctables.SimInspiralTable` for injections.
+			A string 'sngl_inspiral' or 'sim_inspiral' can be given, instead of a ligo object, referring to `ligo.lw.lsctables.SnglInspiralTable` and `ligo.lw.lsctables.SimInspiralTable` respectively.
 		
 		N: int
 			Number of rows to be read. If `None` all the rows inside the table will be read
@@ -1243,6 +1247,14 @@ def read_xml(filename, table, N = None):
 	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
 		pass
 	lsctables.use_in(LIGOLWContentHandler)
+	
+	if isinstance(table, str):
+		if table == 'sim_inspiral':
+			table = lsctables.SimInspiralTable
+		elif table == 'sngl_inspiral':
+			table = lsctables.SnglInspiralTable
+		else:
+			raise ValueError("Table string not understood")
 
 	xmldoc = lw_utils.load_filename(filename, verbose = False, contenthandler = LIGOLWContentHandler)
 	table = table.get_table(xmldoc)

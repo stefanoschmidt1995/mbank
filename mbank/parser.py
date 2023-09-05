@@ -13,6 +13,7 @@ from .flow.flowmodel import STD_GW_Flow
 from .bank import cbc_bank
 from .handlers import variable_handler
 from .utils import get_boundaries_from_ranges
+import warnings
 
 ####################################################################################################################
 #Parser stuff
@@ -412,21 +413,23 @@ class boundary_keeper:
 		m1, m2 = np.full(theta[:,0].shape, 0.), np.full(theta[:,0].shape, 0.)
 		m1[ids_inside], m2[ids_inside] = self.var_handler.get_BBH_components(theta[ids_inside], variable_format)[:,:2].T
 
-		if self.b_args.m1_range:
-			ids_inside = np.logical_and(ids_inside, np.logical_and(m1>self.b_args.m1_range[0], m1<self.b_args.m1_range[1]))
-		if self.b_args.m2_range:
-			ids_inside = np.logical_and(ids_inside, np.logical_and(m2>self.b_args.m2_range[0], m2<self.b_args.m2_range[1]))
-		if self.b_args.mtot_range:
-			M = m1 + m2
-			ids_inside = np.logical_and(ids_inside, np.logical_and(M>self.b_args.mtot_range[0], M<self.b_args.mtot_range[1]))
-		if self.b_args.q_range:
-			q = m1/m2
-			ids_inside = np.logical_and(ids_inside, np.logical_and(q>self.b_args.q_range[0], q<self.b_args.q_range[1]))
-		if self.b_args.mc_range:
-			mc = (m1*m2)**(3/5)/(m1+m2)**(1/5)
-			ids_inside = np.logical_and(ids_inside, np.logical_and(mc>self.b_args.mc_range[0], mc<self.b_args.mc_range[1]))
-		if self.b_args.eta_range:
-			eta = (m1*m2)/np.square(m1+m2)
-			ids_inside = np.logical_and(ids_inside, np.logical_and(eta>self.b_args.eta_range[0], eta<self.b_args.eta_range[1]))
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore", category = RuntimeWarning)
+			if self.b_args.m1_range:
+				ids_inside = np.logical_and(ids_inside, np.logical_and(m1>self.b_args.m1_range[0], m1<self.b_args.m1_range[1]))
+			if self.b_args.m2_range:
+				ids_inside = np.logical_and(ids_inside, np.logical_and(m2>self.b_args.m2_range[0], m2<self.b_args.m2_range[1]))
+			if self.b_args.mtot_range:
+				M = m1 + m2
+				ids_inside = np.logical_and(ids_inside, np.logical_and(M>self.b_args.mtot_range[0], M<self.b_args.mtot_range[1]))
+			if self.b_args.q_range:
+				q = m1/m2
+				ids_inside = np.logical_and(ids_inside, np.logical_and(q>self.b_args.q_range[0], q<self.b_args.q_range[1]))
+			if self.b_args.mc_range:
+				mc = (m1*m2)**(3/5)/(m1+m2)**(1/5)
+				ids_inside = np.logical_and(ids_inside, np.logical_and(mc>self.b_args.mc_range[0], mc<self.b_args.mc_range[1]))
+			if self.b_args.eta_range:
+				eta = (m1*m2)/np.square(m1+m2)
+				ids_inside = np.logical_and(ids_inside, np.logical_and(eta>self.b_args.eta_range[0], eta<self.b_args.eta_range[1]))
 		return ids_inside
 

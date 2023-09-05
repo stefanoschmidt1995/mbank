@@ -100,6 +100,7 @@ class variable_handler(object):
 	- ``logMq``: Log10 of total mass and q
 	- ``mceta``: chirp mass and eta
 	- ``m1m2``: mass1 and mass2
+	- ``logm1logm2``: Log 10 of mass1 and mass2
 	
 	Valid formats for spins are:
 	
@@ -140,7 +141,7 @@ class variable_handler(object):
 		"Initialization. Creates a dict of dict with all the info for each format" 
 		
 			#hard coding valid formats for masses, spins, eccentricity and angles
-		self.m_formats = ['m1m2', 'Mq', 'logMq', 'mceta'] #mass layouts
+		self.m_formats = ['m1m2', 'Mq', 'logMq', 'logm1logm2', 'mceta'] #mass layouts
 		self.s_formats = ['nonspinning', 'chi', 's1z', 's1z_s2z', 's1xz', 's1xyz', 's1xz_s2z', 's1xyz_s2z', 'fullspins'] #spin layouts
 		self.e_formats = ['', 'e', 'emeanano'] #eccentric layouts
 		self.angle_formats = ['', 'iota', 'iotaphi'] #angles layouts
@@ -201,6 +202,8 @@ class variable_handler(object):
 		self.theta_getter = {
 			'mass1': lambda x: x[:,0],
 			'mass2': lambda x: x[:,1],
+			'logm1': lambda x: np.log10(x[:,0]),
+			'logm2': lambda x: np.log10(x[:,1]),
 			'M': lambda x: x[:,0] + x[:,1],
 			'logM': lambda x: np.log10(x[:,0] + x[:,1]),
 			'q': lambda x: np.maximum(x[:,1] / x[:,0], x[:,0] / x[:,1]),
@@ -287,7 +290,7 @@ class variable_handler(object):
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
-		if self.format_info[variable_format]['mass_format'] == 'm1m2':
+		if self.format_info[variable_format]['mass_format'] in ['m1m2', 'logm1logm2']:
 			ids = np.where(theta[:,0]<theta[:,1])[0]
 			theta[ids,0], theta[ids,1] = theta[ids,1], theta[ids,0] #switching masses
 		elif self.format_info[variable_format]['mass_format'] in ['Mq', 'logMq']:
@@ -346,6 +349,9 @@ class variable_handler(object):
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
 			if latex: labels = [r'$m_1$', r'$m_2$']
 			else: labels = ['mass1', 'mass2']
+		elif self.format_info[variable_format]['mass_format'] == 'logm1logm2':
+			if latex: labels = [r'$\log_{10}m_1$', r'$\log_{10}m_2$']
+			else: labels = ['logm1', 'logm2']
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			if latex: labels = [r'$M$', r'$q$']
 			else: labels = ['M', 'q']
@@ -580,6 +586,8 @@ class variable_handler(object):
 			#setting the masses
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
 			m1, m2 = theta[:,0], theta[:,1]
+		elif self.format_info[variable_format]['mass_format'] == 'logm1logm2':
+			m1, m2 = 10**theta[:,0], 10**theta[:,1]
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			m1, m2 = theta[:,0]*theta[:,1]/(1+theta[:,1]), theta[:,0]/(1+theta[:,1])
 			m1, m2 = np.maximum(m1, m2), np.minimum(m1, m2) #this is to make sure that m1>m2, also if q is less than 1
@@ -676,6 +684,8 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['mass_format'] == 'm1m2':
 			mchirp = np.power(theta[:,0]*theta[:,1], 3./5.) / np.power(theta[:,0]+theta[:,1], 1./5.)
+		elif self.format_info[variable_format]['mass_format'] == 'logm1logm2':
+			mchirp = np.power(10**theta[:,0]*10**theta[:,1], 3./5.) / np.power(10**theta[:,0]+10**theta[:,1], 1./5.)
 		elif self.format_info[variable_format]['mass_format'] == 'Mq':
 			mchirp = theta[:,0] * np.power(theta[:,1]/np.square(theta[:,1]+1), 3./5.)
 		elif self.format_info[variable_format]['mass_format'] == 'logMq':
@@ -709,6 +719,8 @@ class variable_handler(object):
 		
 		if self.format_info[variable_format]['mass_format'] =='m1m2':
 			q = np.maximum(theta[:,1]/theta[:,0], theta[:,0]/theta[:,1])
+		elif self.format_info[variable_format]['mass_format'] =='logm1logm2':
+			q = 10**np.maximum(theta[:,1]-theta[:,0], theta[:,0]-theta[:,1])
 		elif self.format_info[variable_format]['mass_format'] in ['Mq', 'logMq']:
 			q = theta[:,1]
 		elif self.format_info[variable_format]['mass_format'] == 'mceta':

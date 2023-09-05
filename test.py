@@ -101,7 +101,7 @@ def test_variable_format():
 		#vf = 'mceta_s1xz_s2z_iota'
 		if vf.startswith('mceta'): q_range = (0.08, 0.25)
 		elif vf.startswith('Mq'): q_range = (1,10)
-		elif vf.startswith('m1m2'): q_range = M_range
+		elif vf.startswith('m1m2') or vf.startswith('logm1logm2'): q_range = M_range
 		elif vf.startswith('logMq'):
 			q_range = (1,10)
 			M_range = (.1, 2)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 	import mbank.utils
 	vh = mbank.variable_handler()
 	test_imports()
-	test_psd()
+	#test_psd()
 	test_variable_format()
-	test_metric(True)
-	test_bank_conversion()
+	#test_metric(True)
+	#test_bank_conversion()

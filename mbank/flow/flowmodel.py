@@ -3,7 +3,7 @@ mbank.flow.flowmodel
 ====================
 
 Implements the basic normalizing flow model, useful for sampling from the Binary Black Hole parameter space.
-It requires `torch` and `nflows`, which are not among the `mbank` dependencies.
+It requires `torch` and `glasflow.nflows., which are not among the `mbank` dependencies.
 """
 
 import numpy as np
@@ -16,15 +16,15 @@ from torch.utils.data import DataLoader, random_split
 from torch.distributions.utils import broadcast_all
 from torch.autograd.functional import jacobian
 
-from nflows.flows.base import Flow
-from nflows.distributions.base import Distribution
-from nflows.distributions.normal import StandardNormal
-from nflows.utils import torchutils
-from nflows.transforms.base import InputOutsideDomain
-from nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
-from nflows.transforms.linear import NaiveLinear
+from glasflow.nflows.flows.base import Flow
+from glasflow.nflows.distributions.base import Distribution
+from glasflow.nflows.distributions.normal import StandardNormal
+from glasflow.nflows.utils import torchutils
+from glasflow.nflows.transforms.base import InputOutsideDomain
+from glasflow.nflows.transforms.autoregressive import MaskedAffineAutoregressiveTransform
+from glasflow.nflows.transforms.linear import NaiveLinear
 
-from nflows.transforms.base import Transform, CompositeTransform
+from glasflow.nflows.transforms.base import Transform, CompositeTransform
 
 from .utils import ks_metric, cross_entropy_metric
 
@@ -85,10 +85,10 @@ class GW_Flow(Flow):
 		
 		Parameters
 		----------
-			transform: nflows.transforms.base.Transform
-				A bijection that transforms data into noise (in the `nflows` style)
-			distribution: nflows.distributions.base.Distribution
-				The base distribution of the flow that generates the noise (in the `nflows` style)
+			transform: glasflow.nflows.transforms.base.Transform
+				A bijection that transforms data into noise (in the `glasflow.nflows. style)
+			distribution: glasflow.nflows.distributions.base.Distribution
+				The base distribution of the flow that generates the noise (in the `glasflow.nflows. style)
 		"""
 		super().__init__(transform=transform, distribution=distribution)
 		if has_constant:
@@ -100,6 +100,7 @@ class GW_Flow(Flow):
 			'll_mse': self.ll_mse_loss,
 			'weighted_ll_mse': self.weighted_ll_mse_loss
 		}
+		self.D = distribution.sample(1).shape[-1]
 	
 	@property
 	def available_losses(self):
@@ -304,7 +305,8 @@ class GW_Flow(Flow):
 				optimizer.step()
 				
 				train_loss.append(loss_.item())
-
+				print(loss_.item())
+				
 				if not (i%validation_step):
 					with torch.no_grad():			
 						loss_ = self.loss_dict[loss](validation_data, validation_weights)

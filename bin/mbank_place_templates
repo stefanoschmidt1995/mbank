@@ -58,6 +58,9 @@ parser.add_argument(
 parser.add_argument(
 	"--dataset", default = None, type = str,
 	help="File with the dataset to be used as a source of livepoints. The livepoints will be taken starting from the end of the array (only applicable when the a tiling is not provided)")
+parser.add_argument(
+	"--dry-run", action = 'store_true', default = False,
+	help="If set, it will only compute the number of templates, without actually placing the templates. Useful for volume studies. (only applicable for volume estimation purposes)")
 
 args, filenames = parser.parse_known_args()
 
@@ -124,21 +127,27 @@ if args.tiling_file:
 	bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, N_livepoints = args.n_livepoints, covering_fraction = args.covering_fraction, empty_iterations = args.empty_iterations, verbose = True)
 
 else:
-	flow = STD_GW_Flow.load_flow(args.flow_file)
-	livepoints_dataset = np.loadtxt(args.dataset)[-args.n_livepoints:]
-
-	livepoints, metric = livepoints_dataset[:,:D], livepoints_dataset[:,D:-1]
-	metric = metric.reshape((args.n_livepoints, D,D))
-
-		#WEIRD: why does this happens??
-	good_ids, = np.where(np.linalg.det(metric)>0)
-	livepoints, metric = livepoints[good_ids], metric[good_ids]
-
 	bk = mbank.parser.boundary_keeper(args)
 	def boundaries_checker(theta):
 		return bk(theta, args.variable_format)
 
-	new_templates = place_random_flow(0.97, flow, livepoints, metric, boundaries_checker, covering_fraction = args.covering_fraction, verbose = args.verbose)
+	flow = STD_GW_Flow.load_flow(args.flow_file)
+	livepoints_dataset = np.loadtxt(args.dataset)
+
+	livepoints, metric = livepoints_dataset[:,:D], livepoints_dataset[:,D:-1]
+	metric = metric.reshape((len(livepoints), D,D))
+
+		#WEIRD: why does this happens??
+	good_ids, = np.where(np.linalg.det(metric)>0)
+	livepoints, metric = livepoints[good_ids], metric[good_ids]
+	good_ids = boundaries_checker(livepoints)
+	livepoints, metric = livepoints[good_ids], metric[good_ids]
+	livepoints, metric = livepoints[-args.n_livepoints:], metric[-args.n_livepoints:]
+
+	new_templates = place_random_flow(0.97, flow, livepoints, metric, boundaries_checker, covering_fraction = args.covering_fraction, dry_run = args.dry_run, verbose = args.verbose)
+	if args.dry_run:
+		print("Placed {} templates".format(new_templates))
+		quit()
 	bank.add_templates(new_templates)
 
 

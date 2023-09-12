@@ -110,7 +110,7 @@ if isinstance(args.psd, str): args.psd = args.run_dir+args.psd if args.psd.find(
 plot_folder = None
 if args.plot: plot_folder = args.run_dir
 
-mbank.parser.save_args(args, args.run_dir+'args.json')#.format(os.path.basename(__file__)))
+mbank.parser.save_args(args, args.run_dir+'args_{}.json'.format(os.path.basename(__file__)))
 
 	######
 	#	Loading PSD, and creating an istance of metric (if it applies)

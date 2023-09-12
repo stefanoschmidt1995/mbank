@@ -101,7 +101,7 @@ for i, f in enumerate(args.dataset):
 plot_folder = args.run_dir if args.plot else None
 if args.verbose: print("## Running training of the flow: ", args.run_name)
 
-mbank.parser.save_args(args, args.run_dir+'args.json')#.format(os.path.basename(__file__)))
+mbank.parser.save_args(args, args.run_dir+'args_{}.json'.format(os.path.basename(__file__)))
 
 	######
 	#	Loading the dataset(s) and performing train and test splitting

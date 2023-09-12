@@ -139,6 +139,8 @@ if args.datapoints_file:
 plot_folder = args.run_dir if args.plot else None
 if args.verbose: print("## Running dataset generation: ", args.run_name)
 
+mbank.parser.save_args(args, args.run_dir+'args.json')#.format(os.path.basename(__file__)))
+
 boundaries = get_boundary_box_from_args(args)
 
 sample_format = 'mceta_nonspinning'

@@ -36,7 +36,7 @@ except:
 	pass
 
 #@do_profile(follow=[])
-def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checker = None, covering_fraction = 0.01, dry_run = False, verbose = True):
+def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, verbose = True):
 	"""
 	Draw templates from the flow. For each proposal, all the livepoints in the ellipse of constant ``minimum_match`` are killed. The iteration goes on until a fraction of ``covering_fraction`` of livepoints are alive.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -54,7 +54,7 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 			shape: (N,D) -
 			Livepoints to cover the space with
 
-		livepoints: :class:`~numpy:numpy.ndarray`
+		metric: :class:`~numpy:numpy.ndarray`
 			shape: (N,D,D) -
 			Metric evaluated at each livepoint
 		
@@ -69,9 +69,8 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 				def boundaries_checker(theta):
 					return bk(theta, args.variable_format)
 			
-		
 		covering_fraction: float
-			Fraction of livepoints to be covered before terminating the loop
+			Fraction of livepoints to be killed before terminating the loop
 
 		dry_run: bool
 			Whether to run the placement without actually storing the templates. It is useful for the purpose of bank size measurement
@@ -102,14 +101,14 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 	metric = metric[ids_]
 	metric_cholesky = np.linalg.cholesky(metric).astype(dtype) #(D,D)
 	N_livepoints = len(livepoints)
-	print(livepoints.shape, metric.shape)
+	
 	
 	for _ in it: 
-		if len(livepoints)<N_livepoints*covering_fraction: break
+		if len(livepoints)<N_livepoints*(1-covering_fraction): break
 		
 			#Generating proposals
 		with torch.no_grad():
-			proposals = flow.sample(1000).numpy()
+			proposals = flow.sample(5000).numpy()
 
 		proposals = proposals[boundaries_checker(proposals)]
 		if len(proposals) ==0: continue
@@ -133,8 +132,9 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 			it.set_description(bar_str.format(N_tmplts, round(100*len(livepoints)/N_livepoints, 1)))
 
 
-	if dry_run: new_templates = N_tmplts
-	else: new_templates = np.concatenate(new_templates, axis = 0)
+	if dry_run: return N_tmplts
+	
+	new_templates = np.concatenate(new_templates, axis = 0)
 
 	return new_templates
 
@@ -328,7 +328,7 @@ def place_iterative(match, t):
 	return new_templates
 
 #@do_profile(follow = [])
-def place_random_tiling(minimum_match, tiling, N_livepoints, covering_fraction = 0.01, verbose = True):	
+def place_random_tiling(minimum_match, tiling, N_livepoints, covering_fraction = 0.9, verbose = True):	
 	"""
 	Draw templates from the uniform distribution on the manifold. For each proposal, all the livepoints in the ellipse of constant ``minimum_match`` are killed. The iteration goes on until a fraction of ``covering_fraction`` of livepoints are alive.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -346,7 +346,7 @@ def place_random_tiling(minimum_match, tiling, N_livepoints, covering_fraction =
 			Number of livepoints to cover the space with
 		
 		covering_fraction: float
-			Fraction of livepoints to be covered before terminating the loop
+			Fraction of livepoints to be killed before terminating the loop
 		
 		verbose: bool
 			Whether to display the progress bar
@@ -375,7 +375,7 @@ def place_random_tiling(minimum_match, tiling, N_livepoints, covering_fraction =
 	else: it = dummy_iterator()
 	
 	for _ in it: 
-		if len(livepoints)<N_livepoints*covering_fraction: break
+		if len(livepoints)<N_livepoints*(1-covering_fraction): break
 		
 			#Generating proposals
 		if tiling.flow:
@@ -424,7 +424,7 @@ def place_random_tiling(minimum_match, tiling, N_livepoints, covering_fraction =
 	return new_templates
 
 #@do_profile(follow=[])
-def place_pruning(minimum_match, tiling, N_points, covering_fraction = 0.01, verbose = True):
+def place_pruning(minimum_match, tiling, N_points, covering_fraction = 0.9, verbose = True):
 	"""
 	Given a tiling object, it covers the volume with points and covers them with templates.
 	It uses a pruning method, where proposal are chosen from a large set of random points, called livepoints. The bank is created by selecting a proposal from the set of livepoints and removing (killing) the livepoints too close from the proposal. This methods effectively prunes the original set of livepoints, to remove the random points that are too close from each other.
@@ -442,7 +442,7 @@ def place_pruning(minimum_match, tiling, N_points, covering_fraction = 0.01, ver
 			Number of livepoints to cover the space with
 		
 		covering_fraction: float
-			Fraction of livepoints to be covered before terminating the loop
+			Fraction of livepoints to be killed before terminating the loop
 		
 		verbose: bool
 			Whether to display the progress bar
@@ -528,7 +528,7 @@ def place_pruning(minimum_match, tiling, N_points, covering_fraction = 0.01, ver
 		del point
 			
 			#communication and exit condition
-		if len(livepoints)<=covering_fraction*N_points: break
+		if len(livepoints)<=(1-covering_fraction)*N_points: break
 		if len(new_templates) %100 ==0 and verbose: it.set_description(bar_str.format(N_points -len(livepoints), N_points, len(new_templates)) )
 	
 	new_templates = np.column_stack([new_templates])

@@ -14,6 +14,7 @@ from .bank import cbc_bank
 from .handlers import variable_handler
 from .utils import get_boundaries_from_ranges
 import warnings
+import json
 
 ####################################################################################################################
 #Parser stuff
@@ -327,6 +328,29 @@ def add_injections_options(parser):
 		"--use-ray", action='store_true', default = False,
 		help="Whether to use ray package to parallelize the match computation")
 
+def save_args(args, filename):
+	"""
+	Given a set of arguments, it stores them in **json** format to a file `filename`
+	
+	Parameters
+	----------
+		
+	args: argparse.Namespace
+		Arguments encoded in a parser Namespace object
+	
+	filename: str
+		Name of the file to save the arguments to
+	"""
+	json_str = json.dumps(args.__dict__, indent = 2)
+	json_str = json_str.replace(",\n    ", ", ")
+	json_str = json_str.replace("[\n    ", "[ ")
+	json_str = json_str.replace("\n  ]", " ]")
+
+	with open(filename, 'w', encoding='utf-8') as f:
+		f.write(json_str)
+
+	return
+
 def get_boundary_box_from_args(args):
 	"""
 	Given the arguments stored in a parser, it returns a rectangular boundary box for the parameter space defined by the arguments
@@ -339,12 +363,12 @@ def get_boundary_box_from_args(args):
 	"""
 	var_handler = variable_handler()
 	format_info = var_handler.format_info[args.variable_format]
-	if format_info['mass_format'] == 'm1m2':
-		assert args.m1_range and args.m2_range, "If mass format is m1m2, --m1-range and --m2-range must be given"
+	if format_info['mass_format'] in ['m1m2', 'logm1logm2']:
+		assert args.m1_range and args.m2_range, "If mass format is m1m2 or logm1logm2, --m1-range and --m2-range must be given"
 		var1_min, var1_max = args.m1_range
 		var2_min, var2_max = args.m2_range
 	elif format_info['mass_format'] in ['Mq', 'logMq']:
-		assert args.mtot_range and args.q_range, "If mass format is Mq, --mtot-range and --q-range must be given"
+		assert args.mtot_range and args.q_range, "If mass format is Mq or logMq, --mtot-range and --q-range must be given"
 		var1_min, var1_max = args.mtot_range
 		var2_min, var2_max = args.q_range
 	elif format_info['mass_format'] == 'mceta':

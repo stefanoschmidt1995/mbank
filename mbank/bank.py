@@ -289,7 +289,7 @@ class cbc_bank():
 			New templates to add.
 			They need to be stored in an array of shape (N,D) or (D,), where D is the dimensionality of the bank
 		"""
-		new_templates = np.array(new_templates)
+		new_templates = np.asarray(new_templates)
 		
 		if new_templates.ndim == 1:
 			new_templates = new_templates[None,:]

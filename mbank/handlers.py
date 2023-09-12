@@ -290,6 +290,11 @@ class variable_handler(object):
 		"""
 		theta, squeeze = self._check_theta_and_format(theta, variable_format)
 		
+		if variable_format == 'BBH_components':
+			ids = np.where(theta[:,0]<theta[:,1])[0]
+			theta[ids,2:5], theta[ids,5:8] =  theta[ids,5:8], theta[ids,2:5]
+			return theta
+		
 		if self.format_info[variable_format]['mass_format'] in ['m1m2', 'logm1logm2']:
 			ids = np.where(theta[:,0]<theta[:,1])[0]
 			theta[ids,0], theta[ids,1] = theta[ids,1], theta[ids,0] #switching masses
@@ -1797,7 +1802,7 @@ class tiling_handler(list, collections.abc.MutableSequence):
 		train_data[[0,1],:] = [max_val, min_val]
 		validation_data = self.sample_from_tiling(int(0.1*N_train_data))
 		
-		self.flow = STD_GW_Flow(D, n_layers, hidden_features)
+		self.flow = STD_GW_Flow(D, n_layers, hidden_features, has_constant = False)
 		
 		optimizer = optim.Adam(self.flow.parameters(), lr=0.001)
 		

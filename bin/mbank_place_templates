@@ -105,7 +105,8 @@ elif args.train_flow:
 
 plot_folder = None
 if args.plot: plot_folder = args.run_dir
-#plot_folder = 'show'
+
+mbank.parser.save_args(args, args.run_dir+'args.json')#.format(os.path.basename(__file__)))
 
 	######
 	#	Generating objs and tiling

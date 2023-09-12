@@ -16,6 +16,7 @@ import os
 import ast
 import sys
 import scipy
+from scipy.stats import binned_statistic_2d
 
 import json
 import pickle
@@ -687,6 +688,90 @@ def plot_match_histogram(matches_metric = None, matches = None, mm = None, bank_
 		plt.savefig(save_folder+'FF_hist.png', transparent = False)
 
 	return 
+
+def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins = 10, fs = 15, values_label = None, save_folder = None, show = False, title = None):
+	"""
+	Plots a colormap values for the given datapoints
+		
+	Parameters
+	----------
+		datapoints: :class:`~numpy:numpy.ndarray`
+			shape: (N,D) -
+			Datapoints to plot. They must be compatible with the chosen variable format
+		
+		values: :class:`~numpy:numpy.ndarray`
+			shape: (N,D) -
+			Datapoints to plot. They must be compatible with the chosen variable format
+		
+		variable_format: str
+			How to handle the BBH variables.
+		
+		statistics: str
+			Statistics to use for the :func:`~scipy:scipy.stats.binned_statistic_2d`
+
+		bins: int
+			Bins to use along each dimension (as in :func:`~scipy:scipy.stats.binned_statistic_2d`)
+
+		fs: int
+			Font size for the labels and axis
+
+		values_label: str
+			Labels for the colorbar.
+
+		save_folder: str
+			Folder where to save the plots
+			If `None`, no plots will be saved
+		
+		show: bool
+			Whether to show the plots
+		
+		title: str
+			A title for all the plots
+	"""
+	var_handler = variable_handler()
+		###
+		#Plotting datapoints
+		###
+	if isinstance(save_folder, str): 
+		if not save_folder.endswith('/'): save_folder = save_folder+'/'
+	
+		###
+		#Plotting
+		###
+	fsize = 4* datapoints.shape[1]-1
+	fig, axes = plt.subplots(datapoints.shape[1]-1, datapoints.shape[1]-1, figsize = (fsize, fsize))
+	if title: fig.suptitle(title)
+	if datapoints.shape[1]-1 == 1:
+		axes = np.array([[axes]])
+	for i,j in permutations(range(datapoints.shape[1]-1), 2):
+		if i<j:	axes[i,j].remove()
+
+		#Plot the datapoints
+	for ax_ in combinations(range(datapoints.shape[1]), 2):
+		currentAxis = axes[ax_[1]-1, ax_[0]]
+		ax_ = list(ax_)
+		
+		stat, x_edges, y_edges, binnumber = binned_statistic_2d(datapoints[:,ax_[0]], datapoints[:,ax_[1]], values = values,
+			statistic = statistics, bins = bins)
+		X, Y = np.meshgrid(x_edges,y_edges)
+		mesh = currentAxis.pcolormesh(X, Y, stat.T)
+		
+		cbar = plt.colorbar(mesh, ax = currentAxis)
+		if values_label: cbar.set_label(values_label, rotation=270, labelpad = 15)
+
+		if ax_[0] == 0:
+			currentAxis.set_ylabel(var_handler.labels(variable_format, latex = True)[ax_[1]], fontsize = fs)
+		else:
+			currentAxis.set_yticks([])
+		if ax_[1] == datapoints.shape[1]-1:
+			currentAxis.set_xlabel(var_handler.labels(variable_format, latex = True)[ax_[0]], fontsize = fs)
+		else:
+			currentAxis.set_xticks([])
+		currentAxis.tick_params(axis='x', labelsize=fs)
+		currentAxis.tick_params(axis='y', labelsize=fs)
+
+	if isinstance(save_folder, str): plt.savefig(save_folder+'colormap.png', transparent = False)
+	if show: plt.show()
 
 def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, title = None):
 	"""

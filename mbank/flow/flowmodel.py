@@ -262,7 +262,7 @@ class GW_Flow(Flow):
 				low, high = torch.Tensor(boundaries[0]), torch.Tensor(boundaries[1])
 				#the interval between low and high is made larger by a factor epsilon
 
-			epsilon_ = 1e-2 #TODO: tune this number: previously it was 0.2
+			epsilon_ = 0.01 #TODO: tune this number!! That's very very hard to set. Maybe you can make it trainable?
 			diff = high-low
 			assert torch.all(torch.abs(diff)>1e-20), "The training set has at least one degenerate dimension! Unable to continue with the training"
 			low = low - diff*epsilon_
@@ -285,6 +285,13 @@ class GW_Flow(Flow):
 				
 		desc_str = 'Training loop - lr: {:2f} - loss: {:5f}|{:5f}'
 		it = tqdm(range(N_epochs), desc = desc_str.format(optimizer.state_dict()['param_groups'][0]['lr'], np.inf, np.inf), disable = not verbose)
+
+		if isinstance(self.constant, torch.Tensor):
+			#It's usually a good idea to set the constant to a large number. The training will go to the minimum faster
+			with torch.no_grad():
+				self.constant[0] = torch.quantile(train_weights, 0.9).item()
+			#self.constant.requires_grad = False
+			if verbose: print('Initialing scaling constant to: ', self.constant[0])
 		
 		try:
 			for i in it:
@@ -303,9 +310,9 @@ class GW_Flow(Flow):
 				#	print('\tnan in loss: ',np.any(np.isnan(loss_.numpy())))
 				loss_.backward()
 				optimizer.step()
-				
+
 				train_loss.append(loss_.item())
-				print(loss_.item())
+				#print(self.constant.item())
 				
 				if not (i%validation_step):
 					with torch.no_grad():			

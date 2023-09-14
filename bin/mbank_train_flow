@@ -179,7 +179,7 @@ if args.verbose: print('Log10 volume of the space (a.k.a. constant shift): ', sh
 if args.plot:
 	with torch.no_grad():
 		validation_ll_flow = flow.log_prob(torch.Tensor(validation_data[:10000])).numpy()
-		plot_samples = flow.sample(100000).numpy()
+		plot_samples = flow.sample(10000).numpy()
 		
 		#Why are there nans in the sampling??
 	ids_nan = np.unique(np.where(np.isnan(plot_samples))[0])
@@ -225,7 +225,15 @@ if args.plot:
 
 	plot_tiles_templates(plot_samples, args.variable_format,
 		tiling = None, dist_ellipse = None, save_folder = args.run_dir, show = False, title = 'Flow samples')
-	plot_colormap(validation_data, validation_ll, args.variable_format, statistics = 'mean', save_folder = args.run_dir, values_label = 'log-likelihood', show = False, title = 'Validation data')
+	os.rename(args.run_dir+'bank.png', args.run_dir+'flow_samples.png')
+	os.rename(args.run_dir+'hist.png', args.run_dir+'flow_samples_hist.png')
+	
+	plot_colormap(validation_data, validation_ll/np.log(10), args.variable_format, statistics = 'mean', bins = 12,
+		savefile = args.run_dir+'colormap_validation_data.png', values_label = 'log-likelihood', title = 'Validation data')
+
+	plot_colormap(plot_samples, np.abs(log_M_diff)/np.log(10), args.variable_format, statistics = 'mean', bins = 30,
+		savefile = args.run_dir+'colormap_residuals.png', values_label = r'$|\log_{10}\frac{p_{flow}}{p_{true}}|$', title = 'Residuals')
+
 	if args.show: plt.show()
 		
 	

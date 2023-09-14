@@ -161,6 +161,19 @@ def test_bank_conversion():
 	print("'test_bank_conversion' passed")
 	return True
 
+def test_flow_transformations():
+	import torch
+	from mbank.flow.flowmodel import tau0tau3Transform, TanhTransform
+	
+	udist = torch.distributions.uniform.Uniform(torch.tensor([1, 0.01, -0.99]), torch.tensor([10, 0.25, 0.99]))
+	for trans in [TanhTransform(3, [1, 0.01, -0.99], [10, 0.25, 0.99]), tau0tau3Transform()]:
+		inputs = udist.sample(sample_shape = [10])
+		tvals, _ = trans(inputs)
+
+		assert torch.allclose(inputs, trans.inverse(trans(inputs)[0])[0]), "Transformation {} doesn't work".format(type(trans))
+		assert torch.allclose(tvals, trans(trans.inverse(tvals)[0])[0]), "Transformation {} doesn't work".format(type(trans))
+	print("'test_flow_transformations' passed")
+	
 if __name__ == '__main__':
 	import mbank
 	import mbank.utils
@@ -168,5 +181,6 @@ if __name__ == '__main__':
 	test_imports()
 	#test_psd()
 	test_variable_format()
+	test_flow_transformations()
 	#test_metric(True)
 	#test_bank_conversion()

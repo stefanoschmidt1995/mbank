@@ -31,13 +31,50 @@ from .utils import ks_metric, cross_entropy_metric
 import re
 
 ########################################################################
+class tau0tau3Transform(Transform):
+	"""
+	Implements the tau0tau3 transformation as in https://arxiv.org/pdf/0706.4437.pdf
+	"""
+	def __init__(self):
+		"""
+		Initialize the transformation.
+		
+		Parameters
+		----------
+			f_low: float
+				Lower frequency cut-off for the transformation
+		"""
+		super().__init__()
+		self.f_low = 15
+		self.A0 = 1#5./(256*(np.pi * f_low)**(8./3))  # eqn B3
+		self.A3 = 0.05#np.pi/(8*(np.pi*f_low)**(5./3))  # eqn B3
+		self.logabsdet_prefactor = np.log(self.A0*self.A3)
+	
+	def logabsdet_fwd(self, mc, eta):
+		return -10/3.*torch.log(mc)-8/5.*torch.log(eta)
+	
+	def inverse(self, inputs, context=None):
+		tau0, tau3 = inputs[:,0], inputs[:,1]
+		mc = torch.pow(tau0/self.A0, -3/5.)
+		eta = torch.pow(tau0/self.A0, 2/3.)*torch.pow(tau3/self.A3, -5/3.)
+		logabsdet = - self.logabsdet_fwd(mc, eta)
+		outputs = torch.stack([mc, eta, *inputs[:,2:].T], dim = 1)
+		return outputs, logabsdet
+
+	def forward(self, inputs, context=None):
+		mc, eta = inputs[:,0], inputs[:,1]
+		tau0 = self.A0*torch.pow(mc, -5/3.)
+		tau3 = self.A3*torch.pow(mc, -2/3.)*torch.pow(eta, -3/5.)
+		logabsdet = self.logabsdet_fwd(mc, eta)
+		outputs = torch.stack([tau0, tau3, *inputs[:,2:].T], dim = 1)
+		return outputs, logabsdet
 
 class TanhTransform(Transform):
 	"""
 	Implements the Tanh transformation. This maps a Rectangle [low, high] into R^D.
 	It is *very* recommended to use this as the last layer of every flow you will ever train on GW data.
 	"""
-	def __init__(self, D):
+	def __init__(self, D, low = None, high = None):
 		"""
 		Initialize the transformation.
 		
@@ -49,8 +86,14 @@ class TanhTransform(Transform):
 		super().__init__()
 			#Placeholders for the true values
 			#They will be fitted as a first thing in the training procedure
-		self.low = torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
-		self.high = torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
+		if low is None:
+			self.low = torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
+		else:
+			self.low = torch.nn.Parameter(torch.tensor(low, dtype=torch.float32), requires_grad = False)
+		if high is None:
+			self.high = torch.nn.Parameter(torch.randn([D], dtype=torch.float32), requires_grad = False)
+		else:
+			self.high = torch.nn.Parameter(torch.tensor(high, dtype=torch.float32), requires_grad = False)
 	
 	def inverse(self, inputs, context=None):
 		th_inputs = torch.tanh(inputs)

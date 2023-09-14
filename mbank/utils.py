@@ -689,7 +689,7 @@ def plot_match_histogram(matches_metric = None, matches = None, mm = None, bank_
 
 	return 
 
-def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins = 10, fs = 15, values_label = None, save_folder = None, show = False, title = None):
+def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins = 10, fs = 15, values_label = None, savefile = None, show = False, title = None):
 	"""
 	Plots a colormap values for the given datapoints
 		
@@ -718,9 +718,8 @@ def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins
 		values_label: str
 			Labels for the colorbar.
 
-		save_folder: str
-			Folder where to save the plots
-			If `None`, no plots will be saved
+		savefile: str
+			File where to save the plots. If `None`, no plots will be saved
 		
 		show: bool
 			Whether to show the plots
@@ -732,8 +731,6 @@ def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins
 		###
 		#Plotting datapoints
 		###
-	if isinstance(save_folder, str): 
-		if not save_folder.endswith('/'): save_folder = save_folder+'/'
 	
 		###
 		#Plotting
@@ -770,7 +767,7 @@ def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins
 		currentAxis.tick_params(axis='x', labelsize=fs)
 		currentAxis.tick_params(axis='y', labelsize=fs)
 
-	if isinstance(save_folder, str): plt.savefig(save_folder+'colormap.png', transparent = False)
+	if isinstance(savefile, str): plt.savefig(savefile, transparent = False)
 	if show: plt.show()
 
 def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, title = None):

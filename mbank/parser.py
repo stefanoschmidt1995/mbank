@@ -131,13 +131,13 @@ def add_flow_options(parser):
 		"--flow-file", default = 'flow.zip', type = str,
 		help="File where the normalizing flow is saved/loaded (in zip format).")
 	parser.add_argument(
-		"--loss-function", default = 'll_mse', type = str, choices = STD_GW_Flow(1, 1).available_losses,
+		"--loss-function", default = 'll_mse', type = str, choices = STD_GW_Flow(1, 1, 1).available_losses,
 		help="Method to use to compute the metric.")
 	parser.add_argument(
 		"--n-layers", default = 2, type = int,
 		help="Number of layers for the flow model to train")
 	parser.add_argument(
-		"--hidden-features", default = 4, type = int,
+		"--hidden-features", default = 20, nargs = '+', type = int,
 		help="Number of hidden features for the masked autoregressive flow to train.")
 	parser.add_argument(
 		"--n-epochs", default = 10000, type = int,
@@ -281,11 +281,11 @@ def add_template_placement_options(parser):
 		"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 		help="Which placing method to use for each tile")
 	parser.add_argument(
-		"--n-livepoints", default = 10000, type = int,
+		"--n-livepoints", default = 2000, type = int,
 		help="Parameter to control the number of livepoints to use in the `random` and `pruning` placing method. For `random` (or related), it represents the number of livepoints to use for the estimation of the coverage fraction. For `pruning`, it amounts to the the ratio between the number of livepoints and the number of templates placed by ``uniform`` placing method.")
 	parser.add_argument(
-		"--covering-fraction", default = 0.01, type = float,
-		help="Parameter to control the maximum fraction of livepoints alive before terminating the bank generation with the `random` and `pruning` placing method. The smaller the threshold, the higher the nuber of templates in the final bank.")
+		"--covering-fraction", default = 0.9, type = float,
+		help="Parameter to control the fraction of livepoints dead before terminating the bank generation with the `random` and `pruning` placing method. The higher the threshold, the higher the nuber of templates in the final bank.")
 	parser.add_argument(
 		"--empty-iterations", default = 100, type = float,
 		help="Number of consecutive rejected proposal after which the `stochastic` placing method stops.")

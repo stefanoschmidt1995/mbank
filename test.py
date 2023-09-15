@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import torch
 import subprocess
 
 def test_imports():
@@ -173,10 +174,30 @@ def test_flow_transformations():
 		assert torch.allclose(inputs, trans.inverse(trans(inputs)[0])[0]), "Transformation {} doesn't work".format(type(trans))
 		assert torch.allclose(tvals, trans(trans.inverse(tvals)[0])[0]), "Transformation {} doesn't work".format(type(trans))
 	print("'test_flow_transformations' passed")
+
+def test_flow_IO():
+	from mbank.flow import STD_GW_Flow
+	
+	flow = STD_GW_Flow(4, n_layers = 2, hidden_features = [10,3])
+	
+	flow.save_weigths('.flow_test_42735628347252763182.zip')
+	
+	flow_loaded = STD_GW_Flow.load_flow('.flow_test_42735628347252763182.zip')
+	
+	for (k1,v1), (k2,v2) in zip(flow.state_dict().items(), flow_loaded.state_dict().items()):
+		assert k1 == k2, "The loaded flow doesn't have the same entries in state_dict"
+		assert torch.allclose(v1, v2), "The loaded flow doesn't have the same values in state_dict"
+	
+	os.remove('.flow_test_42735628347252763182.zip')
+
+	print("'test_flow_IO' passed")
+	
 	
 if __name__ == '__main__':
 	import mbank
 	import mbank.utils
+	test_flow_IO()
+	quit()
 	vh = mbank.variable_handler()
 	test_imports()
 	#test_psd()

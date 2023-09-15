@@ -31,6 +31,45 @@ from .utils import ks_metric, cross_entropy_metric
 import re
 
 ########################################################################
+
+class powerlawTransform(Transform):
+	"""
+	Implements a trainable power law transformation for each dimension of the flow
+	"""
+	def __init__(self, alphas = None, low = None, high = None):
+		"""
+		Initialize the transformation.
+		
+		Parameters
+		----------
+			f_low: float
+				Lower frequency cut-off for the transformation
+		"""
+		super().__init__()
+		for l in [alphas, low, high]:
+			if l is None: l = torch.randn([D], dtype=torch.float32)
+
+		self.low = torch.tensor(low, dtype=torch.float32)
+		self.high = torch.tensor(high, dtype=torch.float32)
+		self.alphas = torch.nn.Parameter(torch.tensor(alphas, dtype=torch.float32), requires_grad = True)
+		self.diff =  self.high - self.low
+		self.low = self.low - self.diff*1e-1
+		self.high = self.high + self.diff*1e-1
+		
+		self.low = torch.nn.Parameter(self.low, requires_grad = False)
+		self.high = torch.nn.Parameter(self.high, requires_grad = False)
+		
+	def inverse(self, inputs, context=None):
+		outputs = torch.pow(inputs, 1/self.alphas)*self.diff + self.low
+		logabsdet = -torch.sum(torch.log(torch.abs(self.alphas/self.diff))) + torch.sum((1/self.alphas-1)*torch.log(torch.abs(inputs)), dim = -1)
+		return outputs, logabsdet
+
+	def forward(self, inputs, context=None):
+		scaled_inputs = (inputs-self.low)/self.diff
+		outputs = torch.pow(scaled_inputs, self.alphas)
+		logabsdet = torch.sum(torch.log(torch.abs(self.alphas/self.diff))) + torch.sum((self.alphas-1)*torch.log(torch.abs(scaled_inputs)), dim = -1)
+		return outputs, logabsdet
+
 class tau0tau3Transform(Transform):
 	"""
 	Implements the tau0tau3 transformation as in https://arxiv.org/pdf/0706.4437.pdf
@@ -45,7 +84,7 @@ class tau0tau3Transform(Transform):
 				Lower frequency cut-off for the transformation
 		"""
 		super().__init__()
-		self.f_low = 15
+		f_low = 15
 		self.A0 = 1#5./(256*(np.pi * f_low)**(8./3))  # eqn B3
 		self.A3 = 0.05#np.pi/(8*(np.pi*f_low)**(5./3))  # eqn B3
 		self.logabsdet_prefactor = np.log(self.A0*self.A3)
@@ -103,9 +142,11 @@ class TanhTransform(Transform):
 		return outputs, logabsdet
 
 	def forward(self, inputs, context=None):
+		inside = torch.logical_and(torch.prod(inputs>self.low, dim = -1), torch.prod(inputs<self.high, dim = -1))
 		inputs = inputs.mul(2)
 		inputs = inputs.add(-self.high-self.low)
 		inputs = inputs.div(self.high-self.low)
+
 		if torch.min(inputs) <= -1 or torch.max(inputs) >= 1:
 			raise InputOutsideDomain()
 		outputs = 0.5 * torch.log((1 + inputs) / (1 - inputs))
@@ -586,9 +627,9 @@ class GW_Flow(Flow):
 class STD_GW_Flow(GW_Flow):
 	"""
 	An implementation of the standard flow: the flow is composed by one TanhTransform layer and a stack of layers made by NaiveLinear+MaskedAffineAutoregressiveTransform.
-	All the applications within mbank, use of this class.
+	All the applications within mbank uses of this class.
 	"""
-	def __init__(self, D, n_layers, hidden_features = 2, has_constant = True):
+	def __init__(self, D, n_layers, hidden_features, has_constant = True):
 		"""
 		Initialization of the flow
 		
@@ -600,20 +641,25 @@ class STD_GW_Flow(GW_Flow):
 			n_layers: int
 				Number of layers (each made by NaiveLinear+MaskedAffineAutoregressiveTransform)
 			
-			hidden_features: int
+			hidden_features: int, list
 				Number of hidden features of the ``MaskedAffineAutoregressiveTransform``
-			
-			
-		
+				If a list is given, it is intended to be the number of hidden features for each layer
 		"""
 		base_dist = StandardNormal(shape=[D])
 		
 		transform_list = [TanhTransform(D)]
 
-		for _ in range(n_layers):
+		if isinstance(hidden_features, int):
+			hidden_features = [hidden_features]
+		if isinstance(hidden_features, list):
+			if len(hidden_features) == 1 and n_layers>1:
+				hidden_features = hidden_features*n_layers
+		assert isinstance(hidden_features, (int, (list, tuple))), "hidden_features must be a int or a list of ints"
+		
+		for i in range(n_layers):
 			transform_list.append(NaiveLinear(features=D))
 				#FIXME: are you sure you want D hidden features?
-			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=hidden_features))
+			transform_list.append(MaskedAffineAutoregressiveTransform(features=D, hidden_features=hidden_features[i]))
 		transform_list = CompositeTransform(transform_list)
 		
 		super().__init__(transform=transform_list, distribution=base_dist, has_constant = has_constant)
@@ -652,10 +698,13 @@ class STD_GW_Flow(GW_Flow):
 			assert len(n_layers)==1
 			n_layers = int(n_layers[0])//2
 
-			hidden_features = '_transform._transforms.{}.autoregressive_net.final_layer.mask'.format(2*n_layers)
-			hidden_features = w[hidden_features].shape[1]
+			hidden_features = []
+			for k in w.keys():
+				if k.find('.autoregressive_net.final_layer.mask') > -1:
+					hidden_features.append(w[k].shape[1])
 		except:
 			raise ValueError("The given weight file does not match the architecture of a `STD_GW_Flow`")
+		assert len(hidden_features)==n_layers, "Number of layers and features do not match"
 		new_flow = cls(D, n_layers, hidden_features, has_constant)
 		new_flow.load_state_dict(w)
 		return new_flow

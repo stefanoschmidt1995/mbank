@@ -190,9 +190,9 @@ if args.plot:
 
 	if not True: #DEBUG: see what happens to the tiling
 		from mbank import tiling_handler
-		t = tiling_handler('out_high_dimensional_bank_flow/tiling_high_dimensional_bank_flow.npy')
-		t.flow = flow
-		validation_ll_flow = 0.5*np.log(np.linalg.det(t.get_metric(validation_data[:10000], flow = True, kdtree = True)))
+		t = tiling_handler('out_flow_paper_precessing/tiling_paper_precessing.npy')
+		#t.flow = flow
+		validation_ll_flow = 0.5*np.log(np.linalg.det(t.get_metric(validation_data[:10000], flow = False, kdtree = True)))
 		shift = 0
 
 
@@ -231,7 +231,7 @@ if args.plot:
 	plot_colormap(validation_data, validation_ll/np.log(10), args.variable_format, statistics = 'mean', bins = 12,
 		savefile = args.run_dir+'colormap_validation_data.png', values_label = 'log-likelihood', title = 'Validation data')
 
-	plot_colormap(plot_samples, np.abs(log_M_diff)/np.log(10), args.variable_format, statistics = 'mean', bins = 30,
+	plot_colormap(validation_data[:len(validation_ll_flow)], np.abs(log_M_diff)/np.log(10), args.variable_format, statistics = 'mean', bins = 30,
 		savefile = args.run_dir+'colormap_residuals.png', values_label = r'$|\log_{10}\frac{p_{flow}}{p_{true}}|$', title = 'Residuals')
 
 	if args.show: plt.show()

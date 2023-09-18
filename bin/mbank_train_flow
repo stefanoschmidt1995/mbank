@@ -122,6 +122,9 @@ for f in args.dataset:
 	
 	dataset.append(new_dataset)
 
+if not len(dataset):
+	raise RuntimeError("None of the given datasets exist")
+
 dataset = np.concatenate(dataset, axis = 0)
 
 boundaries = None if args.ignore_boundaries else get_boundary_box_from_args(args)
@@ -147,6 +150,7 @@ if args.verbose: print('Train {} | Validation {}'.format(len(train_data), len(va
 
 if args.load_flow:
 	flow = STD_GW_Flow.load_flow(args.flow_file)
+	history = None
 else:
 	flow = STD_GW_Flow(D, n_layers = args.n_layers, hidden_features = args.hidden_features, has_constant = True)
 
@@ -177,6 +181,11 @@ if args.verbose: print('Log10 volume of the space (a.k.a. constant shift): ', sh
 	######
 
 if args.plot:
+
+	if history:
+		#TODO: plot the loss and validation function... :D
+		pass
+
 	with torch.no_grad():
 		validation_ll_flow = flow.log_prob(torch.Tensor(validation_data[:10000])).numpy()
 		plot_samples = flow.sample(10000).numpy()

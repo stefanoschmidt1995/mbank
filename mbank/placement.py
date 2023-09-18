@@ -86,7 +86,6 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 	
 	"""
 	assert 0<covering_fraction <=1., "The covering_fraction should be a fraction in (0,1]"
-	MM = minimum_match
 	dtype = np.float32
 	
 	bar_str = '{} templates placed ({} % livepoints alive)'
@@ -99,7 +98,7 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 	ids_ = boundaries_checker(livepoints)
 	livepoints = livepoints[ids_]
 	metric = metric[ids_]
-	metric_cholesky = np.linalg.cholesky(metric).astype(dtype) #(D,D)
+	metric_cholesky = np.linalg.cholesky(metric).astype(dtype) #(N, D,D)
 	N_livepoints = len(livepoints)
 	
 	
@@ -117,9 +116,9 @@ def place_random_flow(minimum_match, flow, livepoints, metric, boundaries_checke
 		for i, (l, L_t) in enumerate(zip(livepoints, metric_cholesky)):
 			diff = proposals - l #(N,D)
 			diff_prime = scipy.linalg.blas.sgemm(1, diff, L_t)
-			dist = np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
+			dist_sq = np.sum(np.square(diff_prime), axis =1) #(N,) #This is the bottleneck of the computation, as it should be
 	
-			if np.any(dist < 1- MM):
+			if np.any(dist_sq < 1- minimum_match):
 				ids_kill.append(i)
 
 		livepoints = np.delete(livepoints, ids_kill, axis = 0)

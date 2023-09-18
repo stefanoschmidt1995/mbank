@@ -76,6 +76,8 @@ if (args.mm is None) or (args.variable_format is None):
 	raise ValueError("The arguments --mm, --variable-formatmust be set!")
 assert args.tiling_file or args.flow_file, "At least one argument between --tiling-file and --flow-file"
 
+assert args.mm <1 and args.mm>0, "The minimum match must be lower than 1 and greater than 0"
+
 var_handler = mbank.variable_handler()
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
 D = var_handler.D(args.variable_format)
@@ -126,8 +128,17 @@ if args.tiling_file:
 	elif args.flow_file: t_obj.load_flow(args.flow_file)
 
 	bank.place_templates(t_obj, args.mm, placing_method = args.placing_method, N_livepoints = args.n_livepoints, covering_fraction = args.covering_fraction, empty_iterations = args.empty_iterations, verbose = True)
+	
+	if args.dry_run:
+		print("Placed {} templates".format(bank.templates))
+		quit()
 
 else:
+
+	#TODO: this part here should be re-arranged in such a way that MC estimation of the livepoints makes sense
+	#You will need sample the flow for some livepoints and evaluate the metric for each of them
+	#Mybe you can also do importance sampling to estimate the covering fraction more seriously... :D
+
 	bk = mbank.parser.boundary_keeper(args)
 	def boundaries_checker(theta):
 		return bk(theta, args.variable_format)
@@ -145,7 +156,7 @@ else:
 	livepoints, metric = livepoints[good_ids], metric[good_ids]
 	livepoints, metric = livepoints[-args.n_livepoints:], metric[-args.n_livepoints:]
 
-	new_templates = place_random_flow(0.97, flow, livepoints, metric, boundaries_checker, covering_fraction = args.covering_fraction, dry_run = args.dry_run, verbose = args.verbose)
+	new_templates = place_random_flow(args.mm, flow, livepoints, metric, boundaries_checker, covering_fraction = args.covering_fraction, dry_run = args.dry_run, verbose = args.verbose)
 	if args.dry_run:
 		print("Placed {} templates".format(new_templates))
 		quit()

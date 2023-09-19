@@ -230,6 +230,29 @@ class GW_Flow(Flow):
 			raise ValueError(msg)
 		return
 	
+	def sample_within_boundaries(self, num_samples, boundaries = None):
+		"""
+		Generate a number of samples within the given boundaries
+		"""
+		if boundaries is None:
+			return self.sample_and_log_prob(num_samples)
+		
+		num_samples_per_trial = min(num_samples, 3000)
+
+		with torch.no_grad():		
+			samples, log_prob = None, None
+			while True:
+				new_points, new_log_prob = self.sample_and_log_prob(num_samples_per_trial)
+				ids_ = boundaries(new_points)
+				if sum(ids_)>0:
+					samples = new_points[ids_] if samples is None else torch.cat([samples, new_points[ids_]], dim = 0)
+					log_prob = new_log_prob[ids_] if log_prob is None else torch.cat([log_prob, new_log_prob[ids_]], dim = 0)
+					
+					if samples.shape[0]>=num_samples: break
+		
+		return samples[:num_samples], log_prob[:num_samples]
+		
+	
 	def forward_KL_loss(self, data, weights):
 		return -self.log_prob(inputs=data).mean()
 

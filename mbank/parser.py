@@ -278,7 +278,7 @@ def add_template_placement_options(parser):
 		"--mm", required = False, type = float, default = 0.97,
 		help="Minimum match for the bank (a.k.a. average distance between templates)")
 	parser.add_argument(
-		"--placing-method", default = 'geometric', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
+		"--placing-method", default = 'random', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,
 		help="Which placing method to use for each tile")
 	parser.add_argument(
 		"--n-livepoints", default = 2000, type = int,

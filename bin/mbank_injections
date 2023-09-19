@@ -33,6 +33,7 @@ from ligo.lw import lsctables
 from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
 from mbank.utils import ray_compute_injections_match, compute_injections_match, compute_injections_metric_match, load_PSD, plot_tiles_templates, save_injs, get_antenna_patterns, get_random_sky_loc, plot_match_histogram, save_inj_stat_dict, initialize_inj_stat_dict, read_xml
 import mbank.parser
+from mbank.flow import STD_GW_Flow
 
 from itertools import combinations, permutations
 
@@ -49,6 +50,9 @@ parser = argparse.ArgumentParser(__doc__)
 mbank.parser.add_general_options(parser)
 mbank.parser.add_metric_options(parser)
 mbank.parser.add_injections_options(parser)
+mbank.parser.add_range_options(parser) #only to generate injections for the flow...
+
+#FIXME: it would be nice if the flow object had incorporated the boundaries, maybe in the form of some non-trainable weights...
 
 parser.add_argument(
 	"--bank-file", required = False, type = str,
@@ -78,8 +82,9 @@ var_handler = variable_handler()
 
 if (args.bank_file is None) or (args.variable_format is None):
 	raise ValueError("The arguments bank-file and variable_format must be set!")
-if (args.tiling_file is None) and (args.inj_file is None):
-	raise ValueError("If the argument --tiling-file is not set, you must provide an injection file through argument --inj-file")
+if (args.inj_file is None):
+	if (args.tiling_file is None) and (args.flow_file is None):
+		raise ValueError("If the argument --inj-file is not set, you must provide a way to draw injections through arguments --tiling-file or --flow-file")
 
 assert args.variable_format in var_handler.valid_formats, "Wrong value {} for variable-format".format(args.variable_format)
 
@@ -134,6 +139,8 @@ if args.verbose: print("Loaded bank {} with {} templates".format(args.bank_file,
 if metric_match:
 	t_obj = tiling_handler(args.tiling_file)
 	if isinstance(args.flow_file, str): t_obj.load_flow(args.flow_file)
+elif isinstance(args.flow_file, str):
+	flow = STD_GW_Flow.load_flow(args.flow_file)
 
 	######
 	#	Generating injections
@@ -143,7 +150,13 @@ if args.inj_file is None:
 
 	assert isinstance(args.n_injs, int), "Argument --n-injs must be specified if an injection file is not given"
 		#generating tiles injections
-	projected_injs = t_obj.sample_from_tiling(args.n_injs, seed = args.seed)
+	if args.tiling_file:
+		projected_injs = t_obj.sample_from_tiling(args.n_injs, seed = args.seed)
+	else:
+		bk = mbank.parser.boundary_keeper(args)
+		def boundaries_checker(theta):
+			return bk(theta, args.variable_format)
+		projected_injs, _ = flow.sample_within_boundaries(args.n_injs, boundaries_checker, seed = args.seed)
 	
 	#projected_injs = bank.templates; print("######### Bank injections!! ###########") #FIXME: this will become a bank-injs option!! Or something similar
 	
@@ -200,7 +213,7 @@ if full_match:
 		#this function should take the stat_dict and for each best_id, it should replace the metric match with the actual match
 		#The actual match shall be computed with metric.WF_match
 		#The function returns an updated version of injection_stat_dict
-	metric.set_variable_format('m1m2_fullspins_emeanano_iotaphi')
+	metric.set_variable_format('BBH_components')
 
 	if args.use_ray:
 		injection_stat_dict = ray_compute_injections_match(injection_stat_dict, bank, metric,
@@ -251,11 +264,12 @@ if args.plot:
 		###
 		# Colored plots
 		###
-	if isinstance(args.mm, (float, int)):
-		ids_to_plot = np.where(plotted_matches<args.mm)[0]
-	else:
-		ids_to_plot = range(len(plotted_matches))
+	#if isinstance(args.mm, (float, int)):
+	#	ids_to_plot = np.where(plotted_matches<args.mm)[0]
+	#else:
+	#	ids_to_plot = range(len(plotted_matches))
 
+	ids_to_plot = range(len(plotted_matches))
 	plot_tiles_templates(bank.templates, args.variable_format, #t_obj,
 				injections = projected_injs[ids_to_plot,:], inj_cmap =plotted_matches[ids_to_plot] ,
 				dist_ellipse = None, save_folder = args.run_dir, show = False)

@@ -230,10 +230,13 @@ class GW_Flow(Flow):
 			raise ValueError(msg)
 		return
 	
-	def sample_within_boundaries(self, num_samples, boundaries = None):
+	def sample_within_boundaries(self, num_samples, boundaries = None, seed = None):
 		"""
 		Generate a number of samples within the given boundaries
 		"""
+		if isinstance(seed, int):
+			torch.manual_seed(seed)
+			
 		if boundaries is None:
 			return self.sample_and_log_prob(num_samples)
 		

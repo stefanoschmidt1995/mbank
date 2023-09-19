@@ -133,7 +133,7 @@ for i in range(args.n_jobs):
 dag = DAG()
 
 	# define job requirements
-requirements = {"request_cpus": 2, "request_memory": 2000, "getenv": True}
+requirements = {"request_cpus": 2, "request_memory": '4GB', "request_disk": '4GB', "getenv": True}
 
 	#Creating an match computation layer
 #FIXME: what shall I put under universe?

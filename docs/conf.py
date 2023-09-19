@@ -85,6 +85,7 @@ html_permalinks_icon = (
     "3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 "
     '5-5s-2.24-5-5-5z"/></svg>'
 )
+del html_permalinks_icon
 
 html_theme_options = {
     "show_scrolltop": True,
@@ -138,4 +139,5 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "torch": ('https://pytorch.org/docs/stable/', None),
 }

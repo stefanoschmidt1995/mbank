@@ -36,7 +36,7 @@ class powerlawTransform(Transform):
 	"""
 	Implements a trainable power law transformation for each dimension of the flow
 	"""
-	def __init__(self, alphas = None, low = None, high = None):
+	def __init__(self, D, alphas = None, low = None, high = None):
 		"""
 		Initialize the transformation.
 		

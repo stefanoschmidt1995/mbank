@@ -435,7 +435,7 @@ def plot_comparison_injections(files, labels, keys, title = None, c_list = None,
 	if not c_list:
 		c_list = [None for _ in files]
 
-	if title is None: title = [None for _ in list_A]
+	#if title is None: title = [None for _ in labels]
 
 	for i, (ax, t) in enumerate(zip(axes, title)):
 		injs_dicts = []

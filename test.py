@@ -18,6 +18,7 @@ def test_psd(verbose = False):
 	for df in [0.1, 1, 4, 10]:
 		f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1', df = df)
 		assert np.allclose(f[1]-f[0], df)
+	print("'test_psd' passed")
 	return True
 	
 def test_metric(verbose = False):
@@ -197,11 +198,9 @@ if __name__ == '__main__':
 	import mbank
 	import mbank.utils
 	test_flow_IO()
-	quit()
-	vh = mbank.variable_handler()
 	test_imports()
-	#test_psd()
+	test_psd()
 	test_variable_format()
 	test_flow_transformations()
-	#test_metric(True)
-	#test_bank_conversion()
+	test_metric(True)
+	test_bank_conversion()

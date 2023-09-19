@@ -204,7 +204,7 @@ if __name__ == '__main__':
 		f_min, f_max = 15., 1024.
 		theta_range = (np.pi/4, 3*np.pi/4)
 	else:
-		raise ValuError("Variable format not recognized")
+		raise ValueError("Variable format not recognized")
 	
 			#setting ranges
 	q_range = (1,5)

@@ -15,7 +15,7 @@ import glob
 
 ####################################################################
 def clean_dag():
-	cmd = 'rm -fr files match_jobs results mbank_injections_dag* *sub logs'
+	cmd = 'rm -fr files/ match_jobs/ results/ logs/ mbank_injections_dag* match_computation.sub merge_products.sub'
 	process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell = True)
 	if process.returncode != 0:
 		print("Failed to clean the DAG with the following error message: ")
@@ -133,7 +133,7 @@ for i in range(args.n_jobs):
 dag = DAG()
 
 	# define job requirements
-requirements = {"request_cpus": 2, "request_memory": '4GB', "request_disk": '4GB', "getenv": True}
+requirements = {"request_cpus": 2, "request_memory": '10GB', "request_disk": '4GB', "getenv": True}
 
 	#Creating an match computation layer
 #FIXME: what shall I put under universe?

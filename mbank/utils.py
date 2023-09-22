@@ -417,15 +417,15 @@ def compute_injections_match(inj_dict, bank, metric_obj, mchirp_window = 0.1, sy
 
 		######
 		# Creating the mapping table
-	desc = 'Generating an injection-template mapping table'.format('symphony' if symphony_match else 'std')
-	it_  = tqdm(range(injs.shape[0]), desc = desc, leave = True) if verbose else range(injs.shape[0])
-	
 	inj_template_mapping = lil_array((injs.shape[0], templates.shape[0]), dtype = int)
+
+	for i in tqdm(range(injs.shape[0]), desc = 'Generating an injection-template mapping table', disable = not verbose):
 	
-	for i in it_:
+			#To make sure that super high mass templates will find a match...
+		mcw = mchirp_window if chirp_injs[i]<80 else max(mchirp_window, 0.5)
 	
 		relative_diff = np.abs(chirp_templates-chirp_injs[i])/chirp_injs[i]
-		ids_ = np.where(relative_diff<mchirp_window)[0]
+		ids_ = np.where(relative_diff<mcw)[0]
 
 		inj_template_mapping[[i], ids_] = 1
 

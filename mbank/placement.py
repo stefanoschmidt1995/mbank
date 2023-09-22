@@ -136,10 +136,10 @@ def place_stochastically_flow(minimum_match, flow, metric_obj, boundaries_checke
 	
 	return new_templates
 
-def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, verbose = True):
+def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, qmc = True, dry_run = False, verbose = True):
 	"""
 	It computes the number of templates using the random algorithm :func:`place_random_flow`.
-	It then places templates on a grid in the gaussian space and transforms it back to the normal space
+	It then places templates on a grid in the gaussian space or with quasi-Monte Carlo sampling and transforms it back to the normal space
 	
 	Parameters
 	----------
@@ -170,6 +170,9 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 		covering_fraction: float
 			Fraction of livepoints to be killed before terminating the loop
 
+		qmc: bool
+			Whether to sample the templates in the latent space with a quasi-MC algorithm. If False, templates will lie in a grid
+
 		dry_run: bool
 			Whether to run the placement without actually storing the templates. It is useful for the purpose of bank size measurement
 		
@@ -188,12 +191,10 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 	
 	D = flow.D
 	
-	qmc = not False
-	
 	if qmc:
 		qmc_sampler = scipy.stats.qmc.MultivariateNormalQMC([0]*D)
 		#print(2**int(np.round(np.log2(n_templates))), 2**int(np.log2(n_templates)), n_templates)
-		n_templates = 2**int(np.log2(n_templates)+0.3)
+		n_templates = 2**int(np.log2(n_templates)+0.4)
 		grid = torch.tensor(qmc_sampler.random(n_templates).astype(np.float32))
 	else:
 		N_points = [int(n_templates**(1/D))+1]
@@ -202,7 +203,7 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 			#N_points.append(max(int((n_templates/np.prod(N_points))**(1/d)),1)) # This will always underestimate the number of templates
 			N_points.append(int((n_templates/np.prod(N_points))**(1/d))+1) # This will always overestimate the number of templates
 		
-			#print(N_points, np.prod(N_points), n_templates)
+		print(N_points, np.prod(N_points), n_templates)
 
 		grid_1d = [scipy.special.erfinv(2*np.linspace(0,1, n, endpoint = True)[1:-1] - 1) for n in N_points]
 		grid = []
@@ -210,13 +211,13 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 			grid.append(p)
 		grid = torch.tensor(np.array(grid).astype(np.float32))
 
-	if dry_run:
-		return len(grid)
-
 	with torch.no_grad():
 		new_templates, _ = flow._transform.inverse(grid)
 		new_templates = new_templates.numpy()
 		new_templates = new_templates[boundaries_checker(new_templates)]
+
+	if dry_run:
+		return len(new_templates)
 
 	return new_templates
 
@@ -282,13 +283,20 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 
 		#Computing the metric for all the livepoints
 	metric, p = [], []
-	for l, l_pdf in zip(tqdm(livepoints, desc = 'Computing the metric for each livepoint', disable = not verbose), log_pdf):
+	ids_to_remove = [] #Keeps the ids of the livepoints for which the metric computation fails
+	
+	for i, (l, l_pdf) in enumerate(zip(tqdm(livepoints, desc = 'Computing the metric for each livepoint', disable = not verbose), log_pdf)):
 		metric_ = metric_obj.get_metric(l, metric_type = 'symphony')
+		if np.linalg.det(metric_)<0:
+			ids_to_remove.append(i)
+			continue
 		l_pdf_true = np.log(np.abs(np.linalg.det(metric_)))*0.5
 
 		metric.append(metric_)		
 		p.append(np.exp(l_pdf_true-l_pdf-flow.constant.item()))
-		
+	
+	if ids_to_remove:
+		livepoints = np.delete(livepoints, ids_to_remove, axis = 0)
 	metric_cholesky = np.linalg.cholesky(metric).astype(dtype) #(N, D,D)
 	p = np.array(p)/np.sum(p)
 	actual_covering_fraction = 0
@@ -298,7 +306,7 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 	
 	new_templates = []
 	N_tmplts = 0
-	
+
 	for _ in it: 
 		if actual_covering_fraction>covering_fraction: break
 		
@@ -331,7 +339,10 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 			it.set_description(bar_str.format(N_tmplts, round(100*actual_covering_fraction, 1)))
 
 
-	if dry_run: return N_tmplts
+	if dry_run:
+		#from .utils import plot_tiles_templates
+		#plot_tiles_templates(livepoints, 'm1m2_chi', show = True)
+		return N_tmplts
 	
 	new_templates = np.concatenate(new_templates, axis = 0)
 

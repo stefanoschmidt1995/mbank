@@ -49,15 +49,22 @@ class powerlawTransform(Transform):
 		for l in [alphas, low, high]:
 			if l is None: l = torch.randn([D], dtype=torch.float32)
 
-		self.low = torch.tensor(low, dtype=torch.float32)
-		self.high = torch.tensor(high, dtype=torch.float32)
 		self.alphas = torch.nn.Parameter(torch.tensor(alphas, dtype=torch.float32), requires_grad = True)
-		self.diff =  self.high - self.low
-		self.low = self.low - self.diff*1e-1
-		self.high = self.high + self.diff*1e-1
+		self.set_boundaries(low, high)
 		
-		self.low = torch.nn.Parameter(self.low, requires_grad = False)
-		self.high = torch.nn.Parameter(self.high, requires_grad = False)
+	
+	def set_boundaries(self, low, high):
+		print(low, high)
+		low = torch.tensor(low, dtype=torch.float32)
+		high = torch.tensor(high, dtype=torch.float32)
+		self.diff =  high - low
+		low = low - self.diff*1e-1
+		high = high + self.diff*1e-1		
+		self.low = torch.nn.Parameter(low, requires_grad = False)
+		self.high = torch.nn.Parameter(high, requires_grad = False)
+		
+		print('###### Boundaries')
+		print(self.low, self.high, self.alphas)
 		
 	def inverse(self, inputs, context=None):
 		outputs = torch.pow(inputs, 1/self.alphas)*self.diff + self.low
@@ -393,15 +400,18 @@ class GW_Flow(Flow):
 		train_loss=[]
 		metric = [] #Kolmogorov–Smirnov metric (kind of)
 				
-		desc_str = 'Training loop - lr: {:2f} - loss: {:5f}|{:5f}'
-		it = tqdm(range(N_epochs), desc = desc_str.format(optimizer.state_dict()['param_groups'][0]['lr'], np.inf, np.inf), disable = not verbose)
-
 		if isinstance(self.constant, torch.Tensor):
 			#It's usually a good idea to set the constant to a large number. The training will go to the minimum faster
+			#warnings.warn('Scaling the LLs')
+			#validation_weights = validation_weights - torch.max(train_weights) + 0
+			#train_weights = train_weights - torch.max(train_weights) + 0
 			with torch.no_grad():
 				self.constant[0] = torch.quantile(train_weights, 0.9).item()
 			#self.constant.requires_grad = False
-			if verbose: print('Initialing scaling constant to: ', self.constant[0])
+			if verbose: print('Initialing scaling constant to: ', self.constant[0].item())
+		
+		desc_str = 'Training loop - lr: {:2f} - loss: {:5f}|{:5f}'
+		it = tqdm(range(N_epochs), desc = desc_str.format(optimizer.state_dict()['param_groups'][0]['lr'], np.inf, np.inf), disable = not verbose)
 		
 		try:
 			for i in it:
@@ -422,9 +432,9 @@ class GW_Flow(Flow):
 				optimizer.step()
 
 				train_loss.append(loss_.item())
-				#print(self.constant.item())
 				
 				if not (i%validation_step):
+
 					with torch.no_grad():			
 						loss_ = self.loss_dict[loss](validation_data, validation_weights)
 					val_loss.append(loss_)
@@ -734,20 +744,4 @@ class STD_GW_Flow(GW_Flow):
 		new_flow = cls(D, n_layers, hidden_features, has_constant)
 		new_flow.load_state_dict(w)
 		return new_flow
-		
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

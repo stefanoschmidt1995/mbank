@@ -94,6 +94,7 @@ metric = m.get_metric(args.theta, metric_type = args.metric_type)
 print("Evaluating the metric @ ", args.theta)
 print("with BBH components: ", *m.var_handler.get_BBH_components(args.theta, args.variable_format))
 print('Metric determinant\n\t', np.linalg.det(metric))
+print('Metric LL\n\t', 0.5*np.log(np.abs(np.linalg.det(metric))))
 print('Metric eigenvalues\n\t', np.linalg.eig(metric)[0])
 print('Matrix elements\n\t', np.array2string(metric).replace('\n', '\n\t'))
 

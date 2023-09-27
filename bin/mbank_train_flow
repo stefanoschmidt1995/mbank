@@ -41,7 +41,7 @@ from mbank.parser import get_boundary_box_from_args, boundary_keeper
 import mbank.parser
 
 from mbank.flow import STD_GW_Flow, GW_Flow
-from mbank.flow.utils import early_stopper
+from mbank.flow.utils import early_stopper, plot_loss_functions
 
 import emcee
 from tqdm import tqdm
@@ -183,7 +183,7 @@ if args.verbose: print('Log10 volume of the space (a.k.a. constant shift): ', sh
 if args.plot:
 
 	if history:
-		#TODO: plot the loss and validation function... :D
+		plot_loss_functions(history, args.run_dir)
 		pass
 
 	with torch.no_grad():

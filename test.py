@@ -193,6 +193,21 @@ def test_flow_IO():
 
 	print("'test_flow_IO' passed")
 	
+def test_reference_phase():
+	psd_file = 'aligo_O3actual_H1.txt'
+	if not os.path.isfile(psd_file):
+		subprocess.run('wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt', shell = True)
+	f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1', df = .1)
+	variable_format = 'Mq_s1xz_iotaphi'
+	f_min, f_max = 15, 1024.
+
+	metric = mbank.cbc_metric(variable_format, (f,PSD), 'IMRPhenomXP', f_min = f_min, f_max = f_max)
+	
+	WFs = metric.get_WF([[20, 3, 0.8, 1, 1.98, 0.], [20, 3, 0.8, 1, 1.98, 2.]])
+	
+	assert not np.allclose(1e19*WFs[0], 1e19*WFs[1]), "The metric doesn't take into account the reference phase properly"
+	
+	print("'test_reference_phase' passed")
 	
 if __name__ == '__main__':
 	import mbank
@@ -204,3 +219,4 @@ if __name__ == '__main__':
 	test_flow_transformations()
 	test_metric(True)
 	test_bank_conversion()
+	test_reference_phase()

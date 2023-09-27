@@ -132,9 +132,10 @@ def plot_loss_functions(history, savefolder = None):
 	
 	train_loss = history['train_loss']
 	validation_loss = history['validation_loss']
-	metric_mean, metric_std = history['valmetric_mean'], history['valmetric_std']
 	metric = history['valmetric_value']
 	validation_epoch = range(0, len(train_loss), history['validation_step'])
+	
+	print(len(train_loss), len(validation_loss), len(validation_epoch), len(metric), history['validation_step']) 
 	
 	plt.figure()
 	plt.plot(range(len(train_loss)), train_loss, label = 'train')
@@ -143,17 +144,18 @@ def plot_loss_functions(history, savefolder = None):
 	plt.ylabel("Loss")
 	plt.legend()
 	if isinstance(savefolder, str): plt.savefig(savefolder+"loss.png")
-	
-	plt.figure()
-	plt.plot(validation_epoch, metric, c= 'b', label = 'validation metric')
-	plt.gca().fill_between(validation_epoch, metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
-	plt.axhline(metric_mean, c = 'r', label = 'expected value')
-	plt.xlabel("Epoch")
-	
-	plt.ylabel(r"$\log(D_{KL})$")
-	#plt.ylabel(r"$\log(p_{value})$")
-	plt.legend()
-	if isinstance(savefolder, str): plt.savefig(savefolder+"validation_metric.png")
+
+		#Plotting the validation metric only if it's present in the history dict
+	if len(metric):	
+		plt.figure()
+		plt.plot(validation_epoch, metric, c= 'b', label = 'validation metric')
+		#plt.gca().fill_between(validation_epoch, metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
+		plt.axhline(metric_mean, c = 'r', label = 'expected value')
+		plt.xlabel("Epoch")
+		plt.ylabel(r"$\log(D_{KL})$")
+		#plt.ylabel(r"$\log(p_{value})$")
+		plt.legend()
+		if isinstance(savefolder, str): plt.savefig(savefolder+"validation_metric.png")
 	
 	return
 

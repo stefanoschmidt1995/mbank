@@ -559,6 +559,7 @@ class cbc_metric(object):
 		#print("mbank pars - {}: ".format(self.variable_format),m1, m2, s1x, s1y, s1z, s2x, s2y, s2z, iota, phi, e, meanano) #DEBUG
 		#warnings.warn("Set non-zero spins!"); s1z = s1z + 0.4; s2z = s2z -0.7
 
+		#TODO: check that phi has an effect here!!
 		try:
 			hptilde, hctilde = lalsim.SimInspiralChooseFDWaveform(m1*lalsim.lal.MSUN_SI,
                         m2*lalsim.lal.MSUN_SI,

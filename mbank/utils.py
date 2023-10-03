@@ -421,11 +421,16 @@ def compute_injections_match(inj_dict, bank, metric_obj, mchirp_window = 0.1, sy
 
 	for i in tqdm(range(injs.shape[0]), desc = 'Generating an injection-template mapping table', disable = not verbose):
 	
-			#To make sure that super high mass templates will find a match...
-		mcw = mchirp_window if chirp_injs[i]<80 else max(mchirp_window, 0.5)
-	
+		mcw = mchirp_window
 		relative_diff = np.abs(chirp_templates-chirp_injs[i])/chirp_injs[i]
-		ids_ = np.where(relative_diff<mcw)[0]
+	
+			#Here we adaptively tune the mchirp window to make sure that even the high mass injections will have at least 1500 templates to match
+		while True:
+			ids_, = np.where(relative_diff<mcw)
+			mcw += 0.05
+			if len(ids_) >= min(templates.shape[0], 1500): break
+		
+		#print(i, len(ids_), mcw, chirp_injs[i])
 
 		inj_template_mapping[[i], ids_] = 1
 
@@ -939,7 +944,7 @@ def project_metric(metric, axes):
 			shape: (D,D) - 
 			A D dimensional metric
 		
-		axes: list
+		axes: list, int
 			The D' axes to project the metric over
 	
 	Returns
@@ -951,6 +956,7 @@ def project_metric(metric, axes):
 	"""
 	#FIXME: this name is misleading: maybe marginalize/reduce is better?
 
+	if isinstance(axes, int): axes = [axes]
 	if len(axes) == metric.shape[0]: return metric
 	
 	other_axes = [ d for d in range(metric.shape[0]) if d not in axes]

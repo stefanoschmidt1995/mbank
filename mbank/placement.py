@@ -301,12 +301,18 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 	p = np.array(p)/np.sum(p)
 	actual_covering_fraction = 0
 	
-	bar_str = '{} templates placed ({} % space covered)'
-	it = tqdm(dummy_iterator(), desc = bar_str.format(0, 0), disable = not verbose, leave = True)
-	
 	new_templates = []
 	N_tmplts = 0
 
+	#if dry_run:
+	#	from .utils import plot_tiles_templates
+	#	plot_tiles_templates(livepoints[:,:4], 'logMq_s1xz', injections = livepoints[:,:4], inj_cmap = p, show = True)
+	
+	#print(np.max(p), np.min(p), 1/len(livepoints))
+
+	bar_str = '{} templates placed ({} % space covered)'
+	it = tqdm(dummy_iterator(), desc = bar_str.format(0, 0), disable = not verbose, leave = True)
+	
 	for _ in it: 
 		if actual_covering_fraction>covering_fraction: break
 		
@@ -326,7 +332,7 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 				ids_kill.append(i)
 
 		#actual_covering_fraction += len(ids_kill)/n_livepoints #This computes covering fraction w/o importance sampling
-		actual_covering_fraction += np.sum(p[ids_kill]) #This computes covering fraction w importance sampling
+		actual_covering_fraction += np.sum(p[ids_kill]) #This computes covering fraction w importance sampling 
 
 		livepoints = np.delete(livepoints, ids_kill, axis = 0)
 		metric_cholesky = np.delete(metric_cholesky, ids_kill, axis = 0)
@@ -339,9 +345,11 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 			it.set_description(bar_str.format(N_tmplts, round(100*actual_covering_fraction, 1)))
 
 
+	#TODO: return the livepoints still alive: they give interesting info about where the bank sucks...
+	
 	if dry_run:
-		#from .utils import plot_tiles_templates
-		#plot_tiles_templates(livepoints, 'm1m2_chi', show = True)
+		from .utils import plot_tiles_templates
+		plot_tiles_templates(livepoints[:,:4], 'logMq_s1xz', injections = livepoints[:,:4], inj_cmap = p, show = True)
 		return N_tmplts
 	
 	new_templates = np.concatenate(new_templates, axis = 0)

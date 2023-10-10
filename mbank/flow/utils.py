@@ -150,7 +150,7 @@ def plot_loss_functions(history, savefolder = None):
 		plt.figure()
 		plt.plot(validation_epoch, metric, c= 'b', label = 'validation metric')
 		#plt.gca().fill_between(validation_epoch, metric_mean - metric_std, metric_mean + metric_std, alpha = 0.5, color='orange')
-		plt.axhline(metric_mean, c = 'r', label = 'expected value')
+		#plt.axhline(metric_mean, c = 'r', label = 'expected value')
 		plt.xlabel("Epoch")
 		plt.ylabel(r"$\log(D_{KL})$")
 		#plt.ylabel(r"$\log(p_{value})$")

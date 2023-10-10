@@ -22,7 +22,8 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage{makecell}
 \usepackage{multirow}
 \usepackage{booktabs}
-
+\usepackage{caption}
+\usepackage{subcaption}
 
 \usepackage{layouts}
 \usepackage[usenames,dvipsnames]{xcolor}
@@ -95,7 +96,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 		\affiliation{Department of Physics, University of Massachusetts, Dartmouth, MA 02747, USA}
 		\affiliation{Center for Scientific Computing and Visualization Research, University of Massachusetts, Dartmouth, MA 02747, USA}
 	\maketitle
-
+	\tableofcontents
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
@@ -117,13 +118,17 @@ Such methods rely on approximating the distance (or match) between two waveforms
 Although the metric is only approximate, it allows for a faster template placing that may overcome some of the major limitations of the standard stochastic placement algorithm.
 
 While the metric was first employed to place templates on a lattice \cite{owen_metric, Prix:2007ks}, {\it random} templates banks \cite{Messenger:2008ta} were introduced shortly afterwards.
-Random template banks are designed to cover any point in space only with probability $\eta<1$. As they cover the space with random templates, they require the ability to effectively sample templates ``uniformly" across the parameter space.
+Random template banks are designed to cover any point in space only with probability $\eta<1$.
 The strength of the method relies on the fact that no distance between templates is computed, with great computational convenience.
 While this may seem sub-optimal with respect to a lattice, in \cite{Messenger:2008ta, Allen:2022lqr, Allen:2021yuy} it is argued that in large number of dimension random template banks outperform even the best known lattice in terms of coverage (at a fixed number of templates), effectively beating the ``curse of dimensionality".
 
-At this point it should be clear that random template banks are the ideal candidate to cover high dimensional spaces and for this reason, in this work we develop a novel algorithm to generate random template banks.
-We derive an expression for the metric, which is suitable for generic precessing and/or HM waveforms, by dropping several symmetry assumptions that entered the standard metric computation. The metric is expressed in terms of the gradients of the waveform.
-Our new metric expression, together with the random template placement algorithm, makes our method is particularly suited for dealing with high-dimensional ($>$ 4D) parameters, usually associated to precessing or eccentric searches.
+At this point it should be clear that random template banks are the ideal candidate to cover high dimensional spaces and for this reason, in this work we develop a novel algorithm to generate such template banks.
+We derive a {\it novel} expression for the metric, which is suitable for generic precessing and/or HM waveforms, by dropping several symmetry assumptions that entered the standard metric computation. The metric is expressed in terms of the gradients of the waveform.
+
+Our chosen template placing method requires the ability to effectively sample templates ``uniformly" across the parameter space.
+This task is far from trivial. Due to the high dimensionality of the parameter space, advanced sampling techniques must be used and they all rely on a large number of metric evaluation, which may prove unfeasible in many cases. To overcome this difficulty, we resort to Machine Learning techniques and train a normalizing flow model to efficiently sample templates from parameter space. This innovation makes possible to generate random template banks in a feasible amount of time.
+
+The combination of a new metric expression and of the normalizing flow model, applied to the random template placement algorithm, makes our method is particularly suited for dealing with high-dimensional ($>$ 4D) parameters, usually associated to precessing or eccentric searches.
 Our method is implemented in an open-source, production-ready, python package \texttt{mbank}, available on GitHub\footnote{
 \href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}
 and on the PyPI repository\footnote{
@@ -198,7 +203,7 @@ The rest of this section details the steps above.
 
 \subsection{The metric} \label{sec:metric}
 
-W define a metric on the manifold $\mathcal{B}_D$: this will provide a a fast-to-compute approximation to the {\it mismatch} (distance) between templates and an estimation to the volume element of each point in the space.
+We define a metric on the manifold $\mathcal{B}_D$: this will provide a a fast-to-compute approximation to the {\it mismatch} (distance) between templates and an estimation to the volume element of each point in the space.
 
 Given two points of the manifold $\theta_1,\theta_2$, we define the overlap $\mathcal{O}(\theta_1,\theta_2, t)$ between normalized templates as:
 \begin{widetext}
@@ -342,7 +347,7 @@ The covering fraction $\hat{\eta}$ of a given region $\mathcal{T}$ of the parame
 	\hat{\eta}(\mathcal{T}) = \frac{1}{\text{Vol}(\mathcal{T})} \int_\mathcal{T} \dvol{\theta}{D} \; \sqrt{|\text{det}M(\theta_i)|} \; c(\theta).
 \end{equation}
 where $c(\theta)$ is an indicator function:
-\begin{equation}\label{eq:coverage}
+\begin{equation}
 	c(\theta) = \left\{
                 \begin{array}{ll}
                   1 \;\; \text{if $\theta$ is covered by the bank}\\
@@ -352,12 +357,22 @@ where $c(\theta)$ is an indicator function:
 \end{equation}
 
 We do not require that the space is fully covered but we only require that it is covered with probability $\eta$. This means that we terminate the bank construction when the covering fraction $\hat{\eta} \geq \eta$.
-To provide a sensible estimate of the covering fraction $\hat{\eta}$, we perform a Monte Carlo estimation of the integral Eq.~\eqref{eq:coverage}, using importance sampling:
-\begin{equation}\label{eq:coverage}
-	\hat{\eta}(\mathcal{T}) \simeq \frac{1}{\sum_i w_i} \sum_i c(\theta_i) w_i 
+
+To provide a sensible estimate of the covering fraction $\hat{\eta}$, we perform a Monte Carlo estimation of the integral Eq.~\eqref{eq:coverage} \cite{Coogan:2022qxs}:
+\begin{equation}\label{eq:coverage_estimate}
+	\hat{\eta}(\mathcal{T}) \simeq \frac{1}{N_\text{livepoints}} \sum_i c(\theta_i)
 \end{equation}
-where the $N_\text{livepoints}$ samples $\theta_i \sim p^\text{flow}$ are samples from the normalizing flow and are called {\it livepoints}.
-The weigths $w_i = \frac{\sqrt{|\text{det}M(\theta_i)|}}{p^\text{flow}(\theta_i)}$ take into account that, even if we are sampling from the flow, we want to compute the coverage of the space with volume element $\sqrt{|\text{det}M(\theta_i)|}$.
+%
+where the $N_\text{livepoints}$ samples $\theta_i \sim p^\text{flow}$ are sampled from the normalizing flow and are called {\it livepoints}.
+Note that in the equation above, we don't compute volumes using the volume element $\sqrt{|\text{det}M|}$ itself but rather its approximation given by the normalizing flow model.
+
+%To provide a sensible estimate of the covering fraction $\hat{\eta}$, we perform a Monte Carlo estimation of the integral Eq.~\eqref{eq:coverage} by importance sampling:
+%\begin{equation}\label{eq:coverage_estimate_IS}
+%	\hat{\eta}(\mathcal{T}) \simeq \frac{1}{\sum_i w_i} \sum_i c(\theta_i) w_i 
+%\end{equation}
+%where the $N_\text{livepoints}$ samples $\theta_i \sim p^\text{flow}$ are sampled from the normalizing flow and are called {\it livepoints}.
+%The weigths $w_i = \frac{\sqrt{|\text{det}M(\theta_i)|}}{p^\text{flow}(\theta_i)}$ take into account that, even if we sample from the flow, we want to compute the coverage of the space with volume element $\sqrt{|\text{det}M(\theta_i)|}$.
+%In a practical application, it is wise to prevent the weights to grow indefinetely, as this can negatively impact the estimation of the covering fraction. For this reason, we clip the weights to a maximum value of $10$: ${w_i = \min\left(\frac{\sqrt{|\text{det}M(\theta_i)|}}{p^\text{flow}(\theta_i)}, 10\right)}$. This makes sure that, even if the normalizing flow has bad performance, there is not a single point with a very large
 
 In practice, while the templates are being added to the banks, the distance between each livepoint is computed: if the i-th livepoint is close enough to the newly added template, it will be removed from the set of livepoints and a running estimate of $\hat{\eta}(\mathcal{T})$ will be updated with $w_i$.
 The estimation of the covering fraction $\hat{\eta}$ has standard deviation \cite[App. A]{Coogan:2022qxs}:
@@ -365,7 +380,7 @@ The estimation of the covering fraction $\hat{\eta}$ has standard deviation \cit
 	\sigma_{\hat{\eta}} = \sqrt{\frac{\eta(1-\eta)}{N_\text{livepoints}-1}}
 \end{equation}
 which suggests to use a large number of livepoints for better estimation of $\hat{\eta}$.
-In \cite{Coogan:2022qxs}, the authors typically chooses $\eta = 0.9$ and $N_\text{livepoints} = 2000$.
+In \cite{Coogan:2022qxs}, the authors typically choose $\eta = 0.9$ and $N_\text{livepoints} = 2000$.
 
 Since the method does not check for distances between templates, it can overcover the space (as reported also in \cite{Messenger:2008ta, Coogan:2022qxs}), especially in low number of dimensions.
 Despite this, it is very fast and provides a reliable bank at a cheap computational and memory cost.
@@ -374,29 +389,184 @@ Moreover, as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, fo
 As a final remark, we note that for the purpose of computating the covering fraction, the templates do not need to be stored. Hence, the algorithm doesn't require much memory or computing time to measure the number of templates in a given template bank.
 This enables several studies of the number of templates that are required to cover a particular region of the parameter space, giving invaluable information needed to plan a GW search. An example of this will be reported in Sec.~\ref{sec:NSBH}
 
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale = 1.]{flow_validation}
+	\caption{WRITEME}
+	\label{fig:flow_validation}
+\end{figure}
+
+
+\begin{table}
+	\begin{tabular}{c c c} 
+	 %\hline
+	 \phantom{manifold} & Parameter space & Architecture \\ 
+	 \toprule
+	 \texttt{m1m2\_nonspinning} &
+	 	\begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 200] \mathrm{M_\odot}$ \\ $q\in [1,30]$ \\ $f \in [15, 1024] \SI{}{Hz}$ \end{tabular} & 60 60 30\\
+ 	\addlinespace[3pt]
+	\cdashline{1-3}
+	\addlinespace[3pt]
+	 \texttt{logMq\_s1z\_s2z\_iota} &
+	 	\begin{tabular}{@{}l@{}} $m_1,m_2\in [50, 300] \mathrm{M_\odot}$ \\ $M\in [100, 400] \mathrm{M_\odot}$ \\ $q\in [1,10]$  \\ $s_{1z},s_{2z}\in [-0.99, 0.99]$  \\ $\iota \in [0, \pi]$  \\ $f \in [10, 1024] \SI{}{Hz}$\\ \end{tabular} & 20 60 60\\
+ 	\addlinespace[3pt]
+	\cdashline{1-3}
+	\addlinespace[3pt]
+	 \texttt{Mq\_s1xz} &
+	 	\begin{tabular}{@{}l@{}} $M\in [25, 100] \mathrm{M_\odot}$ \\ $q\in [1,5]$  \\ $s_1\in [0, 0.99]$  \\ $\theta_1 \in [0, \pi]$  \\ $f \in [15, 1024] \SI{}{Hz}$\\ \end{tabular} & 70 70\\
+ 	\addlinespace[3pt]
+	\cdashline{1-3}
+	\addlinespace[3pt]
+	 \texttt{logMq\_s1xyz\_s2z\_iota} &
+	 	\begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 100] \mathrm{M_\odot}$ \\ $M\in [2, 150] \mathrm{M_\odot}$ \\ $q\in [1,20]$  \\ $s_1\in [0, 0.99]$  \\ $\theta_1 \in [-\pi, \pi]$ \\ $\phi_1 \in [0, \pi]$ \\ $s_{2z}\in [-0.99, 0.99]$  \\ $\iota \in [0, \pi]$  \\ $f \in [15, 1024] \SI{}{Hz}$\\ \end{tabular} & 100 60 60 60\\
+ 	\addlinespace[3pt]
+	\cdashline{1-3}
+	\addlinespace[3pt]
+	 \texttt{m1m2\_chi\_e} &
+		\begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 50] \mathrm{M_\odot}$ \\ $q\in [1,20]$  \\ $e\in [0, 0.5]$ \\  $f \in [10, 1024] \SI{}{Hz}$\\ \end{tabular} & 60 60 60\\
+	 \bottomrule
+	\end{tabular}
+	\caption{WRITEME}
+	\label{tab:flow_validation}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale = 1.]{template_placement_validation}
+	\caption{WRITEME}
+	\label{fig:template_placement_validation}
+\end{figure}
+
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation} \label{sec:validation}
 
+\stefano{Things to decide
+\begin{itemize}
+	\item Histograms of FF: should they have a title?  Injection recovery plots as well?
+	\item Histograms of FF: should I write down the percentiles?
+	\item All sky bank: should you add some templates on IMBH region? How? Or maybe just leave things as they are... \textcolor{red}{Fix this!}
+	\item All sky bank: at low masses, shall you trim the spins, as done by gstlal? Or should you leave the comparison as it is? \textcolor{red}{Train two different NFs}
+	\item Which HM bank? Random phase or \texttt{logMq\_s1z\_s2z\_iotaphi}?
+	\item Shall I add the cornerplots of precessing and spinning HM banks? Maybe in the appendix... \textcolor{red}{YES we want this}
+	\item Do we want to use importance sampling for placing?
+		+: is more accurate and correct. -: more variance of template number, more templates being placed
+		\textcolor{red}{No NF}
+	\item Do we plot normalizing flow accuracy cornerplot?
+	\item Do we report normalizing flow accuracy histogram of use case banks and comparison banks?
+\end{itemize}
+}
+
+\blindtext \blindtext
+
 \subsection{Normalizing flow validation} \label{sec:flow_validation}
+\blindtext \blindtext
 
 \subsection{Template placement performance} \label{sec:template_placement}
+\blindtext \blindtext
 
 \section{Comparison with other bank generation codes} \label{sec:other_methods}
 
+\blindtext \blindtext
+
+\begin{table}
+	\begin{tabular}{c c c c} 
+	 \hline
+	 \phantom{Name} & Parameter space & \multicolumn{2}{c}{
+		\begin{tabular}{c c} \multicolumn{2}{c}{Size}  \\ Original & \texttt{mbank} \\ \end{tabular}	 
+	 } \\ 
+	 \toprule
+	 HM bank \cite{Harry:2017weg} & \begin{tabular}{@{}l@{}} $M\in [50, 400] \mathrm{M_\odot}$ \\ $q\in [1,10]$  \\ $\iota\in [0,\pi]$   \\ \end{tabular} & 20500 & ????? \\
+ 	\addlinespace[3pt]
+	\cdashline{1-4}
+	\addlinespace[3pt]
+	 \texttt{GstLAL} O4 bank \cite{Sakon:2022ibh} & \begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 200] \mathrm{M_\odot}$ \\ $q\in [1,20]$  \\ $\chi\in [-0.99,0.99]$   \\ \end{tabular} & $1.8 \times 10^6$  & $2.3 \times 10^6$  \\
+	 \bottomrule
+	\end{tabular}
+	\caption{WRITEME}
+	\label{tab:bank_comparison}
+\end{table}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale = 1.]{test_banks_hist}
+	\caption{WRITEME}
+	\label{fig:test_banks_hist}
+\end{figure}
+\begin{figure*}[t]
+	\centering
+	\begin{subfigure}[t]{0.49\textwidth}
+		\includegraphics[scale = 1.]{symphony_HM_injections}
+		\caption{Nonspinning HM bank \cite{Harry:2017weg}}
+		\label{fig:symphony_HM_injections}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[t]{0.49\textwidth}
+		\includegraphics[scale = 1.]{bank_O4_injections}
+		\caption{All sky bank \cite{Sakon:2022ibh}}
+		\label{fig:bank_O4_injections}
+	\end{subfigure}
+	\caption{WRITEME}
+\end{figure*}
+
+%\begin{figure}[t]
+%	\centering
+%	\includegraphics[scale = 1.]{symphony_HM_injections}
+%	\caption{WRITEME}
+%	\label{fig:symphony_HM_injections}
+%\end{figure}
+
+%\begin{figure}[t]
+%	\centering
+%	\includegraphics[scale = 1.]{bank_O4_injections}
+%	\caption{WRITEME}
+%	\label{fig:bank_O4_injections}
+%\end{figure}
+
 \subsection{A non spinning HM bank} \label{sec:HM_comparison}
+\blindtext \blindtext
 
 \subsection{An all sky bank} \label{sec:all_sky_comparison}
-
+\blindtext \blindtext
 \section{Use cases} \label{sec:use_cases}
-
+\blindtext \blindtext
 \subsection{Studying the precessing NSBH parameter space} \label{sec:NSBH}
-
+\blindtext \blindtext
 \subsection{A precessing bank} \label{sec:precessing_bank}
+\blindtext \blindtext
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale = 1.]{precessing_hist}
+	\caption{WRITEME}
+	\label{fig:precessing_hist}
+\end{figure}
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[scale = 1.]{precessing_injections}
+	\caption{WRITEME}
+	\label{fig:precessing_injections}
+\end{figure*}
 
 \subsection{A spinning HM bank} \label{sec:HM_spinning_bank}
+\blindtext \blindtext
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale = 1.]{HM_hist}
+	\caption{WRITEME}
+	\label{fig:HM_hist}
+\end{figure}
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[scale = 1.]{HM_injections}
+	\caption{WRITEME}
+	\label{fig:HM_injections}
+\end{figure*}
+
+\section{Novel applications to the method} \label{sec:conclusion}
 
 \section{Final remarks and future prospects} \label{sec:conclusion}
-
+\blindtext \blindtext
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ACKNOWLEDGMENTS
         \begin{acknowledgments}

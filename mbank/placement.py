@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torch
 import itertools
+import warnings
+import sys
 
 from .utils import dummy_iterator, avg_dist
 
@@ -223,7 +225,7 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 
 
 #@do_profile(follow=[])
-def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, verbose = True):
+def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, importance_sampling = False, verbose = True):
 	"""
 	Draw templates from the flow. For each proposal, all the livepoints in the ellipse of constant ``minimum_match`` are killed. The iteration goes on until a fraction of ``covering_fraction`` of the space is covered.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -260,6 +262,9 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 		dry_run: bool
 			Whether to run the placement without actually storing the templates. It is useful for the purpose of bank size measurement
 		
+		importance_sampling: bool
+			Whether to compute the covering fraction using importance sampling. Importance sampling gives a more accurate estimation of the covering fraction but at the cost of a higher variance in the number of templates.
+
 		verbose: bool
 			Whether to display the progress bar
 	
@@ -291,30 +296,42 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 			ids_to_remove.append(i)
 			continue
 		l_pdf_true = np.log(np.abs(np.linalg.det(metric_)))*0.5
+		metric.append(metric_)
+			
+		if importance_sampling:
+			p_ = l_pdf_true-l_pdf-flow.constant.item()
+			if p_>np.log(10):
+				warnings.warn("One (or more) importance sampling weight exceeded a safe threshold and were reularized. Please, check whether the normalizing flow is accurate enough")
+				#if verbose: print('\tRegularized livepoint: theta | weight ', l, p_)
+			p_ = min(p_, np.log(10)) #FIXME: regularization: how to tune this number?
+			p.append(np.exp(p_))
 
-		metric.append(metric_)		
-		p.append(np.exp(l_pdf_true-l_pdf-flow.constant.item()))
-	
 	if ids_to_remove:
 		livepoints = np.delete(livepoints, ids_to_remove, axis = 0)
+
 	metric_cholesky = np.linalg.cholesky(metric).astype(dtype) #(N, D,D)
-	p = np.array(p)/np.sum(p)
-	actual_covering_fraction = 0
+	if importance_sampling:
+		if verbose:
+			print('Importance sampling weights (not normalized): max | min ', np.max(p), np.min(p))
+			print('\tPercentiles: [99, 90, 50, 10, 1]', np.percentile(p, [99, 90, 50, 10, 1]))
+		p = np.array(p)/np.sum(p)
+		if verbose:
+			print('Importance sampling weights: max | min | equal w ', np.max(p), np.min(p), 1/len(livepoints))
+			print('\tPercentiles: [99, 90, 50, 10, 1]', np.percentile(p, [99, 90, 50, 10, 1]))
 	
 	new_templates = []
 	N_tmplts = 0
-
+	actual_covering_fraction = 0
+	
 	#if dry_run:
 	#	from .utils import plot_tiles_templates
 	#	plot_tiles_templates(livepoints[:,:4], 'logMq_s1xz', injections = livepoints[:,:4], inj_cmap = p, show = True)
 	
-	#print(np.max(p), np.min(p), 1/len(livepoints))
-
 	bar_str = '{} templates placed ({} % space covered)'
 	it = tqdm(dummy_iterator(), desc = bar_str.format(0, 0), disable = not verbose, leave = True)
 	
 	for _ in it: 
-		if actual_covering_fraction>covering_fraction: break
+		if actual_covering_fraction>=covering_fraction: break
 		
 			#Generating proposals
 		with torch.no_grad():
@@ -331,12 +348,14 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 			if np.any(dist_sq < 1- minimum_match):
 				ids_kill.append(i)
 
-		#actual_covering_fraction += len(ids_kill)/n_livepoints #This computes covering fraction w/o importance sampling
-		actual_covering_fraction += np.sum(p[ids_kill]) #This computes covering fraction w importance sampling 
-
+		if importance_sampling:
+			actual_covering_fraction += np.sum(p[ids_kill]) #This computes covering fraction w importance sampling 
+			p = np.delete(p, ids_kill, axis = 0)
+		else:
+			actual_covering_fraction += len(ids_kill)/n_livepoints #This computes covering fraction w/o importance sampling
+		
 		livepoints = np.delete(livepoints, ids_kill, axis = 0)
 		metric_cholesky = np.delete(metric_cholesky, ids_kill, axis = 0)
-		p = np.delete(p, ids_kill, axis = 0)
 		
 		if not dry_run: new_templates.append(np.array(proposals, dtype = np.float64))
 		N_tmplts += len(proposals)
@@ -348,8 +367,8 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 	#TODO: return the livepoints still alive: they give interesting info about where the bank sucks...
 	
 	if dry_run:
-		from .utils import plot_tiles_templates
-		plot_tiles_templates(livepoints[:,:4], 'logMq_s1xz', injections = livepoints[:,:4], inj_cmap = p, show = True)
+		#from .utils import plot_tiles_templates
+		#plot_tiles_templates(livepoints[:,:4], 'logMq_s1xz', injections = livepoints[:,:4], inj_cmap = p, show = True)
 		return N_tmplts
 	
 	new_templates = np.concatenate(new_templates, axis = 0)

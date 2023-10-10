@@ -158,7 +158,7 @@ else:
 	flow = STD_GW_Flow.load_flow(args.flow_file)
 
 	if args.placing_method == 'random':
-		new_templates = place_random_flow(args.mm, flow, m, args.n_livepoints, boundaries_checker, covering_fraction = args.covering_fraction, dry_run = args.dry_run, verbose = args.verbose)
+		new_templates = place_random_flow(args.mm, flow, m, args.n_livepoints, boundaries_checker, covering_fraction = args.covering_fraction, dry_run = args.dry_run, importance_sampling = False, verbose = args.verbose)
 	elif args.placing_method == 'stochastic':
 		new_templates = place_stochastically_flow(args.mm, flow, m, boundaries_checker, empty_iterations = args.empty_iterations,
 			seed_bank = seed_bank.templates if args.seed_bank else None,

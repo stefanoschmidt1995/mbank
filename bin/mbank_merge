@@ -91,7 +91,7 @@ for f in filenames:
 		temp_bank = cbc_bank(args.variable_format, f)
 		bank.add_templates(temp_bank.templates)
 		del temp_bank
-		print("Merged bank has {} templates".format(len(bank.templates)))
+		print("Bank '{}' has {} templates".format(f, len(bank.templates)))
 	if args.tiling:
 		temp_tiling = tiling_handler(f)
 		tiling.extend(temp_tiling)

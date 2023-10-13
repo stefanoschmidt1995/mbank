@@ -347,7 +347,7 @@ class variable_handler(object):
 		assert variable_format in self.valid_formats, "Wrong variable format given"
 		
 		if variable_format == 'BBH_components':
-			if latex: labels = [r'$m_1$', r'$m_2$', r'$s_{1x}$', r'$s_{1y}$', r'$s_{1z}$', r'$s_{2x}$', r'$s_{2y}$', r'$s_{2z}$', r'$e$', r'$meanano$', r'$\iota$', r'$\phi$']
+			if latex: labels = [r'$m_1$', r'$m_2$', r'$s_{1x}$', r'$s_{1y}$', r'$s_{1z}$', r'$s_{2x}$', r'$s_{2y}$', r'$s_{2z}$', r'$e$', r'$meanano$', r'$\iota$', r'$\varphi$']
 			else:  labels = ['m1', 'm2', 's1x', 's1y', 's1z', 's2x', 's2y', 's2z', 'e', 'meanano', 'iota', 'phi']
 			return labels
 		

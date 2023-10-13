@@ -647,7 +647,7 @@ class cbc_metric(object):
 		else: return h
 	
 	#@do_profile(follow = [])
-	def get_metric(self, theta, overlap = False, metric_type = 'hessian', **kwargs):
+	def get_metric(self, theta, overlap = False, metric_type = 'symphony', **kwargs):
 		"""
 		Returns the metric. Depending on ``metric_type``, it uses different approximations.
 		It can accept any argument of the underlying function, specified by ``metric_type``

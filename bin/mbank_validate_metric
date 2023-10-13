@@ -105,8 +105,8 @@ mbank.parser.add_general_options(parser)
 mbank.parser.add_metric_options(parser)
 
 parser.add_argument(
-	"--center", required = False, type = float, nargs = '+',
-	help="The points at which the metric is evaluated at")
+	"--theta", required = False, type = float, nargs = '+',
+	help="The point at which the metric is evaluated at")
 parser.add_argument(
 	"--match", required = False, default = 0.97, type = float,
 	help="Match for plotting the constant match ellipse and metric accuracy histogram")
@@ -136,8 +136,8 @@ for f in filenames:
 	######
 	#	Interpreting the parser and initializing variables
 	######
-if (args.center is None) or (args.variable_format is None) or (args.psd is None):
-	raise ValueError("The arguments center, variable_format and psd must be set!")
+if (args.theta is None) or (args.variable_format is None) or (args.psd is None):
+	raise ValueError("The arguments --theta, --variable-format and --psd must be set!")
 
 if args.run_dir is not None:
 	if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
@@ -153,7 +153,7 @@ m_obj = cbc_metric(args.variable_format,
 		approx = args.approximant,
 		f_min = args.f_min, f_max = args.f_max)
 
-center = np.array(args.center)
+center = np.array(args.theta)
 assert center.shape[0] == m_obj.D, "Wrong dimensionality for the center: expected {} but given {}".format(center.shape[0], m_obj.D)
 if not m_obj.var_handler.is_theta_ok(center, args.variable_format):
 	raise ValueError("Unacceptable value for the center was provided!")

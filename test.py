@@ -194,6 +194,7 @@ def test_flow_IO():
 	print("'test_flow_IO' passed")
 	
 def test_reference_phase():
+	import mbank
 	psd_file = 'aligo_O3actual_H1.txt'
 	if not os.path.isfile(psd_file):
 		subprocess.run('wget https://dcc.ligo.org/public/0165/T2000012/002/aligo_O3actual_H1.txt', shell = True)

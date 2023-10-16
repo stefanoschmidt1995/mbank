@@ -105,6 +105,11 @@ class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 				print("Column %s not recognized" % entry, file=sys.stderr)
 				raise ValueError
 
+@lsctables.use_in
+class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(LIGOLWContentHandler)
+
 ####################################################################################################################
 
 def avg_dist(avg_match, D):
@@ -1331,11 +1336,6 @@ def read_xml(filename, table, N = None):
 			shape (N,3) -
 			An array with sky localization and polarization angles. Each row contains longitude :math:`\\alpha`, latitude :math:`\delta` and polarization angle :math:`\Psi` (see :func:`get_antenna_patterns`). Returned only if reading a SimInspiralTable.
 	"""
-	@lsctables.use_in
-	class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
-		pass
-	lsctables.use_in(LIGOLWContentHandler)
-	
 	if isinstance(table, str):
 		if table == 'sim_inspiral':
 			table = lsctables.SimInspiralTable

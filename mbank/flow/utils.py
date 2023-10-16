@@ -142,6 +142,7 @@ def plot_loss_functions(history, savefolder = None):
 	plt.plot(validation_epoch, validation_loss, label = 'validation')
 	plt.xlabel("Epoch")
 	plt.ylabel("Loss")
+	plt.yscale('log')
 	plt.legend()
 	if isinstance(savefolder, str): plt.savefig(savefolder+"loss.png")
 

@@ -92,13 +92,25 @@ m = cbc_metric(args.variable_format,
 metric = m.get_metric(args.theta, metric_type = args.metric_type)
 
 print("Evaluating the metric @ ", args.theta)
-print("with BBH components: ", *m.var_handler.get_BBH_components(args.theta, args.variable_format))
+print("\twith variable format: ", args.variable_format)
+print("\twith coordinates: ", *var_handler.labels(args.variable_format)) 
+print("\twith BBH components: ", *m.var_handler.get_BBH_components(args.theta, args.variable_format))
+print()
 print('Metric determinant\n\t', np.linalg.det(metric))
 print('Metric LL\n\t', 0.5*np.log(np.abs(np.linalg.det(metric))))
-print('Metric eigenvalues\n\t', np.linalg.eig(metric)[0])
-print('Matrix elements\n\t', np.array2string(metric).replace('\n', '\n\t'))
+#print('Metric eigenvalues\n\t', np.linalg.eig(metric)[0])
 
+eigval, eigvec = np.linalg.eig(metric)
+print('Metric eigenvalues & eigenvectors')
+for i, (eigval_, eigvec_) in enumerate(zip(eigval, eigvec.T)):
+	print('  {} \t{}'.format(eigval_, eigvec_))
 
+print('Coordinate importance')
+for i, label in enumerate(var_handler.labels(args.variable_format)):
+	coord_imp = np.abs(np.sum(np.multiply(eigval, eigvec[i,:])))
+	print('  {} - {}'.format(label, coord_imp))
+
+#print('Matrix elements\n\t', np.array2string(metric).replace('\n', '\n\t'))
 
 
 

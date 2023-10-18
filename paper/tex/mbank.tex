@@ -320,6 +320,7 @@ Note that the inverse $T_0^{-1}$ of the transformation takes a simple form: $\fr
 
 The flow probability distribution $p^\text{flow}_W(\theta)$ is trained to closely reproduce a given probability distribution $p^\text{target}(\theta)$.
 During the training, the weights $W$ of the flow are set by minimizing a loss function $\mathcal{L}_\phi(W)$, which measures the discrepancy between $p^\text{target}$ and $p^\text{flow}_W$. The minimization is performed by gradient descent.
+Of course, in our case, $p^\text{target} \propto \sqrt{\det M}$, where the normalization is unset.
 
 Depending on the nature of the data, several loss functions are available.
 If {\it samples} from the target distribution are available, the loss function is defined as the forward Kullback–Leibler (KL) divergence between the target distribution $p^\text{target}(\theta)$ and the one defined by the flow Eq.~\eqref{eq:p_flow}:
@@ -328,19 +329,22 @@ If {\it samples} from the target distribution are available, the loss function i
 \end{align}
 where the expected value is computed using empirical samples from $p^\text{target}(\theta)$ to provide a Monte-Carlo estimation of the loss function.
 
-In our situation however, we do not have access to such samples (indeed, we are training the flow precisely to avoid sampling!) but we are only able to evaluate $p^\text{target}$ as in Eq.~\eqref{eq:pdf_uniform}.
+In our situation however, we do not have access to such samples (indeed, we are training the flow precisely to avoid sampling!) but we are only able to evaluate $p^\text{target}$ up to a constant scaling factor.
 For this reason, we treat the training as a {\it regression} problem, rather than a density estimation problem, and we use the following loss function:
 %
-\begin{align}
-	\mathcal{L}_\phi(W) = \frac{1}{N} \sum_{i=1}^N \left(\log p^\text{flow}_W(\theta_i) - \log p^\text{target}(\theta_i) + C \right)^2
+\begin{align}\label{eq:loss_mse}
+	\mathcal{L}_\phi(W) &= \frac{1}{N} \sum_{i=1}^N \left(\log p^\text{flow}_W(\theta_i) - \log p^\text{target}(\theta_i) \right)^2 \nonumber\\
+						&= \frac{1}{N} \sum_{i=1}^N \left(\log p^\text{flow}_W(\theta_i) - \log\sqrt{|M(\theta_i)|} + C \right)^2
 \end{align}
 %
-where the sum runs on a dataset of $N$ points $\{(\theta_i, \sqrt{|\text{det}M(\theta_i)|})\}_{i=1}^N$.
+where the sum runs on a dataset of $N$ points $\{(\theta_i, \sqrt{|M(\theta_i)|})\}_{i=1}^N$.
 
-The constant $C$ is a {\it trainable} constant that sets an overall shift to the log PDF predicted by the flow. The scaling can be beneficial to adjust the values of $\sqrt{|\text{det}M(\theta)|}$, potentially unconstrained, to a scale which is easier to learn by the normalizing flow.
-Some heuristics suggests to initialize the constant to the $90^\text{th}$ percentile of the values $\log \sqrt{|\text{det}M(\theta)|}$ stored in the dataset.
+The constant $C$ is a {\it trainable} constant, which sets the normalization of $p^\text{target} = e^{-C} \sqrt{|M|}$ equal to the normalization of $p^\text{flow}$.
+Although not strictly needed, it can have a large impact on the flow performance, since it constraints the values of $\sqrt{|M(\theta)|}$ to a scale which is easier to learn by the normalizing flow.
+Some heuristics suggests to initialize the constant to the $90^\text{th}$ percentile of the values $\log \sqrt{|M(\theta)|}$ stored in the dataset.
+As shown in App.~\ref{app:parameter_space_volume}, the constant can be also used to compute the volume of the parameter space $V$ Eq.~\eqref{eq:volume_tile}, once the flow normalization $\int \dvol{\theta}{D} \; p^\text{flow}_W$ is known.
 
-The values of $\theta_i$ are obtained by sampling the masses $m_1, m_2$ from
+The values of $\theta_i$ in Eq.~\eqref{eq:loss_mse} are obtained by sampling the masses $m_1, m_2$ from
 \begin{equation}
 	p(\mathcal{M}_c, \eta) \propto \mathcal{M}_c^{10/3} \eta^{8/5}
 \end{equation}
@@ -610,8 +614,7 @@ Results of our injections studies are reported in Fig~\ref{fig:test_banks_hist} 
 
 In Fig~\ref{fig:test_banks_hist}, we see that $\sim 5\%$ of the injections has a match below $0.97$. The low fitting factor injections are mostly located around the low mass corners of the bank, clustered on the low mass end of the BNS region and in the high spin - low mass edge of the BBH region.
 Inside the template bank and on the high mass end of the parameter space, satisfactory coverage is achieved.
-Our results suggest that \texttt{mbank} struggles to accurately cover the boundaries of the parameter space. This problem has been observed also with other placement methods \cite{} and several strategies have been proposed \cite{} to cope with it. Within our framework, the simplest option would be to extend the boundaries of the bank at low masses, thus ensuring better coverage of the region of interest.
-\stefano{Some citation here?}
+Our results suggest that \texttt{mbank} struggles to accurately cover the boundaries of the parameter space. This problem has been observed also with other placement methods and several strategies have been proposed to cope with it. Within our framework, the simplest option would be to extend the boundaries of the bank at low masses, thus ensuring better coverage of the region of interest.
 
 With slight variations depending on the region of parameter space, \cite{Sakon:2022ibh} report that $10\%$ of BBH injections are have fitting factor smaller than $\sim 0.98$, while for our bank the $10^\text{th}$ percentile is around $0.975$.
 Even though these figures are difficult to compare due to different injection sets, it seems fair to state that, compared to \cite{Sakon:2022ibh}, our template bank provides slightly worse injection recovery.
@@ -852,8 +855,13 @@ A good choice of proposal is crucial to reduce the template rejection rate, henc
 
 The normalizing flow is a natural candidate for a proposal distribution, since it goes beyond the non-spinning BBH approximation, allowing for more physics to be considered. Implementing the normalizing flow in the stochastic algorithm will most likely provide a computational benefit, due to a more efficient proposal.
 
-\paragraph{Training set generation for machine learning applications of data analysis}
-\stefano{WRITEME}
+\paragraph{Generating datasets for machine learning applications}
+
+The recent years have seen a burst of machine learning application to GW data analysis. Such applications cover all fields of the analysis of compact binary systems, including waveform modelling \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, GW searches \cite{Gebhard:2019ldz, Schafer:2020kor, Schafer:2021fea, Baltus:2021nme} as well as parameter estimation \cite{Green:2020hst, Alvares:2020bjg, Williams:2021qyt, Langendorff:2022fzq, Williams:2023ppp}.
+
+For all such application, it is crucial to have high quality datasets of waveforms, which are needed for the training.
+The goodness and the applicability of the model strongly relies on the distribution of waveforms in the dataset and substantial time is often spent in tuning the dataset composition to achieve optimal performance.
+The waveforms in such datasets can be sampled using our normalizing flow model, thus covering the space accurately. In many cases this can be beneficial for the training.
 
 \section{Future prospects} \label{sec:improvements}
 
@@ -901,16 +909,16 @@ Regardless of the placing method, the templates in a bank may not be placed opti
 \paragraph{Encoding the metric into the flow?}
 
 A fascinating path to explore is to encode information about the metric $M_{ij}$ inside the flow transformation.
-So far, the normalizing flow $\phi_W$ is trained in such a way that the determinant of the Jacobian $\det J_{\phi_W}$ matches the metric determinant.
+So far, the normalizing flow $\phi_W$ is trained in such a way that the determinant of the Jacobian $\det J_{\phi_W}$ matches the determinant of the metric.
 Thus, among the $\frac{D(D-1)}{2}$ components of $J_{\phi_W}$, only one of them is constrained during the training. This leaves a lot of degeneracy in $J_{\phi_W}$.
 One could break such degeneracy by imposing the additional constraint that the Jacobian of the flow matches the metric $M_{ij}$:
 \begin{equation}
-	(J_{\phi_W})_{ij} = M_{ij}.
+	(J_{\phi_W})_{ij} \simeq M_{ij}.
 \end{equation}
 Of course, such constraint must be imposed in a suitable loss function.
 This approach would involve a much harder optimization problem and whether the flow has enough representation power to achieve such goal must be assessed.
 
-The flow trained in this way would create an isometry (i.e. distance preserving transformation) between the latent space and the physical space. According to differential geometry, this is not possible, unless the physical space has zero curvature, which is not the case in general. A possible way out could be to embed the manifold in an higher dimensional flat manifold, which would guarantee the existence of a solution.
+The flow trained in this way would create an isometry (i.e. distance preserving transformation) between the latent space and the physical space. According to differential geometry, this is not possible, unless the $M_{ij}$ has zero curvature, which is not the case in general. A possible way out could be to embed the manifold of signals in an higher dimensional flat manifold, which would guarantee the existence of a solution.
 
 As outlined, there are many open questions and issues to solve, which requires much work. The reward however would be huge: the flow would parametrize a distance preserving (and not only volume preserving) transformation, which can be used for high dimensional geometric (the holy grail of bank generation) or fast stochastic placement.
 
@@ -1072,6 +1080,38 @@ Although the minimization can be tackled with standard techniques, it requires m
 Future work may try to tackle this optimization problem finding a solution at a feasible computational cost: this may be beneficial to many data analysis applications, such as template placement and Fisher information matrix studies.
 A number of alternative metric expression, coming from different heuristic optimization strategies, are already available in \texttt{mbank}, although not fully validated.
 
+
+\section{Computing the volume of the parameter space}\label{app:parameter_space_volume}
+
+The normalizing flow offers a computationally convenient way to compute the volume of the parameter space.
+After the training procedure, the flow approximates the volume element as follows:
+\begin{equation}
+	\log p^\text{flow} - \log\sqrt{|M|} + C \simeq 0
+\end{equation}
+where $C$ is the trainable constant appearing in Eq.~\eqref{eq:loss_mse}.
+The goodness of this approximation is assessed in Sec.~\ref{sec:flow_validation} (see also Fig.~\ref{fig:flow_validation}).
+
+We want to compute the volume of the parameter space Eq~\eqref{eq:volume_tile}, as it gives invaluable information about the number of templates needed to cover the space \cite{owen_metric} and allows to compare the relative magnitude of template banks covering different spaces.
+The volume $V$ can be expressed in terms of the normalization of $p^\text{flow}$ as follows:
+\begin{align}
+	 V = \int \dvol{\theta}{D} \; \sqrt{|M(\theta)|} \simeq  e^C \int \dvol{\theta}{D} \; p^\text{flow}(\theta)
+\end{align}
+%
+Thus the problem of estimating the of the space is reduced to the volume of estimating the normalization of the normalizing flow $N_\text{flow} = \int \dvol{\theta}{D} \, p^\text{flow}$.
+
+Due to the ease of density evaluation of the flow model, we can easily provide a Monte Carlo estimate of $N_\text{flow}$ by importance sampling:
+\begin{equation}
+	N_\text{flow} \simeq \frac{1}{N} \sum_i \frac{p^\text{flow}(\theta)}{p^\text{sample}(\theta_i)}
+\end{equation}
+where ${\theta_i \sim p^\text{sample}}$ and $p^\text{sample}$ is any {\it normalized} distribution.
+
+The simplest choice for $p^\text{sample}$ is the uniform distribution on the coordinates. Note that this is different from the uniform distribution on the volume defined in Eq.~\eqref{eq:pdf_uniform}. In this case, we have $p^\text{sample} = \frac{1}{V_\text{coord}}$, where $V_\text{coord}$ is the coordinate volume of the space, and the integral becomes:
+\begin{equation}
+	N_\text{flow} \simeq \frac{V_\text{coord}}{N} \sum_i p^\text{flow}(\theta_i)
+\end{equation}
+where again $\theta_i \sim p^\text{sample} $.
+
+The estimation can have a large variance, due to very large differences in $p^\text{flow}(\theta_i)$. A more suitable choice of $p^\text{sample}$ can lead to a better estimation. On the other hand, due to the ease of evaluating $p^\text{flow}$, we can evaluate the integral with many samples, hence reducing the variance.
 
 \begin{figure*}
 	\centering

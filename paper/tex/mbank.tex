@@ -357,6 +357,7 @@ During the training we halve the learning rate each time the validation loss doe
 \subsection{Random template placing} \label{sec:template_placing}
 
 As common, the input parameter controlling the average spacing and number of templates is the {\it minimum match} $MM$. It is defined as the minimum tolerable match that a random signal (inside the relevant space) must have with its nearest templates of the bank. It comes as input to virtually any template placement method in the literature.
+Of course, during the template placement, we only consider the match between templates on the same manifold, while the quantity can be used also to compare waveforms on different manifolds.
 
 To generate our random template bank, following \cite{Messenger:2008ta}, we add random templates to the bank until a satisfactory coverage is achieved. The coverage is checked using a procedure that closely matches \cite{Coogan:2022qxs}.
 The templates are sampled from the normalizing flow Eq.~\eqref{eq:p_flow}, which, as discussed above, is trained to target Eq.~\eqref{eq:pdf_uniform}. This choice makes sure that the templates are sampled as ``uniformly as possible" across the manifold.

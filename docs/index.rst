@@ -1,7 +1,12 @@
 .. mbank documentation master file
 
-Welcome to ``mbank``'s documentation!
+Welcome to the documentation of mbank
 =====================================
+
+.. figure:: img/gego-manifold.png
+
+   This is a sculpture by `Gego <https://en.wikipedia.org/wiki/Gego>`_. With her work, she made  experiments on how to fill the infinite volume with lines, dots, grids and meshes. This is similar to what ``mbank`` does, even though we don't match the beauty and elegance of gego's sculptures. Credits: `Guggenheim Foundation <https://www.guggenheim.org/exhibition/gego-measuring-infinity>`_
+
 
 .. automodule:: mbank
    :members: 

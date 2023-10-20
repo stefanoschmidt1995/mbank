@@ -24,3 +24,4 @@ sphinx:
 python:
    install:
    - requirements: docs/requirements.txt
+   - pip install sphinxawesome-theme --pre

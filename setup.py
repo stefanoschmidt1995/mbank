@@ -11,7 +11,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name="gw-mbank",
-	version="0.3.1",
+	version="1.0.0",
 	author="Stefano Schmidt",
 	author_email="stefanoschmidt1995@gmail.com",
 	description="Metric bank generation for gravitational waves data analysis",
@@ -23,11 +23,12 @@ setuptools.setup(
 	classifiers=[
 		"Programming Language :: Python :: 3",
 		"Operating System :: OS Independent",
-	],
+        ],
 	scripts = ["bin/mbank_run", "bin/mbank_injfile", "bin/mbank_mcmc", 
 		"bin/mbank_place_templates", "bin/mbank_merge",
 		"bin/mbank_validate_metric", "bin/mbank_print_metric",
-		"bin/mbank_injections", "bin/mbank_injections_workflow", "bin/mbank_train_flow", "bin/mbank_generate_flow_dataset"],
+		"bin/mbank_injections",
+		"bin/mbank_injections_workflow", "bin/mbank_train_flow", "bin/mbank_generate_flow_dataset"],
 	python_requires='>=3.7',
 	install_requires=required_packages,
 	command_options={

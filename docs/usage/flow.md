@@ -17,7 +17,7 @@ The training is performed by minizing the forward KL distance between the probab
 
 ## Let's get our hands dirty
 
-Our code heavily relies on [`nflows`](); unfortunately, the code is no longer maintened and for this reason we are using the package `glasflow` which maintains a fork to the original code (plus some new additional features).
+Our code heavily relies on [`nflows`](https://github.com/bayesiains/nflows/tree/master); unfortunately, the code is no longer maintened and for this reason we are using the package `glasflow` which maintains a fork to the original code (plus some new additional features).
 
 First thing first, we need to generate our training data from a complicated distribution:
 
@@ -28,7 +28,7 @@ data = np.column_stack([np.random.exponential(1., N_samples), np.random.normal(0
 ```
 
 Next we are going to define a normalizing flow model. We will define a base distribution and a list of transformation, using the `nflows` fashion.
-We are very free to decide the type of transformations we wish. Her, however, we will limit ourselfs to a set of identical layers, similarly to what implemented in `mbank`. Each layer will be composed by a (invertible) linaer transformation and of a [Masked Autoregressive Layer](). The latter is a complicated non-linear relation between the inputs and the outpus; internally it uses a number of hidden features, which is a free parameter that can be tuned by the user.
+We are very free to decide the type of transformations we wish. Here, however, we will limit ourselfs to a set of identical layers, similarly to what implemented in `mbank`. Each layer will be composed by a (invertible) linaer transformation and of a [Masked Autoregressive Layer](https://arxiv.org/abs/1502.03509). The latter is a complicated non-linear relation between the inputs and the outpus; internally it uses a number of hidden features, which is a free parameter that can be tuned by the user.
 We will consider a flow with 3 layers and 5 hidden features.
 
 ```Python
@@ -51,7 +51,7 @@ for _ in range(3):
 transform_list = CompositeTransform(transform_list)
 ```
 
-You may have noted that the first tranformation [`TanhTransform`](../package_reference/mbankflow.rst#mbank.flow.flowmodel.TanhTransform) is different from the others. It implements a iperbolic tangent transformations, which maps a rectangle into the whole D-dimensional space. It is very useful (actually recommended) to introduce such transformation whenever the target data distribution has a compact support. In this way, the data are mapped to the whole space R^D and become unbounded, resulting much easier to learn from a gaussian. The size of the rectangle is of course a learnable parameter that will be set during the training.
+You may have noted that the first tranformation `TanhTransform` is different from the others. It implements a iperbolic tangent transformations, which maps a rectangle into the whole D-dimensional space. It is very useful (actually recommended) to introduce such transformation whenever the target data distribution has a compact support. In this way, the data are mapped to the whole space R^D and become unbounded, resulting much easier to learn from a gaussian. The size of the rectangle is of course a learnable parameter that will be set during the training.
 
 We can now initialize a `GW_Flow` object using the base distribution and the transformation we defined:
 

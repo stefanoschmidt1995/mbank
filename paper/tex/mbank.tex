@@ -9,6 +9,7 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage{mathtools}
 \usepackage[normalem]{ulem}
 \usepackage{textcomp}
+\usepackage[bookmarks]{hyperref}
 \usepackage{enumitem}
 \usepackage{bm}
 \usepackage{bbm}
@@ -30,7 +31,6 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage[usenames,dvipsnames]{xcolor}
 \usepackage[utf8]{inputenc}
 \usepackage{rotating}
-\usepackage[bookmarks]{hyperref}
 %\usepackage{ragged2e}
 \usepackage{blindtext}
 \usepackage{graphicx}
@@ -262,7 +262,7 @@ Note that the metric is positive definite.
 A convenient expression of the $H$ in terms of the gradients of the waveform is presented in App.~\ref{app:metric}, the full expression being in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 While identifying the metric with the Hessian is well motivated and yields reliable results, other definitions for $M_{ij}$ are available: this is briefly discussed in App.~\ref{app:metric_definition}.
 
-For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, the gradients are available analytically.
+For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Chua:2018woh, Khan:2020fso, PhysRevD.103.043020, Thomas:2022rmc, Tissino:2022thn}, the gradients are available analytically.
 
 Equipped with the metric from Eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes a Riemannian manifold with line element:
 \begin{equation}\label{eq:line_element}
@@ -678,7 +678,7 @@ This claim is confirmed by an injection study Fig.~\ref{fig:precessing_hist}.
 A precessing template bank with HM will probably need to sample two more variables $s_\text{1y}$ and $\varphi$, hence increasing the dimensionality to $8$.
 
 About the parameter space, we are interested to target BBHs where precession is stronger: such systems are most likely to be missed by current non-precessing searches \cite{PhysRevD.102.041302, Fairhurst:2019vut}.
-Precession is more visible for high mass ratio edge-on\footnote{An edge-on system is observed with inclination $\iota\simeq \pi/2$.} systems and for high values of spins. Moreover, as more cycles are detectable, precessing effect will be stronger for longer signals due to the accumulation of the phasing effects of precession.
+Precession is more visible for high mass ratio edge-on\footnote{An edge-on system is observed with inclination $\iota\simeq \pi/2$.} systems and for high values of spins \cite{CalderonBustillo:2016rlt}. Moreover, as more cycles are detectable, precessing effect will be stronger for longer signals due to the accumulation of the phasing effects of precession.
 
 The considerations above point towards searching for very asymmetric low mass systems, hence the Neutron Start Black Hole (NSBH) space would be an ideal target for a precessing bank. However, as shown below in Sec.~\ref{sec:other_applications} covering the NSBH region is unfeasible, as hundreds of millions of templates would be needed.
 
@@ -778,9 +778,10 @@ There are still severe constraints related to the bank size, however they are ea
 
 We used \texttt{mbank} to generate an HM aligned-spin bank, covering the high mass region of the BBH parameter space.
 High mass events are notoriously hard to detect \cite{LIGOScientific:2021tfm, Chandra:2021wbw}. As they are very short, their morphology matches closely those non-gaussian transient noise bursts, also called {\it glitches}, \cite{Blackburn:2008ah, Zevin:2016qwy, LIGOScientific:2016gtq, LIGO:2021ppb}. In this scenario, a more realistic model for the waveform can improve the detectability of such signals, thanks to both an increase in recovered SNR and to a more accurate signal-based veto \cite{Babak:2005kv, PhysRevD.95.042001}.
+Several studies \cite{Pekowsky:2012sr, Capano:2013raa, Varma:2014jxa, CalderonBustillo:2015lrt} confirmed this claim, finding that failing to consider HMs in GW searches can lead to a large sensitivity loss for large mass ratios $q\gtrsim 4$ and high masses $M \gtrsim \SI{100}{\mathrm{M_\odot}}$ \cite{CalderonBustillo:2016rlt}.
 
-Our bank covers the manifold \texttt{logMq\_chi\_iotaphi}, sampling $\log_{10}M$, $q$, the effective spin parameter $\chi$ as well as inclination and reference phase.
-We consider templates with total mass $M$ between $50 \mathrm{M_\odot}$ and $400 \mathrm{M_\odot}$ and a mass ratio smaller than $7$. The spin lies in range $[-0.99, 0.99]$ and, as usual, $\iota \in [0, \pi]$ and $\varphi \in [-\pi, \pi]$.
+Consequently, our bank covers the manifold \texttt{logMq\_chi\_iotaphi}, sampling $\log_{10}M$, $q$, the effective spin parameter $\chi$ as well as inclination and reference phase.
+We consider templates with total mass $M$ between $\SI{50}{\mathrm{M_\odot}}$ and $\SI{400}{\mathrm{M_\odot}}$ and a mass ratio smaller than $7$. The spin lies in range $[-0.99, 0.99]$ and, as usual, $\iota \in [0, \pi]$ and $\varphi \in [-\pi, \pi]$.
 We use the Advanced LIGO O4 sensitivity estimate \cite{O4_PSDs} and we set a frequency range of $[10, 1024] \SI{}{Hz}$, with approximant \texttt{IMRPhenomXHM} \cite{Garcia-Quiros:2020qpx}.
 
 We generate a dataset with $4\times 10^5$ points and we train a normalizing flow with $4$ layers, each with $n_\text{hidden} = 60$ hidden features. The accuracy of the normalizing flow is reported in Fig.~\ref{fig:HM_flow}.
@@ -857,7 +858,7 @@ The normalizing flow is a natural candidate for a proposal distribution, since i
 
 \paragraph{Generating datasets for machine learning applications}
 
-The recent years have seen a burst of machine learning application to GW data analysis. Such applications cover all fields of the analysis of compact binary systems, including waveform modelling \cite{Khan:2020fso, PhysRevD.103.043020, ML_wf_model, Tissino:2022thn}, GW searches \cite{Gebhard:2019ldz, Schafer:2020kor, Schafer:2021fea, Baltus:2021nme} as well as parameter estimation \cite{Green:2020hst, Alvares:2020bjg, Williams:2021qyt, Langendorff:2022fzq, Williams:2023ppp}.
+The recent years have seen a burst of machine learning application to GW data analysis. Such applications cover all fields of the analysis of compact binary systems, including waveform modelling \cite{Khan:2020fso, PhysRevD.103.043020, Thomas:2022rmc, Tissino:2022thn}, GW searches \cite{Gebhard:2019ldz, Schafer:2020kor, Schafer:2021fea, Baltus:2021nme} as well as parameter estimation \cite{Green:2020hst, Alvares:2020bjg, Williams:2021qyt, Langendorff:2022fzq, Williams:2023ppp}.
 
 For all such application, it is crucial to have high quality datasets of waveforms, which are needed for the training.
 The goodness and the applicability of the model strongly relies on the distribution of waveforms in the dataset and substantial time is often spent in tuning the dataset composition to achieve optimal performance.
@@ -937,7 +938,7 @@ Our code is publicly available as a package \texttt{mbank} and it comes with a l
 
 We validate our code by evaluating the normalizing flow accuracy and by studying the robustness of the random template placement.
 Moreover, we reproduce two template banks existing in the literature obtained with independent codes, finding matching performance.
-To demonstrate the capabilities of our code, we generate two large template banks covering systems not included in the searches carried on the literature: a precessing bank and an aligned-spin bank with Higher Order Modes. We validate the two banks, demonstrating that they satisfactorily cover the space.
+To demonstrate the capabilities of our code, we generate two large template banks covering systems not included in the searches carried on the literature: a precessing bank and an aligned-spin bank with Higher Order Modes (HMs). We validate the two banks, demonstrating that they satisfactorily cover the space.
 We also discuss other possible application of our method.
 
 As a final remark, we emphasize that our work enables the GW community to run searches on novel regions of the BBH signal parameter space. Being able to generate a bank in a few hours, the computational cost of searching new regions of the parameter space will be dominated by the actual cost of the analysis rather than the cost of prior steps.

@@ -377,15 +377,15 @@ def get_boundary_box_from_args(args):
 		var2_min, var2_max = args.eta_range
 
 		#Ranges for quantities other than masses
-	s1_min, s1_max = args.s1_range
-	s2_min, s2_max = args.s2_range
-	chi_min, chi_max = args.chi_range
-	theta_min, theta_max = args.theta_range
-	e_min, e_max = args.e_range
-	meanano_min, meanano_max = args.meanano_range
-	phi_min, phi_max = args.phi_range
-	iota_min, iota_max = args.iota_range
-	ref_phase_min, ref_phase_max = args.ref_phase_range
+	s1_min, s1_max = getattr(args, 's1_range', (np.nan, np.nan))
+	s2_min, s2_max = getattr(args, 's2_range', (np.nan, np.nan))
+	chi_min, chi_max = getattr(args, 'chi_range', (np.nan, np.nan))
+	theta_min, theta_max = getattr(args, 'theta_range', (np.nan, np.nan))
+	phi_min, phi_max = getattr(args, 'phi_range', (np.nan, np.nan))
+	e_min, e_max = getattr(args, 'e_range', (np.nan, np.nan))
+	meanano_min, meanano_max = getattr(args, 'meanano_range', (np.nan, np.nan))
+	iota_min, iota_max = getattr(args, 'iota_range', (np.nan, np.nan))
+	ref_phase_min, ref_phase_max = getattr(args, 'ref_phase_range', (np.nan, np.nan))
 
 	return get_boundaries_from_ranges(args.variable_format,
 				(var1_min, var1_max), (var2_min, var2_max),
@@ -424,12 +424,47 @@ class boundary_keeper:
 		self.b_cache = None
 		self.var_handler = variable_handler() 
 	
-	def __call__(self, theta, variable_format):
-		theta = np.atleast_2d(theta)
+	def set_variable_format(self, variable_format):
 		if self.b_cache_format != variable_format:
 			self.b_cache_format = variable_format
 			setattr(self.b_args, 'variable_format', variable_format)
 			self.b_cache = get_boundary_box_from_args(self.b_args)
+		return
+	
+	def sample(self, n_samples, variable_format):
+		"Samples from the uniform distribution in the coordinates"
+		self.set_variable_format(variable_format)
+		
+		samples = []
+		while len(samples)<=n_samples:
+		
+			new_samples = np.random.uniform(*self.b_cache, (n_samples, self.b_cache.shape[1]) )
+			new_samples = new_samples[self(new_samples, variable_format)]
+			samples = np.concatenate([samples, new_samples], axis = 0) if len(samples) else new_samples
+		return samples[:n_samples]
+	
+	def volume(self, n_samples, variable_format, n_vars = 50):
+	
+		self.set_variable_format(variable_format)
+	
+		vols = []
+		for i in range(n_vars):
+			samples = np.random.uniform(*self.b_cache, (n_samples, self.b_cache.shape[1]) )
+			n_inside = sum(self(samples, variable_format))
+		
+			vol = np.prod(np.abs(self.b_cache[1]-self.b_cache[0]))
+			vols.append(vol*(n_inside/n_samples))
+		
+		vol = np.mean(vols)
+		std_error_mean = np.std(vols, ddof=1)/np.sqrt(n_vars)
+		
+
+		return vol, std_error_mean
+		
+	
+	def __call__(self, theta, variable_format):
+		theta = np.atleast_2d(theta)
+		self.set_variable_format(variable_format)
 		#ids_inside = np.full((theta.shape[0],), True)
 		ids_inside = np.logical_and(np.all(theta > self.b_cache[0,:], axis =1), np.all(theta < self.b_cache[1,:], axis = 1)) #(N,)
 		
@@ -439,20 +474,20 @@ class boundary_keeper:
 
 		with warnings.catch_warnings():
 			warnings.simplefilter("ignore", category = RuntimeWarning)
-			if self.b_args.m1_range:
+			if getattr(self.b_args, 'm1_range', None):
 				ids_inside = np.logical_and(ids_inside, np.logical_and(m1>self.b_args.m1_range[0], m1<self.b_args.m1_range[1]))
-			if self.b_args.m2_range:
+			if getattr(self.b_args, 'm2_range', None):
 				ids_inside = np.logical_and(ids_inside, np.logical_and(m2>self.b_args.m2_range[0], m2<self.b_args.m2_range[1]))
-			if self.b_args.mtot_range:
+			if getattr(self.b_args, 'mtot_range', None):
 				M = m1 + m2
 				ids_inside = np.logical_and(ids_inside, np.logical_and(M>self.b_args.mtot_range[0], M<self.b_args.mtot_range[1]))
-			if self.b_args.q_range:
+			if getattr(self.b_args, 'q_range', None):
 				q = m1/m2
 				ids_inside = np.logical_and(ids_inside, np.logical_and(q>self.b_args.q_range[0], q<self.b_args.q_range[1]))
-			if self.b_args.mc_range:
+			if getattr(self.b_args, 'mc_range', None):
 				mc = (m1*m2)**(3/5)/(m1+m2)**(1/5)
 				ids_inside = np.logical_and(ids_inside, np.logical_and(mc>self.b_args.mc_range[0], mc<self.b_args.mc_range[1]))
-			if self.b_args.eta_range:
+			if getattr(self.b_args, 'eta_range', None):
 				eta = (m1*m2)/np.square(m1+m2)
 				ids_inside = np.logical_and(ids_inside, np.logical_and(eta>self.b_args.eta_range[0], eta<self.b_args.eta_range[1]))
 		return ids_inside

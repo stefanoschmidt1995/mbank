@@ -209,15 +209,42 @@ def test_reference_phase():
 	assert not np.allclose(1e19*WFs[0], 1e19*WFs[1]), "The metric doesn't take into account the reference phase properly"
 	
 	print("'test_reference_phase' passed")
+
+def test_sampling_from_boundaries():
+	import argparse
+	from argparse import Namespace
+	from mbank.parser import boundary_keeper
 	
+	args = argparse.Namespace()
+	args.m1_range = (1, 100)
+	args.m2_range = (1, 100)
+	args.q_range = (1, 10)
+	args.chi_range = (0, 1)
+	
+	vf = 'm1m2_chi'
+	a = boundary_keeper(args)
+	
+	assert np.all(a([[20, 10, 0.5], [50, 2, 0.1], [50, 20, -0.1]], vf) == [True, False, False])
+	
+	samples = a.sample(100000, vf)
+	
+	#plt.scatter(*samples[:,:2].T, s = 4)
+	#plt.show()
+	
+	vol, std_err = a.volume(100000, vf)
+	true_vol = 99*99/2 - 90*9/2
+	assert np.allclose(vol, true_vol, rtol = 0, atol = std_err)
+	
+	print("'test_sampling_from_boundaries' passed")
+	
+
 if __name__ == '__main__':
-	import mbank
-	import mbank.utils
-	test_flow_IO()
 	test_imports()
+	test_flow_IO()
 	test_psd()
 	test_variable_format()
 	test_flow_transformations()
 	test_metric(True)
 	test_bank_conversion()
 	test_reference_phase()
+	test_sampling_from_boundaries()

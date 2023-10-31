@@ -823,6 +823,8 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 			A title for all the plots
 
 	"""
+	templates = np.asarray(templates)
+	
 	var_handler = variable_handler()
 		###
 		#Plotting templates
@@ -898,7 +900,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 			cbar_vals = currentAxis.scatter(injections[:,ax_[0]], injections[:,ax_[1]],
 				s = 20, marker = 's', c= inj_cmap)
 		if not isinstance(inj_cmap, str):
-			cbar_ax = fig.add_axes([0.95, 0.15, 0.015, 0.7])
+			cbar_ax = fig.add_axes([0.88, 0.15, 0.015, 0.7])
 			cbar_ax.tick_params(labelsize=fs)
 			fig.colorbar(cbar_vals, cax=cbar_ax)
 		if isinstance(save_folder, str): plt.savefig(save_folder+'injections.png', transparent = False)

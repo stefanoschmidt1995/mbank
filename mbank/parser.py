@@ -443,16 +443,20 @@ class boundary_keeper:
 			samples = np.concatenate([samples, new_samples], axis = 0) if len(samples) else new_samples
 		return samples[:n_samples]
 	
+	def volume_box(self, variable_format):
+		self.set_variable_format(variable_format)
+		return np.prod(np.abs(self.b_cache[1]-self.b_cache[0]))
+		
 	def volume(self, n_samples, variable_format, n_vars = 50):
 	
 		self.set_variable_format(variable_format)
-	
+		vol = np.prod(np.abs(self.b_cache[1]-self.b_cache[0]))
+
 		vols = []
 		for i in range(n_vars):
 			samples = np.random.uniform(*self.b_cache, (n_samples, self.b_cache.shape[1]) )
 			n_inside = sum(self(samples, variable_format))
 		
-			vol = np.prod(np.abs(self.b_cache[1]-self.b_cache[0]))
 			vols.append(vol*(n_inside/n_samples))
 		
 		vol = np.mean(vols)

@@ -704,6 +704,17 @@ class STD_GW_Flow(GW_Flow):
 		self.D = D
 		return
 	
+	@property
+	def boundary_box(self):
+		"""
+		Returns the boundaries of the support of the flow (a rectangle)
+		"""
+		if isinstance(self._transform._transforms[0], TanhTransform):
+			with torch.no_grad():
+				bbox = [v.numpy() for v in self._transform._transforms[0].parameters()]
+		return np.array(bbox)
+		
+	
 	@classmethod
 	def load_flow(cls, weigth_file):
 		"""

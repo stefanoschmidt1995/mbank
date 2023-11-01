@@ -59,3 +59,18 @@ Below you can find a list of all of them:
 ``mbank_injections_workflow --help``
 
 .. program-output:: mbank_injections_workflow --help
+
+
+``mbank_compare_volumes``
+=============================
+``mbank_compare_volumes --help``
+
+.. program-output:: mbank_compare_volumes --help
+
+``mbank_compute_volume``
+=============================
+``mbank_compute_volume --help``
+
+.. program-output:: mbank_compute_volume --help
+
+

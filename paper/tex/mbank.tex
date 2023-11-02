@@ -68,8 +68,9 @@ superscriptaddress,10pt]{revtex4-2}
 \begin{abstract}
 	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data.
 	We derive a novel expression for the metric approximation to the distance between templates, which is suitable for precessing BBHs and/or systems with higher-order mode (HM) imprints and we use it to meaningfully define a template probability density across the parameter space.
-	\stefano{Does this sentence read better now?}
-	We employ a Masked Autoregressive normalizing flow model which can be conveniently trained to quickly reproduce the target probability distribution and sample templates from it. Thanks to the normalizing flow, our code takes a few {\it hours} to produce precessing, eccentric and/or HM template banks with millions of templates, making it particularly suitable for high-dimensional spaces.
+	We employ a Masked Autoregressive normalizing flow model which can be conveniently trained to quickly reproduce the target probability distribution and sample templates from it.
+	\stefano{Does the following sentence read better now?}
+	Thanks to the normalizing flow, our code takes a few {\it hours} to produce template banks with millions of templates, making it particularly suitable for high-dimensional spaces such as those associated to precession, eccentricity and/or HM.
 	After validating the performance of our method, we generate a bank for precessing black holes and a bank for aligned-spin binaries with HMs: with only 5\% of the injections with fitting factor below the target of $0.97$, we show that they cover satisfactorly the space.
 	Our publicly released code \texttt{mbank} will enable searches of high-dimensional regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
 	

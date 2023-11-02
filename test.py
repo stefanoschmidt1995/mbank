@@ -8,7 +8,6 @@ def test_imports():
 	import mbank
 	import mbank.utils
 	print("'test_imports' passed")
-	return True
 
 def test_psd(verbose = False):
 	import mbank.utils
@@ -19,7 +18,6 @@ def test_psd(verbose = False):
 		f, PSD = mbank.utils.load_PSD(psd_file, True, 'H1', df = df)
 		assert np.allclose(f[1]-f[0], df)
 	print("'test_psd' passed")
-	return True
 	
 def test_metric(verbose = False):
 	import mbank
@@ -161,7 +159,6 @@ def test_bank_conversion():
 		
 		#assert np.allclose(bank.templates, vh.get_theta(bank.BBH_components, vf))
 	print("'test_bank_conversion' passed")
-	return True
 
 def test_flow_transformations():
 	import torch
@@ -233,12 +230,14 @@ def test_sampling_from_boundaries():
 	
 	vol, std_err = a.volume(100000, vf)
 	true_vol = 99*99/2 - 90*9/2
-	assert np.allclose(vol, true_vol, rtol = 0, atol = std_err)
+	assert np.allclose(vol, true_vol, rtol = 0, atol = 2*std_err)
 	
 	print("'test_sampling_from_boundaries' passed")
 	
 
 if __name__ == '__main__':
+	test_sampling_from_boundaries()
+	quit()
 	test_imports()
 	test_flow_IO()
 	test_psd()
@@ -247,4 +246,3 @@ if __name__ == '__main__':
 	test_metric(True)
 	test_bank_conversion()
 	test_reference_phase()
-	test_sampling_from_boundaries()

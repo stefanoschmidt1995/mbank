@@ -1098,17 +1098,17 @@ The volume can be easily estimated by {\it importance sampling} and, as the norm
 The volume of the parameter space $\mathcal{B}_D$ is defined as:
 \begin{align}
 	\mathcal{V} & = \int_\mathcal{\mathcal{B}_D} \dvol{\theta}{D} \; \sqrt{\det M(\theta)} \\
-				& = \int_\mathcal{\mathcal{S}_\text{flow}} \dvol{\theta}{D} \; \sqrt{\det M(\theta)} \;\; \mathcal{I}_{\mathcal{B}_D}(\theta)
+				& = \int_\mathcal{\mathcal{S}_\text{flow}} \dvol{\theta}{D} \; \sqrt{\det M(\theta)} \;\; \mathcal{I}_{\mathcal{B}_D}(\theta) \label{eq:volume_indicator_function}
 \end{align}
 where in the last equality we compute the integral on the support of the flow $\mathcal{S}_\text{flow}$ and we introduced the indicator function $\mathcal{I}_{\mathcal{B}_D}$ which is non-zero only on the manifold $\mathcal{B}_D$.
 
-The expression above can be numerically evaluated by importance sampling:
+Eq.~\eqref{eq:volume_indicator_function} can be numerically evaluated by importance sampling:
 %
 \begin{align}\label{eq:vol_IS}
 	\mathcal{V} \simeq \frac{1}{N} \sum_i \; \frac{\sqrt{\det M(\theta_i)}}{p^\text{flow}(\theta_i)} \; \mathcal{I}_{\mathcal{B}_D}(\theta_i)
 \end{align}
-%
-The expression above gives a low variance estimation of the volume of the parameter space.
+with  $\theta_i \sim p^\text{flow}$.
+The normalizing flow ensures a low variance in the volume estimation.
 
 
 Eq.~\eqref{eq:vol_IS} involves several metric evaluation, which has some computational cost.
@@ -1122,6 +1122,7 @@ The volume estimation is then reduced to computing the fraction of the volume of
 \begin{equation}
 	\mathcal{V} \simeq e^C \; \frac{1}{N}  \sum_i \; \; \mathcal{I}_{\mathcal{B}_D}(\theta_i)
 \end{equation}
+where again $\theta_i \sim p^\text{flow}$.
 The goodness of such approximation is closely related to the flow performance, as studied in Sec.~\ref{sec:flow_validation} (see also Fig.~\ref{fig:flow_validation}).
 
 \begin{figure*}

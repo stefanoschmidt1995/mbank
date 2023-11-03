@@ -115,6 +115,10 @@ if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
 if args.flow_file:
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
+if args.psd:
+	if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
+if args.psd_other:
+	if args._other.find('/') <0: args._other = args.run_dir+args._other
 if args.comparison_file:
 	if args.comparison_file.find('/') <0: args.comparison_file = args.run_dir+args.comparison_file
 else:
@@ -141,10 +145,14 @@ m = cbc_metric(args.variable_format,
 	f_min = args.f_min, f_max = args.f_max)
 
 	#Setting defaults, if appropriate...
+if not args.psd_other:
+	args.psd_other = args.psd
+	args.asd_other = args.asd
 if not args.df_other: args.df_other = args.df
 if not args.approximant_other: args.approximant_other = args.approximant
 if not args.f_max_other: args.f_max_other = args.f_max
 if not args.f_min_other: args.f_min_other = args.f_min
+if not args.metric_type_other:  args.metric_type_other = args.metric_type
 
 m_other = cbc_metric(args.variable_format,
 	PSD = load_PSD(args.psd_other, args.asd_other, args.ifo_other, df = args.df_other),
@@ -177,8 +185,8 @@ else:
 
 for i in tqdm(range(args.n_points), desc = 'Evaluating the metric ratio', disable = not args.verbose):
 
-	vol_elem = m.get_volume_element(points[i])
-	vol_elem_other = m_other.get_volume_element(points[i])
+	vol_elem = m.get_volume_element(points[i], metric_type = args.metric_type)
+	vol_elem_other = m_other.get_volume_element(points[i], metric_type = args.metric_type_other)
 	if flow:
 		vol_elem_flow = np.exp(log_prob[i].numpy() + flow.constant.detach().numpy())[0]
 	else:

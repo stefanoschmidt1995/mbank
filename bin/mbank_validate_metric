@@ -185,7 +185,9 @@ print("  Eig block diagonal: ", np.linalg.eig(metric_block_diagonal)[0], np.lina
 print("  Eig numerical hessian: ", np.linalg.eig(metric_numerical)[0], np.linalg.det(metric_numerical))
 print("  Eig parabola metric: ", np.linalg.eig(metric_parabolae)[0], np.linalg.det(metric_parabolae))
 
-if args.run_dir is None and not args.show: quit()
+if args.run_dir is None and not args.plot: quit()
+
+if args.plot and not args.run_dir: args.show = True
 
 	######
 	# Sampling from the ellipse and computing match
@@ -260,8 +262,7 @@ for epsilon in tqdm(epsilon_list, desc = 'Loop on epsilon', leave = False):
 	epsilon_[0] = epsilon_[0]/10.
 	for order in order_list:
 			#to compute the det
-		metric = m_obj.get_hessian(center, overlap = args.overlap, order = order, epsilon = epsilon_)
-		#metric = m_obj.get_fisher_matrix(center, overlap = args.overlap, order = order, epsilon = epsilon_); warnings.warn("Validating Fisher matrix")
+		metric = m_obj.get_metric(center, overlap = args.overlap, order = order, epsilon = epsilon_, metric_type = args.metric_type)
 		grads = m_obj.get_WF_grads(center, approx = m_obj.approx, order = order, epsilon = epsilon_) #(D,K)
 
 		temp_list_det.append(np.linalg.det(metric))

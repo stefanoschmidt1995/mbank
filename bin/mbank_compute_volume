@@ -135,7 +135,8 @@ out_dict = {
 bk.set_variable_format(args.variable_format)
 box = bk.b_cache
 vol_coordinates = bk.volume_box(args.variable_format)
-print(box)
+D = box.shape[-1]
+#print(box)
 
 	#Volume ratios
 for n in tqdm(range(args.n_experiments), desc = 'Evaluating the volume over multiple experiments', disable = not args.verbose):
@@ -156,8 +157,8 @@ for n in tqdm(range(args.n_experiments), desc = 'Evaluating the volume over mult
 	else:
 		vol_elem_flow = 1/vol_coordinates
 		
-	if flow: print(points[ids_][0], vol_elem[0], vol_elem_flow[0])
-		
+	#if flow: print(points[ids_][0], vol_elem[0], vol_elem_flow[0])
+
 	vol = vol_elem/vol_elem_flow
 	
 	vol = np.sum(vol)/args.n_points
@@ -166,6 +167,7 @@ for n in tqdm(range(args.n_experiments), desc = 'Evaluating the volume over mult
 	
 	out_dict['volume_list'].append(float(vol))
 
+	if args.mm and args.verbose: print('\tNumber of templates: ',float(vol)/avg_dist(args.mm, D)**D)
 
 	#Volume estimation
 
@@ -173,7 +175,6 @@ out_dict['volume'] = np.mean(out_dict['volume_list'])
 if args.n_experiments>1:
 	out_dict['std_err_mean'] = np.std(out_dict['volume_list'], ddof = 1)/np.sqrt(args.n_experiments)
 
-D = box.shape[-1]
 if args.n_experiments>1:
 	print('Volume of the space: {} +/- {}'.format(out_dict['volume'], out_dict['std_err_mean']))
 	

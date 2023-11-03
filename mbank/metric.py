@@ -191,7 +191,7 @@ class cbc_metric(object):
 		"""
 		return self.D
 
-	def get_volume_element(self, theta, overlap = False):
+	def get_volume_element(self, theta, **kwargs):
 		"""
 		Returns the volume element. It is equivalent to `sqrt{|M(theta)|}`
 		
@@ -202,9 +202,8 @@ class cbc_metric(object):
 			shape: (N,D) -
 			Parameters of the BBHs. The dimensionality depends on the variable format set for the metric
 		
-		overlap: bool
-			Whether to compute the metric based on the local expansion of the overlap rather than of the match
-			In this context the match is the overlap maximized over time
+		kwargs: bool
+			Positional arguments for `get_metric`
 
 		Returns
 		-------
@@ -214,7 +213,7 @@ class cbc_metric(object):
 			Volume element of the metric for the given input
 			
 		"""
-		return np.sqrt(np.abs(np.linalg.det(self.get_metric(theta, overlap = overlap)))) #(N,)
+		return np.sqrt(np.abs(np.linalg.det(self.get_metric(theta, **kwargs)))) #(N,)
 
 	def get_hpc(self, theta):
 		"""
@@ -1140,7 +1139,7 @@ class cbc_metric(object):
 		
 		return metric
 
-	def get_hessian_symphony(self, theta, overlap = False, order = None, epsilon = 1e-5, time_comps = False):
+	def get_hessian_symphony(self, theta, overlap = False, order = None, epsilon = 1e-6, time_comps = False):
 		"""
 		Returns the Hessian matrix of the symphony match.
 		

@@ -1,0 +1,3 @@
+.. automodule:: mbank.placement
+	:members: 
+

@@ -233,11 +233,84 @@ def test_sampling_from_boundaries():
 	assert np.allclose(vol, true_vol, rtol = 0, atol = 2*std_err)
 	
 	print("'test_sampling_from_boundaries' passed")
+
+def test_match():
+	import mbank
+	from mbank.utils import load_PSD, get_antenna_patterns
+	import pycbc.filter
+	from pycbc.types.frequencyseries import FrequencySeries
+	
+	approximant = 'IMRPhenomPv2'
+	f_min, f_max = 15., 1024.
+	
+	variable_format = 'Mq_s1xz_s2z_iotaphi'
+	
+	f, PSD = load_PSD('aligo_O3actual_H1.txt', asd = True, ifo = 'L1')
+	df = f[1]-f[0]
+
+	f = np.linspace(0, len(PSD)*df,len(PSD))
+
+	#mbank stuff
+	vh = mbank.variable_handler()
+	m_obj = mbank.cbc_metric(variable_format, (f, PSD),
+		approx = approximant, f_min = f_min, f_max = f_max)
+
+
+	theta2 = [21, 4.2, .6, 2., -0.5, 2, 0.]
+	theta1 = [21, 4.2, .6, 2., -0.5, 3, 0.]
+
+	psi = np.random.uniform(0, 2*np.pi)
+	delta = np.arccos(np.random.uniform(-1,1))
+	alpha = np.random.uniform(-np.pi, np.pi)
+
+	theta, phi, psi_sbank = np.pi/2 - delta, alpha+np.pi/2, np.pi-psi
+
+
+	F_p, F_c = get_antenna_patterns(alpha, delta, psi)
+
+		#mbank match
+	mbank_match_sym = m_obj.match(theta2, theta1, symphony = True, antenna_patterns = (F_p, F_c))
+	mbank_match_std = m_obj.match(theta2, theta1, symphony = False, antenna_patterns = (F_p, F_c))
+
+		#pycbc match
+	WF1_plus = FrequencySeries(m_obj.get_WF(theta1), delta_f = df)
+	WF1_cross = FrequencySeries(m_obj.get_WF(theta1, plus_cross = True)[1], delta_f = df)
+	h2 = m_obj.get_WF(theta2, plus_cross = True)
+	h2 = F_p*h2[0] + F_c*h2[1]
+	WF2 = FrequencySeries(h2, delta_f = df)
+	
+	args_pycbc = {'psd': FrequencySeries(m_obj.PSD, delta_f = df),
+			'low_frequency_cutoff': f_min, 'high_frequency_cutoff': f_max}
+
+	def norm(a):
+		return np.sqrt(pycbc.filter.sigmasq(a, **args_pycbc))
+
+	pycbc_match_std, _ = pycbc.filter.match(WF2, WF1_plus, **args_pycbc)
+	
+	hp_ts = pycbc.filter.matched_filter(WF1_plus/norm(WF1_plus), WF2/norm(WF2), **args_pycbc)
+	hc_ts = pycbc.filter.matched_filter(WF1_cross/norm(WF1_cross), WF2/norm(WF2), **args_pycbc)
+	
+	#hp_ts /= np.sqrt(pycbc.filter.sigmasq(hp_ts, **args_pycbc))
+	#hc_ts /= np.sqrt(pycbc.filter.sigmasq(hc_ts, **args_pycbc))
+	
+	hpc_pycbc = 1 - pycbc.filter.match(WF1_cross, WF1_plus, **args_pycbc)[0]
+	hpc_mbank = m_obj.get_hpc(theta1)
+	
+	pycbc_match_sym = pycbc.filter.compute_max_snr_over_sky_loc_stat_no_phase(np.array(hp_ts), np.array(hc_ts),
+		hpc_pycbc, hpnorm = 1, hcnorm = 1).max()
+	
+	print('hpc\n\tpycbc: {}\n\tmbank: {}'.format(hpc_pycbc, hpc_mbank))
+	print('Match\n\tpycbc: {}\n\tmbank: {}\n\tpycbc symphony: {}\n\tmbank symphony: {}'.format(pycbc_match_std, mbank_match_std, pycbc_match_sym, mbank_match_sym))
+	
+	assert np.allclose(pycbc_match_std, mbank_match_std, rtol = 0, atol = 1e-3), "STD match does not agree with pycbc"
+	assert np.allclose(pycbc_match_sym, mbank_match_sym, rtol = 0, atol = 1e-3), "SYM match does not agree with pycbc"
+	
+	print("'test_match' passed")
 	
 
 if __name__ == '__main__':
-	test_sampling_from_boundaries()
-	quit()
+	test_match();quit()
+	test_match()
 	test_imports()
 	test_flow_IO()
 	test_psd()
@@ -246,3 +319,4 @@ if __name__ == '__main__':
 	test_metric(True)
 	test_bank_conversion()
 	test_reference_phase()
+	test_sampling_from_boundaries()

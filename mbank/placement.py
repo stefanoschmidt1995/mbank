@@ -225,7 +225,7 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 
 
 #@do_profile(follow=[])
-def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, importance_sampling = False, verbose = True):
+def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker = None, covering_fraction = 0.9, dry_run = False, importance_sampling = False, metric_type = 'symphony', verbose = True):
 	"""
 	Draw templates from the flow. For each proposal, all the livepoints in the ellipse of constant ``minimum_match`` are killed. The iteration goes on until a fraction of ``covering_fraction`` of the space is covered.
 	It follows `2202.09380 <https://arxiv.org/abs/2202.09380>`_
@@ -265,6 +265,9 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 		importance_sampling: bool
 			Whether to compute the covering fraction using importance sampling. Importance sampling gives a more accurate estimation of the covering fraction but at the cost of a higher variance in the number of templates.
 
+		metric_type: str
+			The method to compute the metric. Default 'symphony'
+
 		verbose: bool
 			Whether to display the progress bar
 	
@@ -291,7 +294,7 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 	ids_to_remove = [] #Keeps the ids of the livepoints for which the metric computation fails
 	
 	for i, (l, l_pdf) in enumerate(zip(tqdm(livepoints, desc = 'Computing the metric for each livepoint', disable = not verbose), log_pdf)):
-		metric_ = metric_obj.get_metric(l, metric_type = 'symphony')
+		metric_ = metric_obj.get_metric(l, metric_type = metric_type)
 		if np.linalg.det(metric_)<0:
 			ids_to_remove.append(i)
 			continue

@@ -146,6 +146,15 @@ boundaries = get_boundary_box_from_args(args)
 sample_format = 'mceta_nonspinning'
 
 	######
+	#	Loading PSD and initializing metric
+	######
+
+m = cbc_metric(args.variable_format,
+	PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df),
+	approx = args.approximant,
+	f_min = args.f_min, f_max = args.f_max)
+
+	######
 	#	Drawing initial points (either from file or from sampling)
 	#	Mass boundaries are complicated, while the rest is just a rectangle in the coordinates
 	######
@@ -161,15 +170,6 @@ else:
 			
 	new_masses = get_random_masses(boundaries[:,:2])
 	datapoints[:,:2] = new_masses
-
-	######
-	#	Loading PSD and initializing metric
-	######
-
-m = cbc_metric(args.variable_format,
-	PSD = load_PSD(args.psd, args.asd, args.ifo, df = args.df),
-	approx = args.approximant,
-	f_min = args.f_min, f_max = args.f_max)
 
 	######
 	#	LL computation

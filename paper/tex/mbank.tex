@@ -467,7 +467,7 @@ This enables several studies of the number of templates that are required to cov
 \begin{figure}[t]
 	\centering
 	\includegraphics[scale = 1.]{template_placement_validation}
-	\caption{Validation of the random template placement algorithm. For three of the manifold introduced in Tab.~\ref{tab:flow_validation}, we plot the number the number of templates $N_\text{templates}$ of a random template bank as a function of the number of livepoints $N_\text{livepoints}$ used to estimate the covering fraction. For each template bank, we set $\eta = 0.9$ and $MM = 0.97$. }
+	\caption{Validation of the random template placement algorithm. For three of the manifolds introduced in Tab.~\ref{tab:flow_validation}, we plot the number the number of templates $N_\text{templates}$ of a random template bank as a function of the number of livepoints $N_\text{livepoints}$ used to estimate the covering fraction. For each template bank, we set $\eta = 0.9$ and $MM = 0.97$. }
 	\label{fig:template_placement_validation}
 \end{figure}
 
@@ -482,7 +482,13 @@ Consequently, a string has the format \texttt{Masses\_Spin1\_Spin2\_Eccentricity
 
 Valid options for the mass coordinates are \texttt{m1m2} which uses $m_1$ and $m_2$ as coordinates, \texttt{Mq} which uses total mass $M = m_1+m_2$ and mass ratio $q = m_1/m_2 >1$, and \texttt{logMq} which uses $\log_{10}M$ instead of $M$.
 Similarly, other variables are listed by their names.
-The manifold with spin label \texttt{chi} uses the effective spin parameter  ${\chi_\text{eff} = \frac{m_1 s_\text{1z} + m_2 s_\text{2z}}{m_1 + m_2}}$ as coordinate. Since $\chi_\text{eff}$ is degenerate in the two spins, we choose to set $s_\text{1z} = s_\text{2z} = \chi_\text{eff}$ and all the other spin components to $0$.
+The manifold with spin label \texttt{chi} uses the effective spin parameter
+%
+\begin{equation}\label{eq:chieff}
+	\chi_\text{eff} = \frac{m_1 s_\text{1z} + m_2 s_\text{2z}}{m_1 + m_2}}
+\end{equation}
+%
+as coordinate. Since $\chi_\text{eff}$ is degenerate in the two spins, we choose to set $s_\text{1z} = s_\text{2z} = \chi_\text{eff}$ and all the other spin components to $0$.
 
 If more than one spin coordinate is given for a given BH, the spin vector $\mathbf{s}$ will be parametrized in spherical coordinates with magnitude ${s \in [0,1)}$ and angles ${\theta \in [-\pi,\pi]}$ and ${\varphi \in [0, \pi]}$ as follows:
 %
@@ -516,33 +522,36 @@ Finally, we see that the flow trained on the eccentric manifold \texttt{m1m2\_ch
 \subsection{Template placement performance} \label{sec:template_placement}
 
 As already stated, the template placement method in use closely matches the one introduced in \cite{Coogan:2022qxs}.
-The main novelty introduced here is the sampling with the normalizing flow, as opposed to rejection sampling.
+The main novelty introduced here is sampling with the normalizing flow as opposed to rejection sampling.
 
 For the random placement method, there are two parameters to tune that affect the final bank size. They are the number of livepoints $N_\text{livepoints}$ and the covering fraction $\eta$.
 The authors of \cite{Coogan:2022qxs} make an extensive investigation on how the bank size depends on such quantities and we do not repeat such in-depth studies here.
 
-We limit ourself to examinate the convergence of the template number $N_\text{templates}$ as a function of $N_\text{livepoints}$ (see \cite[Fig.~4 (right)]{Coogan:2022qxs}), in the case of manifolds with precessing and HM signals.
-For the study, we chose the manifolds \texttt{m1m2\_nonspinning}, \texttt{Mq\_s1xz} and \texttt{logMq\_s1z\_s2z\_iota} introduced in Sec.~\ref{sec:flow_validation} (see also Tab.~\ref{tab:bank_comparison}). The second manifold covers a precessing parameter space, while the metric on the latter manifold is computed with an HM approximant.
-We present our results in Fig.~\ref{fig:template_placement_validation}, where the number of template is computed with a covering fraction $\eta = 0.9$ with a varying $N_\text{livepoints}$.
+We limit ourselves to examining the convergence of the template number $N_\text{templates}$ as a function of $N_\text{livepoints}$ (see \cite[Fig.~4 (right)]{Coogan:2022qxs}) in the case of manifolds with precessing and HM signals.
+For the study, we chose the manifolds \texttt{m1m2\_nonspinning}, \texttt{Mq\_s1xz} and \texttt{logMq\_s1z\_s2z\_iota} introduced in Sec.~\ref{sec:flow_validation} (see also Tab.~\ref{tab:bank_comparison}). The second manifold covers a precessing parameter space, while the metric on the latter manifold is computed with an HM approximant \cite{Garcia-Quiros:2020qpx}.
 
+We present our results in Fig.~\ref{fig:template_placement_validation}, where the number of templates is computed with a covering fraction $\eta = 0.9$ with varying $N_\text{livepoints}$.
 In all cases the number of templates converges to a constant value as $N_\text{livepoints}$ increases. Already $\sim 500$ livepoints are enough to provide an accurate estimation of the bank size.
-Our results closely match the findings of \cite{Coogan:2022qxs}, expanding them to higher dimensional manifolds and to larger template banks.
+Our results are consistent with the findings of \cite{Coogan:2022qxs}, and further extend to higher-dimensional manifolds and to larger template banks.
 
 \section{Comparison with other bank generation methods} \label{sec:other_methods}
 
 We compare the output of \texttt{mbank} with two banks available in the literature, generated with two different methods.
 The first bank we consider is a non-spinning HM bank \cite{Harry:2017weg}, covering the high mass region of the BBH parameter space. The bank was generated using the stochastic placement algorithm, as implemented in the code \texttt{sbank} \cite{Ajith:2012mn}.
-The second bank is the aligned-spin bank \cite{Sakon:2022ibh} in use by the \texttt{GstLAL} pipeline \cite{PhysRevD.95.042001, gstlal_paper2} during the Fourth Observing run. It was generated using a metric template placement algorithm called \texttt{manifold} \cite{Hanna:2022zpk} and it covers a very wide mass range in the BBH and BNS parameter space.
-Both banks have a minimal match requirement $MM$ of $0.97$.
+The second bank is the aligned-spin bank \cite{Sakon:2022ibh} currently in use by the \texttt{GstLAL} pipeline \cite{PhysRevD.95.042001, gstlal_paper2} for the fourth observing run (O4) of the LIGO-Virgo-Kagra collaboration. It was generated using the \texttt{manifold} \cite{Hanna:2022zpk} metric template placement algorithm called and covers a very wide mass range in the BNS and BBH parameter space.
+Both banks have a minimal match $MM$ requirement of $0.97$.
 
-In much of what follows we will need to measure the coverage of a bank. To do so, we randomly extract a number of signal templates, usually called {\it injections}, and we construct the signal at the interferometer ${s = F_+h_+ + F_\times h_\times}$.
-For each injection at a given point on the manifold $\theta$, we compute the fitting factor $FF$, defined as the minimum match the injection has with the templates of the bank:
+In much of what follows we will measure the coverage of a bank. To do so, we randomly extract a number of simulated signals and, for each of them, we compute the maximum match with the templates of the bank. The latter quantity is called {\it fitting factor} $FF$ and for a simulated signal, characterized by orbital parameters $\theta$, it is defined as:
+%
 \begin{equation}\label{eq:FF}
 	FF(\theta) = \max_{\theta^\prime \in \text{bank}} \mathcal{M}(\theta, \theta^\prime)
 \end{equation}
+%
 Clearly, the match is computed using Eq.~\eqref{eq:symphony_snr}.
 
-Studying the statical properties of the fitting factor on a large set of injections is a standard procedure to characterize the properties of a template bank, virtually used to validate any template bank in the literature.
+Borrowing the jargon of GW searches, we call {\it injections} the simulations for which we evaluate the fitting factor. In a real search, such signals would be added to the interferometer's data (i.e. injected) to measure the performance of the pipeline: the fitting factor measures the fraction of SNR lost due to the discreteness of the template bank.
+
+%The dependence of the fitting factor across the parameter space can give valuable information on the ability of the bank to cover a given parameter space.
 
 \begin{table}
 	\begin{tabular}{c c c c} 
@@ -582,34 +591,34 @@ Studying the statical properties of the fitting factor on a large set of injecti
 		\caption{GstLAL O4 bank \cite{Sakon:2022ibh}}
 		\label{fig:bank_O4_injections}
 	\end{subfigure}
-	\caption{Median of the fitting factor of injections as a function of the parameter space. The left panel (Fig.~\ref{fig:symphony_HM_injections}) refers to injections for the ``HM bank", while the right panel (Fig.~\ref{fig:bank_O4_injections}) to injections for the ``GstLAL O4 bank".}
+	\caption{Median of the fitting factor of $10^5$ injections as a function of the parameter space. The left panel (Fig.~\ref{fig:symphony_HM_injections}) refers to injections for the ``HM bank", while the right panel (Fig.~\ref{fig:bank_O4_injections}) to injections for the ``GstLAL O4 bank".}
 \end{figure*}
 
-\subsection{A non spinning HM template bank} \label{sec:HM_comparison}
+\subsection{A non-spinning HM template bank} \label{sec:HM_comparison}
 
-The non spinning HM bank described in \cite{Harry:2017weg} covers systems with total mass $M$ in the range $[50, 400] \mathrm{M_\odot}$ and mass ratio $q\in [1,10]$. It also includes the inclination angle $\iota$ and reference phase $\varphi$ of the system, both covering the whole possible spectrum of values $\iota\in [0,\pi]$ and $\varphi\in [0,2\pi]$.
+The non-spinning HM bank described in \cite{Harry:2017weg} covers systems with total mass $M$ in the range $[50, 400] \mathrm{M_\odot}$ and mass ratio $q\in [1,10]$. It also includes the inclination angle $\iota$ and reference phase $\varphi$ of the system, both covering the whole possible spectrum of values $\iota\in [0,\pi]$ and $\varphi\in [0,2\pi]$.
 The authors use the analytical ``zero-detuning high power" PSD \cite{OLD_PSDs} and consider a low frequency cutoff $f_\text{min} = \SI{10}{Hz}$.
 
 As already noted, they use the state-of-the-art code \texttt{sbank} \cite{Ajith:2012mn, PhysRevD.80.104014}.
 %New template are randomly drawn from a suitable distribution (designed to roughly approximate Eq.~\eqref{eq:pdf_uniform}). For each potential new template, called {\it proposal}, it is computed the match against all the templates already added to the bank. If the maximum match of the proposal is smaller than the minimal match requirement, the new template is added to the bank.
-The method is very accurate and known to provide effective coverage with a low number of template. Of course, this comes at a large computational cost.
+The method is very accurate and known to provide effective coverage with a low number of templates. Of course, this comes at a large up-front computational cost to construct the bank.
 
-To reproduce the bank, we place templates on the manifold \texttt{logMq\_nonspinning\_iotaphi}, with coordinates $\log_{10}M$, $q$, $\iota$ and $\varphi$. We use the same PSD and coordinate ranges as the original bank.
+To reproduce this bank, we place templates on the manifold \texttt{logMq\_nonspinning\_iotaphi}, with coordinates $\log_{10}M$, $q$, $\iota$ and $\varphi$. We use the same PSD and coordinate ranges as the original bank.
 We train a normalizing flow model with $4$ layers with $60, 60, 60, 10$ hidden features respectively and we choose $N_\text{livepoints} = 2000$ and a covering fraction $\eta = 0.8$.
 Our bank has $58932$ templates, while the original bank is reported to have $20500$.
-All the information is summarized in Tab.~\ref{tab:bank_comparison}.
-We perform an injection study, drawing $10^5$ injections uniformly from the manifold. The results of such study are reported in Fig~\ref{fig:test_banks_hist} and Fig~\ref{fig:symphony_HM_injections}.
+All information is summarized in Tab.~\ref{tab:bank_comparison}.
+We perform an injection study, drawing $10^5$ signals uniformly sampled in $\log M, q, \cos\iota$ and $\varphi$. The results of such study are reported in Fig~\ref{fig:test_banks_hist} and Fig~\ref{fig:symphony_HM_injections}.
 
-First of all, we note that our bank successfully covers the parameter space, with only $1\%$ of the injection with fitting factor below $0.97$ and less than $1$‰ with fitting factor below $0.96$. Such figures are very similar to those reported in \cite{Harry:2017weg}.
+First we note that our bank successfully covers the parameter space, with only $1\%$ of injections found with fitting factor below $0.97$ and less than $1\%$ with fitting factor below $0.96$. The effectualness of the bank is similar to that of \cite{Harry:2017weg}.
 In Fig.~\ref{fig:symphony_HM_injections}, we observe that the coverage is uniform across the space, i.e. we do not see regions where the fitting factor is significantly different from the others.
 
 Comparing the number of templates, it is striking that our bank has almost three times more templates than the original template bank.
-As no template rejection is done during the random bank construction, there is no control over templates being too close to each other. For this reason, an over-coverage of the space is inherent to the random template placement and it was also reported in \cite{Messenger:2008ta,Coogan:2022qxs}.
+As no template rejection is done during the random bank construction, there is no control over templates being too close to each other. For this reason, an over-coverage of the space is inherent to the random template placement and is also reported in \cite{Messenger:2008ta,Coogan:2022qxs}. This problem can be addressed in future work, as discussed in Sec.~\ref{sec:improvements}.
 
 \subsection{A template bank for O4} \label{sec:all_sky_comparison}
 
-The aligned-spin bank (with no HMs) introduced in \cite{Sakon:2022ibh} covers a broad mass range, with systems with component masses $m_1, m_2 \in [1,200] \mathrm{M_\odot}$. The spins of the two objects are constrained to be equal to each other, ${s_\text{1z} = s_\text{2z} = \chi_\text{eff}}$, spanning the range $[-0.99, 0.99]$.
-The authors set an upper limit to the mass ratio $q<20$. Moreover, for objects with component mass $m<3  \mathrm{M_\odot}$ they limit $\chi_\text{eff}$ to the range $[-0.05, 0.05]$\footnote{This is motivated by astrophysical considerations. Objects with masses smaller than $3  \mathrm{M_\odot}$ are likely to be Neutron Stars and such objects are believed to develop only mild rotations.}.
+The aligned-spin bank (with no HMs) introduced in \cite{Sakon:2022ibh} covers a broad mass range, with systems with component masses $m_1, m_2 \in [1,200]\,\mathrm{M_\odot}$. The spins of the two objects are constrained to be equal to each other, ${s_\text{1z} = s_\text{2z} = \chi_\text{eff}}$, spanning the range $[-0.99, 0.99]$.
+The authors set an upper limit to the mass ratio $q<20$. Moreover, for objects with component mass $m<3  \mathrm{M_\odot}$ they limit $\chi_\text{eff}$ to the range $[-0.05, 0.05]$\footnote{This is motivated by astrophysical considerations. Objects with masses smaller than $3  \mathrm{M_\odot}$ are likely to be neutron stars and such objects are believed to develop only mild rotations.}.
 The authors use the Advanced LIGO O4 Design PSD (with $\SI{190}{Mpc}$ range) \cite{O4_PSDs} and consider a low frequency cutoff ${f_\text{min} = \SI{10}{Hz}}$.
 
 The comparison with \cite{Sakon:2022ibh} is particularly interesting, since the bank is also produced with a metric template placement, implemented in the \texttt{manifold} code \cite{Hanna:2022zpk}. \texttt{manifold} uses a geometric approach, where the parameter space is iteratively split into (hyper)rectangles along the coordinates, until the volume of each rectangle reaches a sufficiently small value that it can be covered by a single template.

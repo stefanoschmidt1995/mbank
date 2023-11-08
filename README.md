@@ -40,7 +40,7 @@ Otherwise, you can clone the repo, build a distribution and install the package:
 git clone git@github.com:stefanoschmidt1995/mbank.git
 cd mbank
 python setup.py sdist
-pip install dist/mbank*.tar.gz
+pip install dist/gw-mbank*.tar.gz
 ```
 This will install the source code as well as some executables that makes the bank generation easier (plus the dependencies).
 

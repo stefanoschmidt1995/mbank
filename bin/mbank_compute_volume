@@ -44,7 +44,7 @@ mbank.parser.add_metric_options(parser)
 mbank.parser.add_range_options(parser) #only for the flow
 
 parser.add_argument(
-	"--out-file", type = str,
+	"--volume-file", type = str,
 	help="JSON file to store the result of the volume computation")
 
 parser.add_argument(
@@ -89,10 +89,10 @@ if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 
 if args.flow_file:
 	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
-if args.out_file:
-	if args.out_file.find('/') <0: args.out_file = args.run_dir+args.out_file
+if args.volume_file:
+	if args.volume_file.find('/') <0: args.volume_file = args.run_dir+args.volume_file
 else:
-	args.out_file = args.run_dir+'volume_comparison_{}.json'.format(args.run_name)
+	args.volume_file = args.run_dir+'volume_{}.json'.format(args.run_name)
 
 plot_folder = None
 if args.plot: plot_folder = args.run_dir
@@ -122,21 +122,23 @@ else:
 	######
 	#	Computing the volume
 	######
-out_dict = {
-	'variable_format': args.variable_format,
-	'n_experiments': args.n_experiments,
-	'n_points': args.n_points,
-	'volume_list': [],
-	'volume': np.nan,
-	'std_err_mean': np.nan
-}
-
 
 bk.set_variable_format(args.variable_format)
 box = bk.b_cache
 vol_coordinates = bk.volume_box(args.variable_format)
 D = box.shape[-1]
 #print(box)
+
+out_dict = {
+	'variable_format': args.variable_format,
+	'n_experiments': args.n_experiments,
+	'n_points': args.n_points,
+	'theta': [],
+	'volume_element': [], 'volume_element_sampling': [] if flow else 1/vol_coordinates,
+	'volume_list': [],
+	'volume': np.nan,
+	'std_err_mean': np.nan
+}
 
 	#Volume ratios
 for n in tqdm(range(args.n_experiments), desc = 'Evaluating the volume over multiple experiments', disable = not args.verbose):
@@ -166,6 +168,9 @@ for n in tqdm(range(args.n_experiments), desc = 'Evaluating the volume over mult
 	if flow: vol = vol * np.exp(flow.constant.detach().numpy())
 	
 	out_dict['volume_list'].append(float(vol))
+	out_dict['theta'].extend(points[ids_].tolist())
+	if flow: out_dict['volume_element_sampling'].extend(vol_elem_flow.tolist())
+	out_dict['volume_element'].extend(vol_elem.tolist())
 
 	if args.mm and args.verbose: print('\tNumber of templates: ',float(vol)/avg_dist(args.mm, D)**D)
 
@@ -186,6 +191,6 @@ if args.mm: print("Number of templates: {}".format(out_dict['volume']/avg_dist(a
 	#	Plotting & saving
 	######
 
-with open(args.out_file, 'w') as f:
+with open(args.volume_file, 'w') as f:
 	json.dump(out_dict, f, indent = 2)
 

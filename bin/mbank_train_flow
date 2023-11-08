@@ -108,6 +108,7 @@ mbank.parser.save_args(args, args.run_dir+'args_{}.json'.format(os.path.basename
 	######
 
 dataset = []
+err_msg = "Wrong format of the datset! Each row must be {} dimensional or {} dimensional, i.e. with format D | D**2 | 1 or D | 1".format(D*(D+1)+1, D+1)
 for f in args.dataset:
 	if not os.path.isfile(f): continue
 	
@@ -115,7 +116,7 @@ for f in args.dataset:
 	
 	new_dataset = np.loadtxt(f)
 	assert new_dataset.ndim == 2, "Wrong dimensionality of the dataset, must be 2 dimensional"
-	assert new_dataset.shape[1] == D**2+D+1, "Wrong format of the datset! Each row must be {} dimensional, i.e. with format D | D**2 | 1".format(D*(D+1)+1)
+	assert new_dataset.shape[1] in [D**2+D+1, D+1], err_msg
 	
 		#removing possible nans
 	new_dataset = new_dataset[np.where(~np.any(np.isnan(new_dataset), axis = 1))]

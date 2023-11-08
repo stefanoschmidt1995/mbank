@@ -109,6 +109,9 @@ parser.add_argument(
 parser.add_argument(
 	"--datapoints-file", default = None, type = str,
 	help="Csv with a list of points to build the dataset: for each of them the likelihood will be computed and stored in the dataset")
+parser.add_argument(
+	"--only-ll", default = False, action = 'store_true',
+	help="Whether to store only the metric LL in the dataset file (to save memory). If not set, the metric will be stored, together with the LL.")
 
 args, filenames = parser.parse_known_args()
 
@@ -179,14 +182,21 @@ metric_list = []
 for d in tqdm(datapoints, disable = not args.verbose, desc = 'Generating dataset'):
 	try:
 		metric = m.get_metric(d, metric_type = args.metric_type)
-		metric_list.append(np.array([*metric.flatten(), 0.5*np.log(np.abs(np.linalg.det(metric)))]))
+		if args.only_ll:
+			dataset_row = [0.5*np.log(np.abs(np.linalg.det(metric)))]
+		else:
+			dataset_row = np.array([*metric.flatten(), 0.5*np.log(np.abs(np.linalg.det(metric)))])
+		metric_list.append(dataset_row)
 	except KeyboardInterrupt:
 		warnings.warn("KeyboardInterrupt: interuppting dataset generation and continuing with the flow training")
 		break
 	
 to_save = np.concatenate([datapoints[:len(metric_list)], metric_list], axis = 1)
-np.savetxt(args.dataset, to_save,
-		header = 'variable format: {0}\ntheta ({1},) | metric ({1}*{1},) | log_pdf (1,) '.format(args.variable_format, D))
+if args.only_ll:
+	header = 'variable format: {0}\ntheta ({1},) | log_pdf (1,) '.format(args.variable_format, D)
+else:
+	header = 'variable format: {0}\ntheta ({1},) | metric ({1}*{1},) | log_pdf (1,) '.format(args.variable_format, D)
+np.savetxt(args.dataset, to_save, header = header)
 
 if args.verbose: print("Dataset saved")
 

@@ -191,6 +191,8 @@ def place_geometric_flow(minimum_match, flow, metric_obj, n_livepoints, boundari
 		#Computing the number of templates to place
 	n_templates = place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_checker, covering_fraction, dry_run = True, verbose = verbose)
 	
+	#TODO: estimate the fraction of the flow support covered by the region of interest. This will help you to decide how many templates to place in the grid
+	
 	D = flow.D
 	
 	if qmc:

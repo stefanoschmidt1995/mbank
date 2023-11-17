@@ -274,6 +274,22 @@ class GW_Flow(Flow):
 		#w /= torch.sum(w)
 		return torch.square((self.log_prob(inputs=data) - weights + self.constant)*w).mean()
 
+	def get_jacobian(self, theta):
+		theta = torch.tensor(theta, dtype = torch.float32)
+		theta = torch.atleast_2d(theta)
+	
+		jac_fun = lambda x: self._transform.forward(torch.t(x))[0]
+		noise = self.transform_to_noise(theta)
+		p_u = torch.exp(self._distribution.log_prob(noise)) #(N,)
+		jac_list = []
+		for n in theta:
+			jac_ = jacobian(jac_fun, n[:, None])[0,:,:,0]
+			jac_list.append(jac_)
+		jac = torch.stack(jac_list, axis = 0)
+		M_flow = torch.einsum('k, kia, kja -> kij', p_u, jac, jac)
+		
+		return M_flow
+
 	def train_flow(self, loss, N_epochs, train_data, validation_data, optimizer, train_weights = None, validation_weights = None, batch_size = None, validation_step = 10, callback = None, lr_scheduler = None, boundaries = None, verbose = False):
 		"""
 		Trains the normalizing flow.

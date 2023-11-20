@@ -61,7 +61,7 @@ except:
 ####################################################################################################################
 ####################################################################################################################
 
-class cbc_bank():
+class cbc_bank:
 	"""
 	The class implements a bank for compact binary coalescence signals (CBC). A bank is a collection of templates (saved in the method ``bank.templates``). Each template is a row of the array; the columns are specified by a given variable format.
 	To know more about the available variable formats, please refer to :class:`mbank.handlers.variable_handler`.
@@ -93,6 +93,19 @@ class cbc_bank():
 		if isinstance(filename, str):
 			self.load(filename)
 
+			#Adding the variable names as properties
+			#TODO: Can you do this better? Now you're making a class just to store an integer...
+		class get_var:
+			def __init__(self, var_id):
+				self.var_id = var_id
+				
+			def __call__(self, bank_obj):
+				if bank_obj.templates is None: return None
+				return bank_obj.templates[:,self.var_id]
+		
+		for i, name in enumerate(self.var_handler.labels(self.variable_format)):
+			setattr(cbc_bank, name, property(get_var(i)))
+			
 		return
 	
 	@property

@@ -129,6 +129,16 @@ def test_variable_format():
 def test_bank_conversion():
 	import mbank
 	import mbank.utils
+	
+		#Checking properties stored
+	b = mbank.cbc_bank('Mq_s1xz_iota')
+	assert b.M is None
+	b.add_templates([[10, 2, 0.9, 3, 1], [10, 20, 0.19, 3, 0], [100, 20, 0.1, 1.3, 2]])
+	assert np.allclose(b.M, [10, 10, 100])
+	assert np.allclose(b.s1, [0.9, 0.19, 0.1])
+	b.add_templates([[10, 2, 0.9, 3, 1], [10, 20, 0.19, 3, 0], [100, 20, 0.1, 1.3, 2]])
+	assert np.allclose(b.s1, [0.9, 0.19, 0.1, 0.9, 0.19, 0.1])
+	
 	if not os.path.isdir('tmp_test'): os.mkdir('tmp_test')
 	vh = mbank.variable_handler()
 	M_range = (5, 10)
@@ -306,10 +316,10 @@ def test_match():
 	assert np.allclose(pycbc_match_sym, mbank_match_sym, rtol = 0, atol = 1e-3), "SYM match does not agree with pycbc"
 	
 	print("'test_match' passed")
-	
+
 
 if __name__ == '__main__':
-	test_match();quit()
+	test_match()
 	test_match()
 	test_imports()
 	test_flow_IO()

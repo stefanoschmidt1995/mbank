@@ -275,7 +275,7 @@ def add_template_placement_options(parser):
 		The parser object to be updated
 	"""
 	parser.add_argument(
-		"--mm", required = False, type = float, default = 0.97,
+		"--mm", required = False, type = float, default = None,
 		help="Minimum match for the bank (a.k.a. average distance between templates)")
 	parser.add_argument(
 		"--placing-method", default = 'random', type = str, choices = cbc_bank('Mq_nonspinning').placing_methods,

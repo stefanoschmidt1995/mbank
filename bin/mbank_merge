@@ -112,7 +112,7 @@ if args.injection_stat:
 			if k in merged_stat_dict:
 				if k == 'sky_loc':
 					if v.ndim == 1: assert np.allclose(v, merged_stat_dict[k]), "The sky locations of the injection statistics dictionaries are not compatible"
-					continue #FIXME: remove (and test) this bullshit :D
+					#continue #FIXME: remove (and test) this bullshit :D
 				if isinstance(v, (float, int)) or (v is None):
 					assert v == merged_stat_dict[k], "The given injection statistics dictionary are not compatible: are the metadata the same?"
 					continue

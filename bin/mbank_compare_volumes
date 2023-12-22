@@ -118,7 +118,7 @@ if args.flow_file:
 if args.psd:
 	if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 if args.psd_other:
-	if args._other.find('/') <0: args._other = args.run_dir+args._other
+	if args.psd_other.find('/') <0: args.psd_other = args.run_dir+args.psd_other
 if args.comparison_file:
 	if args.comparison_file.find('/') <0: args.comparison_file = args.run_dir+args.comparison_file
 else:

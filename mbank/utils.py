@@ -642,7 +642,7 @@ def get_ellipse(metric, center, dist, **kwargs):
 	eig, eig_vals = np.linalg.eig(metric)
 	w, h = 2*np.sqrt(dist**2/eig)
 	angle = np.arctan2(eig_vals[1,0], eig_vals[0,0])*180/np.pi
-	ellipse = matplotlib.patches.Ellipse(center, w, h, angle, **kwargs)
+	ellipse = matplotlib.patches.Ellipse(center, w, h, angle = angle, **kwargs)
 
 	return ellipse	
 

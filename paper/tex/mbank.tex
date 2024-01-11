@@ -65,11 +65,11 @@ superscriptaddress,10pt]{revtex4-2}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ABSTRACT
 \begin{abstract}
-	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data.
+	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) mergers for matched-filter searches in LIGO, Virgo and Kagra data.
 	We derive a novel expression for the metric approximation to the distance between templates, which is suitable for precessing BBHs and/or systems with higher-order modes (HM) imprints and we use it to meaningfully define a template probability density across the parameter space.
-	We employ a Masked Autoregressive normalizing flow model which can be conveniently trained to quickly reproduce the target probability distribution and sample templates from it.
+	We employ a masked autoregressive normalizing flow model which can be conveniently trained to quickly reproduce the target probability distribution and sample templates from it.
 	Thanks to the normalizing flow, our code takes a few {\it hours} to produce random template banks with millions of templates, making it particularly suitable for high-dimensional spaces, such as those associated to precession, eccentricity and/or HM.
-	After validating the performance of our method, we generate a bank for precessing black holes and a bank for aligned-spin binaries with HMs: with only 5\% of the injections with fitting factor below the target of $0.97$, we show that both banks cover satisfactorly the space.
+	After validating the performance of our method, we generate a bank for precessing black holes and a bank for aligned-spin binaries with HMs: with only 5\% of the injections with fitting factor below the target of $0.97$, we show that both banks cover satisfactorily the space.
 	Our publicly released code \texttt{mbank} will enable searches of high-dimensional regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
 	
 \end{abstract}
@@ -177,7 +177,7 @@ Depending on symmetry assumptions on the polarizations, one is able to maximize 
 For the other quantities, a brute force approach is required, where the maximized $\Lambda$ is evaluated at each time on a large set of signal models, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
 Regardless of the nature of the signal, one is {\it always} able to maximise $\Lambda$ over sky-location (angles $\alpha$ and $\delta$), polarization angle $\Psi$ and luminosity distance $D_L$, which enters as an overall amplitude scaling.
 
-The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage of several pipelines to search for GW signals \cite{Allen:2005fk, Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurence in a noise only model.
+The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage of several pipelines to search for GW signals \cite{Allen:2005fk, Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurrence in a noise only model.
 
 For a circular non-precessing signal with no HM, it holds $\tilde{h}_+ \propto i\tilde{h}_\times$ and the maximization of Eq.~\eqref{eq:LL_gauss} over the nuisance parameters yields \cite{Maggiore:2007ulw}:
 \begin{equation}\label{eq:std_snr}
@@ -303,8 +303,8 @@ Sampling from $p^\text{flow}_W$ can then be easily done by sampling $\mathbf{x} 
 Thus, given a target distribution, both the problems of sampling and of density estimation become tractable thanks to the normalizing flow model.
 
 The flow transformation $\phi_W$ is built by {\it composing} $n_\text{layers}$ simple (invertible) transformations, each called a layer. Of course, depending on the application, a variety of options are available in the literature.
-We build a layer by concatenating a linear transformation and a Masked Autoregressive Layer \cite{MADE, MAF, MAF_bis} with $n_\text{hidden}$ hidden features.
-A Masked Autoregressive Layer implements the following transformation:
+We build a layer by concatenating a linear transformation and a masked autoregressive layer \cite{MADE, MAF, MAF_bis} with $n_\text{hidden}$ hidden features.
+A masked autoregressive layer implements the following transformation:
 \begin{equation}
 	T_{MADE}(\theta) = a(\theta)\theta+b(\theta)
 \end{equation}
@@ -489,7 +489,7 @@ The manifold with spin label \texttt{chi} uses the effective spin parameter
 %
 as coordinate. Since $\chi_\text{eff}$ is degenerate in the two spins, we choose to set $s_\text{1z} = s_\text{2z} = \chi_\text{eff}$ and all the other spin components to $0$.
 
-If more than one spin coordinate is given for a given BH, the spin vector $\mathbf{s}$ will be parametrized in spherical coordinates with magnitude ${s \in [0,1)}$ and angles ${\theta \in [-\pi,\pi]}$ and ${\varphi \in [0, \pi]}$ as follows:
+If more than one spin coordinate is given for a given BH, the spin vector $\mathbf{s}$ will be parameterized in spherical coordinates with magnitude ${s \in [0,1)}$ and angles ${\theta \in [-\pi,\pi]}$ and ${\varphi \in [0, \pi]}$ as follows:
 %
 \begin{align}
 	s_\text{x} & = s \sin\theta \cos\phi \\
@@ -497,7 +497,7 @@ If more than one spin coordinate is given for a given BH, the spin vector $\math
 	s_\text{z} & = s \cos\theta.
 \end{align}
 %
-Note that the angle $\theta$ controls the amount of precession. With $\theta = 0, \pm \pi$ the spin has only a z component (i.e., is aligned withthe orbital angular momentum), while for $\theta = \pm\pi/2$ there is maximal precession, as the spin vector only has an in-plane component.
+Note that the angle $\theta$ controls the amount of precession. With $\theta = 0, \pm \pi$ the spin has only a z component (i.e., is aligned with the orbital angular momentum), while for $\theta = \pm\pi/2$ there is maximal precession, as the spin vector only has an in-plane component.
 
 \subsection{Normalizing flow validation} \label{sec:flow_validation}
 
@@ -612,7 +612,7 @@ As no template rejection is done during the random bank construction, there is n
 
 \subsection{An ``All-sky" template bank} \label{sec:all_sky_comparison}
 
-The aligned-spin bank (with no HMs) introduced in \cite{Sakon:2022ibh} covers a broad mass range, with systems with component masses $m_1, m_2 \in [1,200]\,\mathrm{M_\odot}$. The spins of the two objects are constrained to be equal to each other\footnote{This choice reduces the dimension of the manifold, without comprimising the template bank accuracy.}, ${s_\text{1z} = s_\text{2z} = \chi_\text{eff}}$, spanning the range $[-0.99, 0.99]$.
+The aligned-spin bank (with no HMs) introduced in \cite{Sakon:2022ibh} covers a broad mass range, with systems with component masses $m_1, m_2 \in [1,200]\,\mathrm{M_\odot}$. The spins of the two objects are constrained to be equal to each other\footnote{This choice reduces the dimension of the manifold, without compromising the template bank accuracy.}, ${s_\text{1z} = s_\text{2z} = \chi_\text{eff}}$, spanning the range $[-0.99, 0.99]$.
 The authors set an upper limit to the mass ratio $q<20$. Moreover, for objects with component mass $m<3\,\mathrm{M_\odot}$, they limit $\chi_\text{eff}$ in the range $[-0.05, 0.05]$\footnote{This is motivated by astrophysical considerations. Objects with masses smaller than $3\,\mathrm{M_\odot}$ are likely to be neutron stars and such objects are believed to develop only mild rotations~\cite{Zhu:2017znf}.}.
 The authors use the Advanced LIGO O4 Design PSD (with $\SI{190}{Mpc}$ range) \cite{O4_PSDs} and consider a low frequency cutoff ${f_\text{min} = \SI{10}{Hz}}$.
 
@@ -985,7 +985,7 @@ We validate our code by evaluating the normalizing flow accuracy and by studying
 Moreover, with a few hours of computation, we were able to reproduce two template banks existing in the literature obtained with independent codes - a nonspinning HM bank \cite{Harry:2017weg} and an aligned-spin bank \cite{Sakon:2022ibh}.
 
 To demonstrate the capabilities of our code, we generate two large template banks covering systems for which no or little searches have been performed: a precessing bank gathering $1.6$ million templates (Sec.~\ref{sec:precessing_bank}) and an aligned-spin HM bank formed by $2.1$ million templates (Sec.~\ref{sec:HM_spinning_bank}). We show that the two banks satisfactorily cover the space. They were both produced in a matter of hours, with minimal CPU and memory usage.
-We also discuss other possible applications of our method, including the optmization of the template proposal of the stochastic algorithm, the selection of a suitable parameter space for a GW search and the generation of datasets of waveforms for the training of machine learning models.
+We also discuss other possible applications of our method, including the optimization of the template proposal of the stochastic algorithm, the selection of a suitable parameter space for a GW search and the generation of datasets of waveforms for the training of machine learning models.
 
 Our code is publicly available as a package \texttt{mbank}\cite{mbank} and comes with a large number of tools to simplify the bank generation and validation.
 
@@ -1193,6 +1193,3 @@ Hence, roughly speaking, the number of templates $N$ needed to cover the volume 
 	\bibliographystyle{ieeetr}
 
 \end{document}
-
-
-

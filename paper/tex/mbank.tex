@@ -17,6 +17,7 @@ superscriptaddress,10pt]{revtex4-2}
 \usepackage{graphicx}
 \graphicspath{{img/}} %setting img path
 \usepackage{tensor}
+\usepackage{orcidlink}
 
 \usepackage{tabularx}
 \usepackage{arydshln}
@@ -67,34 +68,26 @@ superscriptaddress,10pt]{revtex4-2}
 	We introduce a novel method to generate a bank of gravitational-waveform templates of binary black hole (BBH) coalescences for matched-filter searches in LIGO, Virgo and Kagra data.
 	We derive a novel expression for the metric approximation to the distance between templates, which is suitable for precessing BBHs and/or systems with higher-order modes (HM) imprints and we use it to meaningfully define a template probability density across the parameter space.
 	We employ a Masked Autoregressive normalizing flow model which can be conveniently trained to quickly reproduce the target probability distribution and sample templates from it.
-	Thanks to the normalizing flow, our code takes a few {\it hours} to produce random template banks with millions of templates, making it particularly suitable for high-dimensional spaces such as those associated to precession, eccentricity and/or HM.
-	After validating the performance of our method, we generate a bank for precessing black holes and a bank for aligned-spin binaries with HMs: with only 5\% of the injections with fitting factor below the target of $0.97$, we show that they cover satisfactorly the space.
+	Thanks to the normalizing flow, our code takes a few {\it hours} to produce random template banks with millions of templates, making it particularly suitable for high-dimensional spaces, such as those associated to precession, eccentricity and/or HM.
+	After validating the performance of our method, we generate a bank for precessing black holes and a bank for aligned-spin binaries with HMs: with only 5\% of the injections with fitting factor below the target of $0.97$, we show that both banks cover satisfactorly the space.
 	Our publicly released code \texttt{mbank} will enable searches of high-dimensional regions of BBH signal space, hitherto unfeasible due to the prohibitive cost of bank generation.
 	
 \end{abstract}
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TITLE
- %\title{Metric template placement for high dimensional regions of compact binary mergers}
- %\title{Fast metric-based template placement for gravitational-waves from novel compact binary mergers}
- %\title{Mbank: fast metric-based template banks for gravitational wave searches for exotic compact binaries}
- %\title{Template banks for exotic compact binaries}
- %\title{Template banks for novel compact binaries}
  \title{Gravitational-wave template banks for novel compact binaries}
-	\author{Stefano \surname{Schmidt}}
+	\author{Stefano \surname{Schmidt} \orcidlink{0000-0002-8206-8089}} 
 		\email{s.schmidt@uu.nl}
         \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
         \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 
-	\author{Bhooshan \surname{Gadre}}
+	\author{Bhooshan \surname{Gadre} \orcidlink{0000-0002-1534-9761}}
         \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
 Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
         
         %
-	\author{Sarah \surname{Caudill}}
-       \affiliation{Nikhef, Science Park 105, 1098 XG, Amsterdam, The Netherlands}
-       \affiliation{Institute for Gravitational and Subatomic Physics (GRASP),
-Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
+	\author{Sarah \surname{Caudill} \orcidlink{0000-0002-8927-6673}}
 		\affiliation{Department of Physics, University of Massachusetts, Dartmouth, MA 02747, USA}
 		\affiliation{Center for Scientific Computing and Visualization Research, University of Massachusetts, Dartmouth, MA 02747, USA}
 	\maketitle
@@ -102,7 +95,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj, LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz, Fairhurst:2019vut, McIsaac:2023ijd} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M}.
+As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj, LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz, Fairhurst:2019vut, McIsaac:2023ijd} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M, Wadekar:2023kym}.
 
 GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Sathyaprakash:1991mt, Dhurandhar:1992mw, Owen:1998dk, Allen:2005fk, Babak:2006ty, Cokelaer:2007mv}.
 An optimal template bank is composed of the smallest number of templates that guarantees that only a small fraction of signal-to-noise ratio from GW signals is missed due to the discreteness of the template bank \cite{Prix:2007ks}.
@@ -116,11 +109,11 @@ Furthermore, the sheer number of dimensions can have an even more catastrophic i
 As the BBH searches grow in complexity due to the inclusion of more physical effects and hence more dimensions, the stochastic approach struggles to produce template banks in a feasible amount of time.
 This poses the challenge of finding a viable alternative for template bank generation, which is able to deliver large banks in a high-dimensional parameter space, such as those associated with precession, eccentricity and HMs.
 
-Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Keppel:2013uma}, there has recently been increasing attention on {\it metric template placement} \cite{Roy:2017oul, 2018cosp...42E2899R, Coogan:2022qxs, Hanna:2022zpk}.
+Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Keppel:2013uma}, there has recently been increasing attention on {\it metric template placement} \cite{Roy:2017oul, Roulet:2019hzy, Coogan:2022qxs, Hanna:2022zpk}.
 Such methods rely on approximating the distance (or mismatch) between two waveforms with a bilinear form, called metric.
 Although the metric is only approximate, it allows for a faster template placing, which may overcome some of the major limitations of the standard stochastic placement algorithm.
 
-Historically, the metric was first employed to place templates on a lattice \cite{owen_metric, Prix:2007ks, Cokelaer:2007kx}. However, constructing lattice-based template banks has proven to be challenging due to the difficulties in  obtaining coordinate transformation which avoid varying metric components.
+Historically, the metric was first employed to place templates on a lattice \cite{owen_metric, Prix:2007ks, Cokelaer:2007kx}. However, constructing lattice-based template banks has proven to be challenging due to the difficulties in  obtaining coordinate transformation which avoids varying metric components.
 To overcome such difficulties, a different metric placement method, called {\it random}, was introduced \cite{Messenger:2008ta} soon after.
 Random template banks are designed to cover the region of interest with randomly sampled templates, without any control of the template spacing. 
 Moreover, they are not designed to cover the whole space but only a large fraction $\eta<1$ of it (i.e., any point in space is covered with probability $\eta$).
@@ -129,12 +122,12 @@ The strength of the method is twofold: on the one hand, since no distance betwee
 Moreover, the cost does not increase for an increasing number of dimensions.
 While this may seem sub-optimal with respect to a lattice, in \cite{Messenger:2008ta, Allen:2022lqr, Allen:2021yuy} it is argued that for high-dimensional spaces, random template banks outperform even the best known lattice in terms of coverage (at a fixed number of templates), effectively beating the ``curse of dimensionality."
 
-Generating a random template banks requires the ability to effectively sample templates ``uniformly" across the parameter space. Due to the high dimensionality of the space, expensive sampling techniques, such as Markov Chain Montecarlo, must be used. This poses a serious limitation to the range of applicability of the method. Without a fast sampling method, the speed up promised by the new method is washed away by the cost of a large number of metric evaluation associated with ordinary sampling techniques.
+Generating a random template banks requires the ability to effectively sample templates ``uniformly" across the parameter space. Traditionally, due to the high dimensionality of the space, expensive sampling techniques, such as Markov Chain Montecarlo, must be used. This poses a serious limitation to the range of applicability of the method. Without a fast sampling method, the speed up promised by the new method is washed away by the cost of a large number of metric evaluations.
 
 In this work, we address the challenges described above by covering high-dimensional spaces with random template banks.
-As a first step, we derive a novel expression for the metric, which is suitable for generic precessing and/or HM waveforms. In doing so, we drop several symmetry assumptions that entered the standard metric computation. The metric is then expressed in terms of the gradients of the waveform.
-Moreover, to enable a fast template sampling, we employ machine learning and train a {\it normalizing flow} model to efficiently sample templates from the parameter space.
-While the first innovation delivers an accurate distribution for the templates in the bank, the use of a normalizing flow allow us to generate random template banks in a few hours (including the training time).
+As a first step, we derive a novel expression for the metric, which is suitable for generic precessing and/or HM waveforms. In doing so, we drop several symmetry assumptions that enters the standard metric computation. The metric is then expressed in terms of the gradients of the waveform.
+Secondly, to enable a fast template sampling, we employ machine learning and train a {\it normalizing flow} model to efficiently sample templates from the parameter space.
+While the first innovation delivers an accurate distribution for the templates throughout the space, the use of a normalizing flow allow us to generate random template banks in a few hours (including the training time).
 
 The combination of a new metric expression and the normalizing flow model, applied to the random template placement algorithm, makes our method particularly well-suited for dealing with high-dimensional ($>$~4D) parameter spaces, such as those associated with precessing or eccentric searches.
 Our method is implemented in an open-source, production-ready, Python package \texttt{mbank}\cite{mbank}, available on GitHub\footnote{
@@ -143,10 +136,10 @@ and on the PyPI repository\footnote{
 The package is distributed under the name \texttt{\href{https://pypi.org/project/gw-mbank/}{gw-mbank}}.
 }.
 
-The rest of this paper is devoted to the presentation and description of our methods and package.
+The rest of this paper is devoted to the presentation and description of our methods and software package.
 In Sec.~\ref{sec:methods} we present the details of our bank generation algorithm.
 In Sec.~\ref{sec:validation} we assess the accuracy of our template placing method in all its parts.
-We also reproduce two banks available in the literature \cite{Harry:2017weg, Sakon:2022ibh} created with independent codes: this will be the topic of Sec.~\ref{sec:other_methods}.
+Furthermore, we reproduce two banks available in the literature \cite{Harry:2017weg, Sakon:2022ibh} created with independent codes: this will be the topic of Sec.~\ref{sec:other_methods}.
 To demonstrate the capabilities of \texttt{mbank}, in Sec.~\ref{sec:novel_applications}, we present two large banks covering ``exotic" regions of parameter space: a precessing bank and an IMBH bank with HM content. We also discuss some possible further applications of our normalizing flow model, including a study of the size of the precessing neutron star-black hole (NSBH) parameter space.
 Finally, in Sec.~\ref{sec:improvements} we discuss some possible future development of our work and gather some final remarks in Sec.~\ref{sec:conclusion}.
 
@@ -171,11 +164,11 @@ Under the assumption of {\it Gaussian noise}, we can write down an explicit mode
 \begin{equation}\label{eq:LL_gauss}
 	\Lambda = \frac{\left(\Re\scalar{s}{h}\right)^2}{\scalar{h}{h}} = \rescalar{s}{\hat{h}}^2
 \end{equation}
-where we introduce a {\it complex} scalar product between two vectors $a$, $b$:
+where we introduced a {\it complex} scalar product between two vectors $a$, $b$:
 \begin{equation} \label{eq:scalar_product}
 	\scalar{a}{b} = 4 \int_{f_\text{min}}^{f_\text{max}} \!\!\!\! \d{f} \; \frac{\tilde{a}^*(f) \tilde{b}(f)}{S_n(f)}
 \end{equation}
-where the integral extends in a suitable frequency range $[f_\text{min}, f_\text{max}]$.
+and the integral extends in a suitable frequency range $[f_\text{min}, f_\text{max}]$.
 In this context, $S_n(f)$ is the frequency domain autocorrelation function of the noise, also called Power Spectral Density (PSD) and $\tilde{\phantom{a}}$ denotes the Fourier transform.
 For ease of notation, we define ${\rescalar{a}{b} = \Re\scalar{a}{b}}$ and ${\hat{a} = \frac{a}{\rescalar{a}{a}}}$.
 
@@ -184,7 +177,7 @@ Depending on symmetry assumptions on the polarizations, one is able to maximize 
 For the other quantities, a brute force approach is required, where the maximized $\Lambda$ is evaluated at each time on a large set of signal models, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
 Regardless of the nature of the signal, one is {\it always} able to maximise $\Lambda$ over sky-location (angles $\alpha$ and $\delta$), polarization angle $\Psi$ and luminosity distance $D_L$, which enters as an overall amplitude scaling.
 
-The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage in several pipelines to search for GW signals \cite{Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurence in a noise only model.
+The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage of several pipelines to search for GW signals \cite{Allen:2005fk, Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurence in a noise only model.
 
 For a circular non-precessing signal with no HM, it holds $\tilde{h}_+ \propto i\tilde{h}_\times$ and the maximization of Eq.~\eqref{eq:LL_gauss} over the nuisance parameters yields \cite{Maggiore:2007ulw}:
 \begin{equation}\label{eq:std_snr}
@@ -199,7 +192,7 @@ For the general case, where no particular symmetry is available, one obtains a d
 In this case, $\max\Lambda$ depends on 12 parameters: they are the two BH masses $m_1, m_2$, the two three-dimensional spins $\mathbf{s}_1$, $\mathbf{s}_2$, the inclination angle $\iota$, the reference phase $\varphi$ and the eccentricity parameters $e, a$.
 Unlike the ``standard" case, an analytical maximization does not remove the dependence of $\iota$ and $\varphi$, entering in $h_+, h_\times$.
 %
-Depending on the scope of a matched-filter search, a pipeline can use either Eq.~\eqref{eq:std_snr} or Eq.~\eqref{eq:symphony_snr} to filter the interferometer data with templates.
+Depending on the scope of a matched-filter search, a pipeline can use either Eq.~\eqref{eq:std_snr} or Eq.~\eqref{eq:symphony_snr} to filter the interferometer data with a template.
 
 For the purpose of template placement, it is useful to think of the parameter space of BBH signals as a D-dimensional manifold $\mathcal{B}_D$, embedded in a large 12 dimensional manifold $\mathcal{B}$. Each point of the manifold corresponds to a GW signal. The number of dimensions $D$ depends on the BBH variables under consideration.
 As the parameters that do not enter the interesting space can be freely neglected (i.e. set to $0$ or to a meaningful constant value), the manifold $\mathcal{B}_D$ is effectively a lower dimensional {\it projection} of the large manifold $\mathcal{B}$.
@@ -268,7 +261,7 @@ Note that the metric is positive definite (i.e. has positive eigenvalues).
 A convenient expression for $H$ in terms of the gradients of the waveform is presented in App.~\ref{app:metric}, with the full expression given in Eqs.~\eqref{eq:H_tt_grad}-\eqref{eq:H_ij_grad}.
 While identifying the metric with the Hessian is well motivated and yields reliable results, other definitions for $M_{ij}$ are possible; this is briefly discussed in App.~\ref{app:metric_definition}.
 
-For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Chua:2018woh, Khan:2020fso, PhysRevD.103.043020, Thomas:2022rmc, Tissino:2022thn}, the gradients are available analytically.
+For most of the waveform models available, the gradients can be evaluated with finite difference methods. For a limited number of machine-learning based models \cite{Chua:2018woh, Khan:2020fso, Schmidt:2020yuu, Thomas:2022rmc, Tissino:2022thn}, the gradients are available analytically.
 
 Equipped with the metric from Eq.~\eqref{eq:metric_expression}, the manifold $\mathcal{B}_D$ becomes a Riemannian manifold with line element:
 \begin{equation}\label{eq:line_element}
@@ -288,15 +281,14 @@ Samples from the uniform distribution tend to have a ``uniform" (i.e. constant) 
 
 \subsection{Sampling from the manifold} \label{sec:normalizing_flow}
 
-To generate a random template bank, we need to sample from the manifold $\mathcal{B}_D$ using the distribution in Eq.~\eqref{eq:pdf_uniform}.
-A simple way to obtain a number of samples is by means of a Markov Chain Monte Carlo (MCMC). However, this turns out to be unfeasibly expensive, since to obtain a single sample, the metric must be evaluated tens of times.
-Thus, to produce a bank with $\mathcal{O}(10^6)$ templates, $\mathcal{O}(10^7)$ metric evaluations are required.
+To generate a random template bank, we need to sample points on the manifold $\mathcal{B}_D$ from Eq.~\eqref{eq:pdf_uniform}.
+A simple way to do so is by means of a Markov Chain Monte Carlo (MCMC). However, this turns out to be unfeasibly expensive, since to obtain a single sample, the metric must be evaluated tens of times. For instance, to produce a bank with $\mathcal{O}(10^6)$ templates, $\mathcal{O}(10^7)$ metric evaluations are required.
 
-To speed up the sampling, we introduce a {\it normalizing flow} model. As we will show below, in order to train the model $\mathcal{O}(10^5)$ metric evaluations are needed: this is a small fraction of the metric evaluations needed to run a MCMC.
+To speed up the sampling, we introduce a {\it normalizing flow} model. As we will show below, in order to train the model $\mathcal{O}(10^5)$ metric evaluations are sufficient: this is a small fraction of the metric evaluations needed to run a MCMC.
 Once trained, the normalizing flow model produces high quality samples from Eq.~\eqref{eq:pdf_uniform} in a small amount of time, effectively providing templates to populate a random template bank.
 
 A normalizing flow model \cite{norm_flow, nflows_paper, Kobyzev_2021, Papamakarios_thesis} is a machine learning model widely used to reproduce and/or parameterize complicated probability distributions.
-Mathematically, a flow is an {\it invertible} parametric function $\phi_W$ which is trained to map samples $\theta$ from an arbitrary probability distribution $p(\theta)$ to samples $\mathbf{x}$ from a multivariate standard normal distribution. The space of the $\mathbf{x}$ is sometimes referred to as {\it latent space}.
+Mathematically, a flow is an {\it invertible} parametric function $\phi_W$ which is trained to map samples $\theta$ from an arbitrary probability distribution $p(\theta)$ to samples $\mathbf{x}$ from a multivariate standard normal distribution $\mathcal{N}(\mathbf{x}|0,\mathbf{1})$. The space of the $\mathbf{x}$ is sometimes referred to as {\it latent space}.
 The parameters $W$ of the flow are set in such a way that:
 \begin{equation}
 	\mathbf{x} = \phi_W(\theta) \sim \mathcal{N}(\mathbf{x}|0,\mathbf{1}) \;\;\; \text{if} \;\;\;  \theta \sim p(\theta)
@@ -316,7 +308,7 @@ A Masked Autoregressive Layer implements the following transformation:
 \begin{equation}
 	T_{MADE}(\theta) = a(\theta)\theta+b(\theta)
 \end{equation}
-where the coefficients $a(\theta), b(\theta)$ are computed by a (Masked) Autoencoder with $n_\text{hidden}$ hidden features.
+where the coefficients $a(\theta), b(\theta)$ are computed by (masked) autoencoders with $n_\text{hidden}$ hidden features.
 
 In our case, the target probability distribution has support in the rectangle $[\theta_\text{min}, \theta_\text{max}]$, while the base distribution of the flow (a Gaussian) has support in $\mathbb{R}^D$. We implement the change of support explicitly by introducing the following transformation $T_0(\theta): [\theta_\text{min}, \theta_\text{max}] \to \mathbb{R}^D$ as the first layer of the flow:
 %
@@ -365,7 +357,7 @@ The values of $\theta_i$ in Eq.~\eqref{eq:loss_mse} are obtained by sampling the
 where $\mathcal{M}_c = \frac{(m_1m_2)^{3/5}}{(m_1+m_2)^{1/5}}$ is the chirp mass and $\eta = \frac{m_1m_2}{(m_1+m_2)^2}$ is the symmetric mass ratio.
 All other quantities are sampled from a uniform distribution in the coordinates.
 
-Eq.~\eqref{eq:sampling_dataset} defines a flat distribution on the chirptime parameters $\tau_0$ and $\tau_3$ \cite{Cokelaer:2007kx}. Indeed can be shown that for a nonspinning binaries, the metric expressed in the chirptime coordinates is approximately flat \cite{Sathyaprakash:1991mt, Dhurandhar:1992mw}, and that Eq.~\eqref{eq:sampling_dataset} represents a first order approximation to the true metric.
+Eq.~\eqref{eq:sampling_dataset} defines a flat distribution on the chirptime parameters $\tau_0$ and $\tau_3$ \cite{Cokelaer:2007kx}. Indeed, it can be shown that for a nonspinning binaries, the metric expressed in the chirptime coordinates is approximately flat \cite{Sathyaprakash:1991mt, Dhurandhar:1992mw}, and that Eq.~\eqref{eq:sampling_dataset} represents a first order approximation to the true metric.
 Sampling from Eq.~\eqref{eq:sampling_dataset}, ensures a high quality training set, where the distribution of the training points is reasonably close to the target distribution\footnote{Indeed more samples are present at low chirp mass, which is where the metric determinant tends to have larger values due to longer waveforms (for a constant starting frequency). Hence, a consistent bias in the low mass region is largely penalized in the loss function due to more samples in the dataset at low mass.}.
 
 During the training we halve the learning rate each time the validation loss does not improve more than a given threshold after a given number of iterations. This procedure finds local minima better in the loss function. We also apply early stopping, to avoid useless gradient descent iterations.
@@ -375,7 +367,7 @@ This is the bulk of the cost of generating a template bank: the random template 
 
 \subsection{Random template placing} \label{sec:template_placing}
 
-As usual, the input parameter controlling the average spacing and number of templates is the {\it minimal match} $MM$. It is defined as the minimum tolerable match that a random signal (inside the relevant parameter space) must have with its nearest templates in the bank.
+As customary, the input parameter controlling the average spacing and number of templates is the {\it minimal match} $MM$. It is defined as the minimum tolerable match that a random signal (inside the relevant parameter space) must have with its nearest templates in the bank.
 Of course, during the template placement, we only consider the match between templates on the same manifold, while the quantity can be used also to compare waveforms on different manifolds.
 
 To generate our random template bank, following \cite{Messenger:2008ta}, we add random templates to the bank until a satisfactory coverage is achieved. The coverage is checked using a procedure that closely matches \cite{Coogan:2022qxs}.
@@ -410,7 +402,7 @@ To provide a sensible estimate of the covering fraction $\hat{\eta}$, we perform
 where the $N_\text{livepoints}$ samples $\theta_i \sim p^\text{flow}$ are sampled from the normalizing flow and are called {\it livepoints}.
 Note that in Eq.~\eqref{eq:coverage_estimate}, we don't compute volumes using the volume element $\sqrt{\det M}$ itself but rather its normalizing flow approximation.
 
-In practice, while the templates are being added to the banks, the distance between each livepoint is computed. If the i-th livepoint is close enough to the newly added template, it will be removed from the set of livepoints and a running estimate of $\hat{\eta}(\mathcal{T})$ will be updated.
+In practice, while the templates are being added to the bank, the distance between each livepoint is computed. If the i-th livepoint is close enough to the newly added template, it will be removed from the set of livepoints and a running estimate of $\hat{\eta}(\mathcal{T})$ will be updated.
 The estimation of the covering fraction $\hat{\eta}$ has standard deviation \cite[App. A]{Coogan:2022qxs}:
 \begin{equation}\label{eq:variance_coverage}
 	\sigma_{\hat{\eta}} = \sqrt{\frac{\eta(1-\eta)}{N_\text{livepoints}-1}}
@@ -418,7 +410,7 @@ The estimation of the covering fraction $\hat{\eta}$ has standard deviation \cit
 which suggests using a large number of livepoints for better estimation.
 In \cite{Coogan:2022qxs}, the authors typically choose $\eta = 0.9$ and $N_\text{livepoints} = 2000$.
 
-Since the method does not check for distances between templates, it can overcover the space (as also reported in \cite{Messenger:2008ta, Coogan:2022qxs}), especially for low number of dimensions.
+Since the method does not check for distances between templates, it can overcover the space (as also reported in \cite{Messenger:2008ta, Coogan:2022qxs}), especially for a low number of dimensions.
 Despite this, it is very fast and provides a reliable bank at a cheap computational and memory cost.
 Moreover, as argued in \cite{Messenger:2008ta, Allen:2021yuy, Allen:2022lqr}, for a large number of dimensions, the banks generated by the random method provide close to optimal performance.
 
@@ -505,7 +497,7 @@ If more than one spin coordinate is given for a given BH, the spin vector $\math
 	s_\text{z} & = s \cos\theta.
 \end{align}
 %
-Note that the angle $\theta$ controls the amount of precession. With $\theta = 0, \pm \pi$ the spin has only a z component (i.e., is aligned withthe orbital angular momentum), while for $\theta = \pi/2$ there is maximal precession, as the spin vector only has an in-plane component.
+Note that the angle $\theta$ controls the amount of precession. With $\theta = 0, \pm \pi$ the spin has only a z component (i.e., is aligned withthe orbital angular momentum), while for $\theta = \pm\pi/2$ there is maximal precession, as the spin vector only has an in-plane component.
 
 \subsection{Normalizing flow validation} \label{sec:flow_validation}
 
@@ -548,7 +540,7 @@ The first bank is a non-spinning HM bank \cite{Harry:2017weg}, covering the high
 The second bank is the aligned-spin bank \cite{Sakon:2022ibh} currently in use by the \texttt{GstLAL} pipeline \cite{PhysRevD.95.042001, gstlal_paper2} for the fourth observing run (O4) of the LIGO-Virgo-Kagra collaboration. It was generated using the \texttt{manifold} \cite{Hanna:2022zpk} metric template placement algorithm called and covers a very wide mass range in the BNS and BBH parameter space.
 Both banks have a minimal match $MM$ requirement of $0.97$.
 
-In much of what follows we will measure the coverage of a bank. To do so, we randomly extract a number of simulated signals and, for each of them, we compute the maximum match with the templates of the bank. The latter quantity is called {\it fitting factor} $FF$ and, for a simulated signal characterized by orbital parameters $\theta$, it is defined as:
+In much of what follows we will measure the coverage of a bank. To do so, we randomly extract a number of simulated signals and, for each of them, we compute the maximum match with the templates of the bank. The latter quantity is called {\it fitting factor} $FF$ which, for a simulated signal characterized by orbital parameters $\theta$, it is defined as:
 %
 \begin{equation}\label{eq:FF}
 	FF(\theta) = \max_{\theta^\prime \in \text{bank}} \mathcal{M}(\theta, \theta^\prime)
@@ -571,7 +563,7 @@ Borrowing the jargon of GW searches, we call {\it injections} the simulations fo
  	\addlinespace[3pt]
 	\cdashline{1-4}
 	\addlinespace[3pt]
-	 \texttt{GstLAL} O4 bank \cite{Sakon:2022ibh} & \begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 200] \mathrm{M_\odot}$ \\ $q\in [1,20]$  \\ $\chi_\text{eff}\in [-0.99,0.99]$   \\ \texttt{IMRPhenomD} \cite{Khan:2015jqa}\\ \end{tabular} & $1.8 \times 10^6$  & $1.3 \times 10^6$  \\
+	 ``All-sky" bank \cite{Sakon:2022ibh} & \begin{tabular}{@{}l@{}} $m_1,m_2\in [1, 200] \mathrm{M_\odot}$ \\ $q\in [1,20]$  \\ $\chi_\text{eff}\in [-0.99,0.99]$   \\ \texttt{IMRPhenomD} \cite{Khan:2015jqa}\\ \end{tabular} & $1.8 \times 10^6$  & $1.3 \times 10^6$  \\
 	 \bottomrule
 	\end{tabular}
 	\caption{Details of the two banks available in the literature that we reproduce with our code. For each bank, we indicate the parameter space considered and the approximant used. We also compare the number of templates of the banks obtained with the different methods. }
@@ -581,19 +573,19 @@ Borrowing the jargon of GW searches, we call {\it injections} the simulations fo
 \begin{figure}[t]
 	\centering
 	\includegraphics[scale = 1.]{test_banks_hist}
-	\caption{Fitting factor studies for the ``HM bank", reproducing \cite{Harry:2017weg}, and for ``GstLAL O4 bank", reproducing \cite{Sakon:2022ibh}. We report the cumulative histogram of the fitting factors of $10^5$ injections samples across the parameter space.}
+	\caption{Fitting factor studies for the two template banks introduced in Sec.~\ref{sec:other_methods}. As discussed in Sec.~\ref{sec:HM_comparison} and~\ref{sec:all_sky_comparison} respectively, ``HM bank" is designed to reproduce \cite{Harry:2017weg} and targets high mass non-spinning systems with HM content, while the ``All-sky bank" bank covers aligned-spin systems (without HM) over a broad mass range, following \cite{Sakon:2022ibh}. We report the cumulative histogram of the fitting factors of $10^5$ injections samples across the parameter space.}
 	\label{fig:test_banks_hist}
 \end{figure}
 
 \begin{figure}
 	\includegraphics[scale = 1.]{symphony_HM_injections}
-	\caption{Validation of the ``HM bank" reproducing \cite{Harry:2017weg}. For each two dimensional bin, we report the median fitting factor of $10^5$ injections covering the parameter space, as described in the text.}
+	\caption{Validation of the ``HM bank", generated with our code and designed to reproduced \cite{Harry:2017weg}. For each two dimensional bin, we report the median fitting factor of $10^5$ injections covering the parameter space, as described in the text.}
 	\label{fig:symphony_HM_injections}
 \end{figure}
 
 \begin{figure}
 	\includegraphics[scale = 1.]{bank_O4_injections}
-	\caption{Validation of the ``GstLAL O4 bank" reproducing \cite{Sakon:2022ibh}. For each two dimensional bin, we report the median fitting factor of $10^5$ injections covering the parameter space, as described in the text.}
+	\caption{Validation of the ``All-sky bank", generated with our code and designed to reproduced \cite{Sakon:2022ibh}. For each two dimensional bin, we report the median fitting factor of $10^5$ injections covering the parameter space, as described in the text.}
 	\label{fig:bank_O4_injections}
 \end{figure}
 
@@ -606,7 +598,7 @@ As already noted, they use the state-of-the-art code \texttt{sbank} \cite{Ajith:
 %New template are randomly drawn from a suitable distribution (designed to roughly approximate Eq.~\eqref{eq:pdf_uniform}). For each potential new template, called {\it proposal}, it is computed the match against all the templates already added to the bank. If the maximum match of the proposal is smaller than the minimal match requirement, the new template is added to the bank.
 The method is very accurate and known to provide effective coverage with a low number of templates. Of course, this comes at a large up-front computational cost to construct the bank.
 
-To reproduce this bank, we place templates on the manifold \texttt{logMq\_nonspinning\_iotaphi}, with coordinates $\log_{10}M$, $q$, $\iota$ and $\varphi$. We use the same PSD and coordinate ranges as the original bank.
+To reproduce this bank, we place templates on the manifold \texttt{logMq\_nonspinning\_iotaphi}, with coordinates $\log_{10}M$, $q$, $\iota$ and $\varphi$. We use the same PSD and coordinate ranges as the original bank. We refer to our bank as ``HM bank".
 We train a normalizing flow model with $4$ layers with $60, 60, 60, 10$ hidden features respectively and we choose $N_\text{livepoints} = 2000$ and a covering fraction $\eta = 0.8$.
 Our bank has $58932$ templates and took a few hours to generate; the original bank is reported to have $20500$ templates.
 All information is summarized in Tab.~\ref{tab:bank_comparison}.
@@ -618,7 +610,7 @@ In Fig.~\ref{fig:symphony_HM_injections}, we observe that the coverage is unifor
 Comparing the number of templates, it is striking that our bank has almost three times more templates than the original template bank.
 As no template rejection is done during the random bank construction, there is no control over templates being too close to each other. For this reason, an over-coverage of the space is inherent to the random template placement and is also reported in \cite{Messenger:2008ta,Coogan:2022qxs}. This problem can be addressed in future work, as discussed in Sec.~\ref{sec:improvements}.
 
-\subsection{A template bank for O4} \label{sec:all_sky_comparison}
+\subsection{An ``All-sky" template bank} \label{sec:all_sky_comparison}
 
 The aligned-spin bank (with no HMs) introduced in \cite{Sakon:2022ibh} covers a broad mass range, with systems with component masses $m_1, m_2 \in [1,200]\,\mathrm{M_\odot}$. The spins of the two objects are constrained to be equal to each other\footnote{This choice reduces the dimension of the manifold, without comprimising the template bank accuracy.}, ${s_\text{1z} = s_\text{2z} = \chi_\text{eff}}$, spanning the range $[-0.99, 0.99]$.
 The authors set an upper limit to the mass ratio $q<20$. Moreover, for objects with component mass $m<3\,\mathrm{M_\odot}$, they limit $\chi_\text{eff}$ in the range $[-0.05, 0.05]$\footnote{This is motivated by astrophysical considerations. Objects with masses smaller than $3\,\mathrm{M_\odot}$ are likely to be neutron stars and such objects are believed to develop only mild rotations~\cite{Zhu:2017znf}.}.
@@ -626,13 +618,13 @@ The authors use the Advanced LIGO O4 Design PSD (with $\SI{190}{Mpc}$ range) \ci
 
 The comparison with \cite{Sakon:2022ibh} is particularly interesting, since the bank is also produced with a metric template placement, implemented in the \texttt{manifold} code \cite{Hanna:2022zpk}. \texttt{manifold} uses a geometric approach, where the parameter space is iteratively split into (hyper)rectangles along the coordinates, until the volume of each rectangle reaches a sufficiently small value that it can be covered by a single template.
 
-As summarized in Tab.~\ref{tab:bank_comparison}, we construct a bank to cover the parameter space used in~\cite{Sakon:2022ibh} over the manifold \texttt{m1m2\_chi}, sampling the coordinates $m_1$, $m_2$ and $\chi_\text{eff}$.
-To generate our bank, we trained three different normalizing flows in different regions of the parameter space. A first normalizing flow covers the BBH region with $m_1 \in [3,200]\,\mathrm{M_\odot}$, with $\chi_\text{eff} \in [-0.99, 0.99]$. A second one covers the BNS region, covering the manifold, ${(m_1, m_2, \chi_\text{eff}) \in [1,3]\,\mathrm{M_\odot}\times[1,3]\,\mathrm{M_\odot}\times [-0.05, 0.05]}$.
+As summarized in Tab.~\ref{tab:bank_comparison}, we construct a bank to cover the parameter space used in~\cite{Sakon:2022ibh} over the manifold \texttt{m1m2\_chi}, sampling the coordinates $m_1$, $m_2$ and $\chi_\text{eff}$. We may refer to our bank as the ``All-sky" bank.
+To produce our ``All-sky" bank, we trained three different normalizing flows in different regions of the parameter space. A first normalizing flow covers the BBH region with $m_1 \in [3,200]\,\mathrm{M_\odot}$, with $\chi_\text{eff} \in [-0.99, 0.99]$. A second one covers the BNS region, covering the manifold, ${(m_1, m_2, \chi_\text{eff}) \in [1,3]\,\mathrm{M_\odot}\times[1,3]\,\mathrm{M_\odot}\times [-0.05, 0.05]}$.
 A third normalizing flow specializes in the high mass region, characterized by $m_1, m_2 \in [100,200]\,\mathrm{M_\odot}$.
-Indeed, at high masses, the template density is so low that hardly any livepoint is sampled, which results in dramatic undercoverage. An appropriate coverage is enforced by the third normalizing flow, which places $~3000$ templates in the region as opposed to {\it zero} templates placed by the first flow.
+Indeed, at high masses, the template density is so low that hardly any livepoint is sampled, which results in dramatic undercoverage. An appropriate coverage is enforced by the third normalizing flow, which places $\mathcal{O}(3000)$ templates in the region as opposed to {\it zero} templates placed by the first flow.
 The additional coverage at high masses is manifest in Fig.~\ref{fig:bank_O4_injections}, as discontinuity in the fitting factor for ${m_1,m_2>100\,\mathrm{M_\odot}}$.
 
-All the normalizing flow models are made of $5$ layers of $10$ hidden features each.
+All the three normalizing flow models are made of $5$ layers of $10$ hidden features each.
 Three templates banks are generated using each normalizing flow and they are merged together afterwards.
 For the template placement we set $N_\text{livepoints} = 2000$ and covering fraction $\eta = 0.95$.
 The resulting bank has $1326805$ templates.
@@ -642,7 +634,7 @@ Relying on parallel execution, \cite{Sakon:2022ibh} reported a generation time o
 
 To validate our bank, we generate an injection set with $10^5$ injections, with the logarithm of the masses uniformly sampled.
 Results of our injections studies are reported in Fig~\ref{fig:test_banks_hist} and Fig~\ref{fig:bank_O4_injections}.
-Note that our injection set is different from the ones used in \cite{Sakon:2022ibh}, hence the two fitting factor distributions may differ.
+Note that our injection set is different from the ones used in \cite{Sakon:2022ibh}.
 
 In Fig~\ref{fig:test_banks_hist}, we see that $\sim 5\%$ of the injections have a match below $0.97$. The low fitting factor injections are mostly located around the low mass corners of the bank, clustered on the low mass end of the BNS region and in the high spin - low mass edge of the BBH region.
 Inside the template bank and on the high mass end of the parameter space, satisfactory coverage is achieved.
@@ -660,7 +652,7 @@ Obviously, the most straightforward application is the generation of high-dimens
 
 Besides efficient high-dimensional bank generation, our method can be used for other purposes as well. These include choosing the appropriate parameter space to cover by forecasting the size of a bank or selecting the appropriate coordinates to cover a given region of binary systems. Moreover, our normalizing flow could be used as a proposal for a stochastic placement algorithm or to create datasets for machine-learning applications in GW data analysis.
 
-In what follows, we generate a large precessing template bank and a large aligned-spin HM bank. Moreover, we discuss in detail other novel applications of our code.
+In what follows, we generate a large precessing template bank and a large aligned-spin HM bank. Additionally, we provide a detailed discussion of other innovative applications of our code.
 
 \subsection{A precessing bank} \label{sec:precessing_bank}
 
@@ -757,7 +749,7 @@ To compute the metric, we use the Advanced LIGO O4 sensitivity estimate \cite{O4
 We train a normalizing flow with $3$ layers with $100$, $100$ and $60$ hidden features respectively, using a dataset of $4\times 10^5$ points.
 The flow performance after training is reported in Fig.~\ref{fig:precessing_flow}.
 To generate the bank, we use a minimal match requirement of $0.97$, with a covering fraction $\eta = 0.95$, estimated with $3000$ livepoints.
-In a similar way to what was done for the O4 template bank, we also train a normalizing flow to target the high total mass region with $M>\SI{100}{\mathrm{M_\odot}}$. We use the latter to place templates with the same covering fraction $\eta = 0.95$, with great benefits.
+In a similar way to what was done for the ``All-sky" template bank, we also train a normalizing flow to target the high total mass region with $M>\SI{100}{\mathrm{M_\odot}}$. We use the latter to place templates with the same covering fraction $\eta = 0.95$, with great benefits.
 The overall bank has $1605625$ templates, plotted in Fig.~\ref{fig:corner_precessing}.
 
 This bank generation took a few hours in total: ${\sim \SI{1}{hour}}$ for the dataset generation, ${\sim \SI{30}{minutes}}$ for the training of the flow and ${\sim \SI{5}{minutes}}$ for the template placing.
@@ -779,7 +771,7 @@ Fig.~\ref{fig:precessing_fitting_factor_zoom} reports the same fitting factor st
 As is clear from Fig.~\ref{fig:precessing_fitting_factor_zoom} and~\ref{fig:precessing_hist}, the random template placement method {\it fails} for the low $q$, low $M$ region, with $q \leq 1.2$ and $M \leq \SI{20}{\mathrm{M_\odot}}$, where only $\sim 40\%$ of the injections ``On manifold" have a fitting factor higher than $0.97$.
 On the other hand, outside the low $q$, low $M$ corner, the template bank provides a good coverage: $97\%$ of the injections ``On manifold" has a fitting factor large than $0.97$.
 
-The poor performance for low mass ratio and low masses was also observed in the O4 template bank in Sec.~\ref{sec:all_sky_comparison}, although less severe.
+The poor performance for low mass ratio and low masses was also observed in the ``All-sky" template bank in Sec.~\ref{sec:all_sky_comparison}, although less severe.
 Such failure be explained by two combined causes.
 First of all, as noted above, the random method is unable to cover ``sharp" corners of the parameter space, due to the lack of appropriate boundary treatment: this can (and does) severly limit the bank's ability to cover the space.
 Moreover, we observe that for $q \to 1$ the metric determinant goes rapidly to $0$, meaning that very few templates are placed.  This is shown in Fig.~\ref{fig:metric_vs_q}, where we plot $|M|$ as a function of $q$ keeping constant all the other coordinates \footnote{Although not reported here, the same behaviour is observed for ``standard" signals.}.
@@ -815,7 +807,7 @@ The fitting factor of the ``Full precessing" injection set is fairly good, with 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{A aligned-spin HM bank} \label{sec:HM_spinning_bank}
+\subsection{An aligned-spin HM bank} \label{sec:HM_spinning_bank}
 
 In a sense, aligned-spin HM template banks are easier to generate than precessing ones, due to a smaller dimensionality of the parameter space. Indeed, a generic aligned-spin binary system with HMs is characterized by $6$ parameters (two masses, two spins and two angles $\iota$ $\varphi$) but, as for the non-HM case, the spin effects can be easily parametrized with an effective spin parameter, reducing the number of dimensions to $5$.
 Note that here we deal with one dimension more than in the nonspinning HM bank produced in Sec.~\ref{sec:HM_comparison}.
@@ -907,7 +899,7 @@ The normalizing flow is a natural candidate for a proposal distribution, since i
 
 \paragraph{Generating datasets for machine learning applications}
 
-The recent years have seen a burst of machine learning application to GW data analysis, covering all fields of the analysis of compact binary systems from waveform modelling \cite{Khan:2020fso, PhysRevD.103.043020, Thomas:2022rmc, Tissino:2022thn} to GW searches \cite{Gebhard:2019ldz, Schafer:2020kor, Schafer:2021fea, Baltus:2021nme} and parameter estimation \cite{Green:2020hst, Alvares:2020bjg, Williams:2021qyt, Langendorff:2022fzq, Williams:2023ppp}.
+The recent years have seen a burst of machine learning application to GW data analysis, covering all fields of the analysis of compact binary systems from waveform modelling \cite{Khan:2020fso, Schmidt:2020yuu, Thomas:2022rmc, Tissino:2022thn} to GW searches \cite{Gebhard:2019ldz, Schafer:2020kor, Schafer:2021fea, Baltus:2021nme} and parameter estimation \cite{Green:2020hst, Alvares:2020bjg, Williams:2021qyt, Langendorff:2022fzq, Williams:2023ppp}.
 
 For all these applications, it is crucial to have high quality datasets of waveforms for training purposes.
 The goodness and the applicability of the model strongly relies on the distribution of waveforms in the dataset and substantial time is often spent in tuning the dataset composition to achieve optimal performance.
@@ -976,7 +968,7 @@ The approach would involve a much harder optimization problem and whether the fl
 
 A flow trained in this way would create an isometry (i.e. distance preserving transformation) between the latent space and the physical space. According to differential geometry, this is not possible, unless the $M_{ij}$ has zero curvature, which is not the case in general. A possible way out could be to embed the manifold of signals in an higher dimensional flat manifold, which would guarantee the existence of a solution.
 
-As outlined, there are many open questions and issues to solve, which require significant work. The reward however would be huge: the flow would parameterize a distance preserving (and not only volume preserving) transformation, which can be used for high dimensional fast stochastic placement or even geometric placement (the holy grail of bank generation).
+As outlined, there are many open questions and issues to solve, which require significant work. The reward however would be huge: the flow would parameterize a distance preserving (and not only volume preserving) transformation, which can be used for high dimensional fast stochastic placement or even geometric placement - the holy grail of bank generation.
 
 \section{Final remarks} \label{sec:conclusion}
 
@@ -997,7 +989,7 @@ We also discuss other possible applications of our method, including the optmiza
 
 Our code is publicly available as a package \texttt{mbank}\cite{mbank} and comes with a large number of tools to simplify the bank generation and validation.
 
-As a final remark, we stress that our work will enable the GW community to run searches on novel regions of the BBH parameter space. Being able to generate a bank in a few hours, the computational cost of searching new regions of the parameter space will be dominated by the actual cost of the analysis rather than the cost of prior steps.
+As a final remark, we stress that our work will enable the GW community to run searches on novel regions of the BBH parameter space. Being able to generate a high dimensional bank in a few hours, the computational cost of searching new regions of the parameter space will be dominated by the actual cost of the analysis rather than the cost of prior steps.
 This will allow for optimal resource allocation to search for signatures of precession, eccentricity and/or HMs, hopefully leading to exciting physics discoveries.
 
 
@@ -1029,7 +1021,7 @@ ${\Delta t = -\frac{\partial_{it}\mathcal{O} \Delta\theta_i}{\partial_{tt}\mathc
 
 From Eq.~\eqref{eq:metric_derivation}, we can read the expression for the metric in Eq.~\eqref{eq:metric_expression} recognizing in the derivatives $\partial\partial\mathcal{O}|_{\Delta\theta, \Delta t = 0}$ the components of the Hessian matrix $H$ of the overlap.
 
-We now compute the Hessian of the overlap as a function of the gradients of the {\it normalized} waveforms. For notational convenience, we set $h_+(\theta_1)e^{ift} = s$, we drop any dependence on $\theta_2$ and we understand $\mu = {i, t}$.
+We now compute the Hessian $H$ of the overlap in terms of the gradients of the {\it normalized} waveforms. For notational convenience, we set $h_+(\theta_1)e^{ift} = s$, we drop any dependence on $\theta_2$ and we understand $\mu = {i, t}$.
 We have:
 \begin{align}\label{eq:overlap_grads}
 	\partial_{\mu} \mathcal{O} &= \frac{1}{\mathcal{O}} \frac{1}{1-\hat{h}^2_{+\times}}
@@ -1050,7 +1042,7 @@ H_{ij} &= \rescalar{\hat{h}_+}{\partial_i\partial_j\hat{h}_+}
 			+ \frac{1}{1-\hat{h}^2_{+\times}} \rescalar{\hat{h}_\times}{\partial_i\hat{h}_+} \rescalar{\hat{h}_\times}{\partial_j\hat{h}_+} \label{eq:H_ij}
 \end{align}
 
-To move further, we express normalized waveform derivatives in terms of the un-normalized ones:
+To move further, we express the normalized waveform derivatives in terms of the un-normalized ones:
 \begin{align*}
 	\bullet&\quad \partial_i \scalar{h}{h} = \scalar{\partial_i h}{h}+ \scalar{h}{\partial_i h} = 2 \rescalar{h}{\partial_i h} \\
 	\bullet&\quad \partial_i \hat{h} =\frac{1}{\rescalar{h}{h}^{3/2}} \left[ \rescalar{h}{h}\partial_i h -  \rescalar{h}{\partial_i h} h \right]
@@ -1087,8 +1079,8 @@ Plugging this into the equations~\eqref{eq:H_tt}-\eqref{eq:H_ij}, we get:
 \end{widetext}
 where we defined $h_{\cdot*} = \rescalar{h_\cdot}{h_*}$.
 
-Such expressions, together with Eq.~\eqref{eq:metric_expression} fully specify the metric computation.
-The gradients $\partial_i h$ of the waveform can be computed with any finite difference scheme or analytically for a limited number of waveform surrogate models \cite{PhysRevD.103.043020, Khan:2020fso, Tissino:2022thn}.
+Such expressions, together with Eq.~\eqref{eq:metric_expression} fully specify the metric.
+The gradients $\partial_i h$ of the waveform can be computed with a finite difference scheme or analytically for a number of surrogate waveform models \cite{Khan:2020fso, Schmidt:2020yuu, Thomas:2022rmc, Tissino:2022thn}.
 
 The non precessing limit can be recovered by setting $h_\times = i h_+$ and $h_{+\times} = 0$:
 \begin{align}
@@ -1133,8 +1125,9 @@ At any given point $\theta$, the components $M_{ij}(\theta)$ of the metric are s
 \begin{equation} \label{eq:metric_optmization}
 	M_{ij}(\theta) = \argmin_{M^\prime_{ij}}  \mathcal{L}_\theta(M^\prime_{ij}).
 \end{equation}
-Although the minimization can be tackled with standard techniques, it requires many evaluations of Eq.~\eqref{eq:distance} and sampling from a ``complex" set such as ${\{d(\theta,\theta^\prime) < d_\mathrm{target}\}}$.
-While most cases this may prove unfeasible, future work could solve the problem in Eq.~\eqref{eq:metric_optmization} at a manageable cost. This may be beneficial to many data analysis applications, such as template placement and Fisher information matrix studies.
+Although the minimization can be tackled with standard techniques, it requires many evaluations of Eq.~\eqref{eq:distance} and the ability to sample from a ``complex" set such as ${\{d(\theta,\theta^\prime) < d_\mathrm{target}\}}$.
+
+While in most cases this may prove unfeasible, future work could solve the problem in Eq.~\eqref{eq:metric_optmization} at a manageable cost. This may be beneficial to many data analysis applications, such as template placement and Fisher information matrix studies.
 A number of alternative metric expressions, coming from different heuristic optimization strategies, are already available in \texttt{mbank}, although not fully validated.
 
 \section{Computing the volume of the parameter space}\label{app:parameter_space_volume}

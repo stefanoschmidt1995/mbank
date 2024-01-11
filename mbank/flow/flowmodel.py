@@ -451,7 +451,7 @@ class GW_Flow(Flow):
 				
 				if not (i%validation_step):
 
-					with torch.no_grad():			
+					with torch.no_grad():		
 						loss_ = self.loss_dict[loss](validation_data, validation_weights)
 					val_loss.append(loss_)
 

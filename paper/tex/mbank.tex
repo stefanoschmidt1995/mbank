@@ -964,7 +964,7 @@ One could break such degeneracy by imposing the additional constraint that the J
 	(J_{\phi_W})_{ij} \simeq M_{ij}.
 \end{equation}
 Such constraint should be imposed by introducing a suitable loss function.
-The approach would involve a much harder optimization problem and whether the flow has enough representation power to achieve such goal must be assessed.
+The approach would involve a much harder optimization problem and it remains to be assessed whether the flow has enough representation power to solve such problem.
 
 A flow trained in this way would create an isometry (i.e. distance preserving transformation) between the latent space and the physical space. According to differential geometry, this is not possible, unless the $M_{ij}$ has zero curvature, which is not the case in general. A possible way out could be to embed the manifold of signals in an higher dimensional flat manifold, which would guarantee the existence of a solution.
 
@@ -981,7 +981,7 @@ To sample the templates, we introduce a novel normalizing flow model, which serv
 Once we are able to sample from the space, we place templates using the {\it random} algorithm, which is fast and suitable to cover high-dimensional spaces.
 This comes at the price of a larger bank than would be produced with the state-of-the-art stochastic algorithm, although the over-coverage becomes less severe as the number of dimensions, and correspondingly the overall size of the bank, increases.
 
-We validate our code by evaluating the normalizing flow accuracy and by studying the robustness of the random template placement method.
+We validate our code by evaluating the normalizing flow accuracy and the robustness of the random placement.
 Moreover, with a few hours of computation, we were able to reproduce two template banks existing in the literature obtained with independent codes - a nonspinning HM bank \cite{Harry:2017weg} and an aligned-spin bank \cite{Sakon:2022ibh}.
 
 To demonstrate the capabilities of our code, we generate two large template banks covering systems for which no or little searches have been performed: a precessing bank gathering $1.6$ million templates (Sec.~\ref{sec:precessing_bank}) and an aligned-spin HM bank formed by $2.1$ million templates (Sec.~\ref{sec:HM_spinning_bank}). We show that the two banks satisfactorily cover the space. They were both produced in a matter of hours, with minimal CPU and memory usage.
@@ -995,9 +995,9 @@ This will allow for optimal resource allocation to search for signatures of prec
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ACKNOWLEDGMENTS
         \begin{acknowledgments}
+		We thank Melissa Lopez Portilla, Harsh Narola, Aaron Zimmerman and Keith Riles for their precious comments. We should not forget to thank the anonymous referee who stimulated huge improvements to our work with their interesting comments.
 		S.S., B.G., and S.C. are supported by the research program of the Netherlands Organization for Scientific Research (NWO). S.C is also supported by the National Science Foundation under Grant No. PHY-2309332.
 		The authors are grateful for computational resources provided by the LIGO Laboratory and supported by the National Science Foundation Grants No. PHY-0757058 and No. PHY-0823459. This material is based upon work supported by NSF’s LIGO Laboratory which is a major facility fully funded by the National Science Foundation.
-		We thank Melissa Lopez Portilla, Harsh Narola, Aaron Zimmerman and Keith Riles for their precious comments. We should not forget to thank the anonymous referee who stimulated huge improvements to our work with their interesting comments.
         \end{acknowledgments}
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% APPENDIX

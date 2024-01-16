@@ -6,11 +6,18 @@ You can use to authomatize some tasks, such as bank generation, template placing
 
 Below you can find a list of all of them:
 
-``mbank_run``
-=============
-``mbank_run --help``
+``mbank_generate_flow_dataset``
+===============================
+``mbank_generate_flow_dataset --help``
 
-.. program-output:: mbank_run --help
+.. program-output:: mbank_generate_flow_dataset --help
+
+``mbank_train_flow``
+====================
+``mbank_train_flow --help``
+
+.. program-output:: mbank_train_flow --help
+
 
 ``mbank_place_templates``
 =========================
@@ -59,6 +66,12 @@ Below you can find a list of all of them:
 ``mbank_injections_workflow --help``
 
 .. program-output:: mbank_injections_workflow --help
+
+``mbank_run``
+=============
+``mbank_run --help``
+
+.. program-output:: mbank_run --help
 
 
 ``mbank_compare_volumes``

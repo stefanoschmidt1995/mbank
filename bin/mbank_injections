@@ -272,5 +272,5 @@ if args.plot:
 	ids_to_plot = range(len(plotted_matches))
 	plot_tiles_templates(bank.templates, args.variable_format, #t_obj,
 				injections = projected_injs[ids_to_plot,:], inj_cmap =plotted_matches[ids_to_plot] ,
-				dist_ellipse = None, save_folder = args.run_dir, show = False)
+				dist_ellipse = None, save_folder = args.run_dir, savetag = 'injection_study', show = False)
 	if args.show: plt.show()

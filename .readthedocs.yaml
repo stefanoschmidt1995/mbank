@@ -13,7 +13,7 @@ build:
   jobs:
     pre_build:
       - pip install -r requirements.txt
-      - pip install ezdag
+      - pip install ezdag seaborn imageio pandas
       - pip install -e .
 
 # Build documentation in the docs/ directory with Sphinx

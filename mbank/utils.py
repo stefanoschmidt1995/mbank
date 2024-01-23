@@ -66,7 +66,7 @@ def dummy_iterator():
 class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
 	"""
 	This is a copy of ``ligo.lw.lsctables.SnglInspiralTable`` with implemented defaults.
-	Implemented as `here <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
+	Implemented as in `sbank.waveform <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
 	"""
 	def __init__(self, *args, **kwargs):
 		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
@@ -87,7 +87,7 @@ class DefaultSnglInspiralTable(lsctables.SnglInspiralTable):
 class DefaultSimInspiralTable(lsctables.SimInspiralTable):
 	"""
 	This is a copy of ``ligo.lw.lsctables.SimInspiralTable`` with implemented defaults.
-	Implemented as `here <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
+	Implemented as in `sbank.waveform <https://github.com/gwastro/sbank/blob/7072d665622fb287b3dc16f7ef267f977251d8af/sbank/waveforms.py#L39>`_
 	"""
 	def __init__(self, *args, **kwargs):
 		lsctables.SnglInspiralTable.__init__(self, *args, **kwargs)
@@ -780,7 +780,7 @@ def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins
 	if isinstance(savefile, str): plt.savefig(savefile, transparent = False)
 	if show: plt.show()
 
-def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, title = None):
+def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, savetag = '', title = None):
 	"""
 	Make some plots of the templates and the tiling.
 		
@@ -819,6 +819,9 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		show: bool
 			Whether to show the plots
 		
+		savetag: str
+			A tag to append to the name of each file, to distinguish between different call
+		
 		title: str
 			A title for all the plots
 
@@ -831,6 +834,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		###
 	if isinstance(save_folder, str): 
 		if not save_folder.endswith('/'): save_folder = save_folder+'/'
+		if savetag: savetag = '_{}'.format(savetag)
 	
 	if isinstance(dist_ellipse, float): #computing a tile for each template
 		if tiling is None: raise ValueError("If ellipses are to be plotted, a tiling object is required but None is given")
@@ -874,7 +878,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		currentAxis.tick_params(axis='x', labelsize=fs)
 		currentAxis.tick_params(axis='y', labelsize=fs)
 
-	if isinstance(save_folder, str): plt.savefig(save_folder+'bank.png', transparent = False)
+	if isinstance(save_folder, str): plt.savefig(save_folder+'bank{}.png'.format(savetag), transparent = False)
 
 		#Plot the tiling
 	if isinstance(tiling,list):
@@ -888,7 +892,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 				d = t[0].maxes- t[0].mins
 				currentAxis.add_patch(matplotlib.patches.Rectangle(t[0].mins[ax_], d[ax_[0]], d[ax_[1]], fill = None, alpha =1))
 
-		if isinstance(save_folder, str): plt.savefig(save_folder+'tiling.png', transparent = False)
+		if isinstance(save_folder, str): plt.savefig(save_folder+'tiling{}.png'.format(savetag), transparent = False)
 
 		#Plotting the injections, if it is the case
 	if isinstance(injections, np.ndarray):
@@ -903,7 +907,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 			cbar_ax = fig.add_axes([0.88, 0.15, 0.015, 0.7])
 			cbar_ax.tick_params(labelsize=fs)
 			fig.colorbar(cbar_vals, cax=cbar_ax)
-		if isinstance(save_folder, str): plt.savefig(save_folder+'injections.png', transparent = False)
+		if isinstance(save_folder, str): plt.savefig(save_folder+'injections{}.png'.format(savetag), transparent = False)
 
 
 		#Plotting the ellipses, if it is the case
@@ -917,7 +921,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 				currentAxis.add_patch(get_ellipse(metric_projected, templ[ax_], dist_ellipse))
 			#if ax_[0]!=0: currentAxis.set_xlim([-10,10]) #DEBUG
 			#currentAxis.set_ylim([-10,10]) #DEBUG
-		if isinstance(save_folder, str): plt.savefig(save_folder+'ellipses.png', transparent = False)
+		if isinstance(save_folder, str): plt.savefig(save_folder+'ellipses{}.png'.format(savetag), transparent = False)
 	
 		#Plot an histogram
 	fig, axes = plt.subplots(1, templates.shape[1], figsize = (4*templates.shape[1], 5), sharey = True)
@@ -933,7 +937,7 @@ def plot_tiles_templates(templates, variable_format, tiling = None, injections =
 		ax_.set_xlim((min_-d_, max_+d_ ))
 		ax_.tick_params(axis='x', labelsize=fs)
 		ax_.tick_params(axis='y', labelsize=fs)
-	if isinstance(save_folder, str): plt.savefig(save_folder+'hist.png', transparent = False)
+	if isinstance(save_folder, str): plt.savefig(save_folder+'hist{}.png'.format(savetag), transparent = False)
 	
 	if show: plt.show()
 	
@@ -1022,7 +1026,7 @@ def get_projector(*directions):
 	
 		<d, Px> = 0
 	
-	See `here <https://math.stackexchange.com/questions/2320236/projection-on-the-hyperplane-h-sum-x-i-0>`_ for more info.
+	See this `stack exchange <https://math.stackexchange.com/questions/2320236/projection-on-the-hyperplane-h-sum-x-i-0>`_ page for more info.
 	
 	Parameters
 	----------
@@ -1184,9 +1188,9 @@ def get_boundary_box(grid_list):
 	
 def split_boundaries(boundaries, grid_list, use_plawspace = True):
 	"""
-	Splits a boundary rectangle by dividing each dimension into a number of evenly spaced segments defined by each entry `grid_list`.
+	Splits a boundary rectangle by dividing each dimension into a number of evenly spaced segments defined by each entry ``grid_list``.
 	
-	If option `plawspace` is set, the segments will be evenly distributed acconrding to a pwer law with exponent `-8/3`
+	If option ``plawspace`` is set, the segments will be evenly distributed acconrding to a power law with exponent -8/3
 	
 	Parameters
 	----------
@@ -1204,7 +1208,8 @@ def split_boundaries(boundaries, grid_list, use_plawspace = True):
 	Returns
 	-------
 		boundaries_list: list
-			A list of boundaries arrays obtained after the splitting, each with shape `(2,D)`
+			A list of the boundaries arrays obtained after the splitting, each with shape ``(2,D)``
+
 	"""
 	D = boundaries.shape[1]
 	grid_list_ = []
@@ -1219,8 +1224,7 @@ def split_boundaries(boundaries, grid_list, use_plawspace = True):
 	grid_list = grid_list_
 		
 	lower_boxes, upper_boxes = get_boundary_box(grid_list)
-	boundaries_list = [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
-	return boundaries_list
+	return [(low, up) for low, up in zip(lower_boxes, upper_boxes) ]
 
 ##########################################################################################
 def get_antenna_patterns(longitude, latitude, polarization):
@@ -1236,7 +1240,7 @@ def get_antenna_patterns(longitude, latitude, polarization):
 	
 	where :math:`\\theta = \\frac{\pi}{2} - \\delta`.
 	
-	See `here <https://github.com/gwastro/pycbc/blob/ce305cfb9fca3b59b8b9d3b16a3a486ae6c067cb/pycbc/detector.py#L559>`_ for more information.
+	See `pycbc.detector <https://github.com/gwastro/pycbc/blob/ce305cfb9fca3b59b8b9d3b16a3a486ae6c067cb/pycbc/detector.py#L559>`_ for more information.
 	
 	Parameters
 	----------
@@ -1354,15 +1358,17 @@ def read_xml(filename, table, N = None):
 			
 	for i, row in enumerate(table):
 		if i>=N: break
-		#FIXME: read e and meanano properly!!
+		
 		if isinstance(table, lsctables.SnglInspiralTable):
 			iota, phi = row.alpha3, row.alpha5
+			e, meanano = 0, 0
 		else:
 			iota, phi = row.inclination, row.coa_phase
+			e, meanano = row.psi0, row.psi3 #FIXME: This is a hack. Is it correct??
 			
 		BBH_components.append([row.mass1, row.mass2, #masses
 			row.spin1x, row.spin1y, row.spin1z, row.spin2x, row.spin2y, row.spin2z, #spins
-			0, 0, iota, phi]) #e, meananano, iota, phi
+			e, meanano, iota, phi]) #e, meananano, iota, phi
 		
 		if isinstance(table, lsctables.SimInspiralTable):
 			sky_locs.append([row.longitude, row.latitude, row.polarization])
@@ -1475,6 +1481,8 @@ def save_injs(filename, injs, GPS_start, GPS_end, time_step, approx, sky_locs = 
 			row.f_final = f_max
 			row.taper = "TAPER_START"
 			row.bandpass = 0
+			
+			row.psi0, row.psi3 = e, meanano #FIXME: This is a hack. Is it correct??
 
 				#setting interesting row paramters
 			row.inclination = iota

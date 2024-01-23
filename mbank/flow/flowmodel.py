@@ -3,7 +3,7 @@ mbank.flow.flowmodel
 ====================
 
 Implements the basic normalizing flow model, useful for sampling from the Binary Black Hole parameter space.
-It requires `torch` and `glasflow.nflows., which are not among the `mbank` dependencies.
+It requires `torch` and `glasflow.nflows`, which are not among the `mbank` dependencies.
 """
 
 import numpy as np
@@ -177,9 +177,9 @@ class GW_Flow(Flow):
 		Parameters
 		----------
 			transform: glasflow.nflows.transforms.base.Transform
-				A bijection that transforms data into noise (in the `glasflow.nflows. style)
+				A bijection that transforms data into noise (in the ``glasflow.nflows`` style)
 			distribution: glasflow.nflows.distributions.base.Distribution
-				The base distribution of the flow that generates the noise (in the `glasflow.nflows. style)
+				The base distribution of the flow that generates the noise (in the ``glasflow.nflows`` style)
 		"""
 		super().__init__(transform=transform, distribution=distribution)
 		if has_constant:
@@ -693,9 +693,8 @@ class STD_GW_Flow(GW_Flow):
 			n_layers: int
 				Number of layers (each made by NaiveLinear+MaskedAffineAutoregressiveTransform)
 			
-			hidden_features: int, list
-				Number of hidden features of the ``MaskedAffineAutoregressiveTransform``
-				If a list is given, it is intended to be the number of hidden features for each layer
+			hidden_features: int
+				Number of hidden features of the ``MaskedAffineAutoregressiveTransform``. If a list is given, it is intended to be the number of hidden features for each layer
 		"""
 		base_dist = StandardNormal(shape=[D])
 		

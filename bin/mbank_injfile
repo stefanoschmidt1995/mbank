@@ -26,21 +26,23 @@ import matplotlib.pyplot as plt
 import sys
 import warnings
 
-from mbank import cbc_bank, variable_handler, tiling_handler
+from mbank import cbc_bank, variable_handler
+from mbank.flow import STD_GW_Flow
 from mbank.utils import  save_injs
-from mbank.parser import updates_args_from_ini
+from mbank.parser import updates_args_from_ini, add_range_options
 
 import argparse
 import os
 
 ##### Creating parser
 parser = argparse.ArgumentParser(__doc__)
+add_range_options(parser)
 parser.add_argument(
 	"--run-dir", default = None,
 	help="Run directory. Unless explicitly stated, every input file will be understood to be in this run-dir")
 parser.add_argument(
-	"--tiling-file", required = False, type=str,
-	help="A tiling file to draw the injections wihin the tiles. If not given, the injection will be read from the given --bank-file")
+	"--flow-file", required = False, type=str,
+	help="A flow file to draw the injections from. If not given, the injection will be read from the given --bank-file")
 parser.add_argument(
 	"--bank-file", required = False, type=str,
 	help="The path to the bank file to pick injection from. Ignored if --tiling-file is set ")
@@ -97,8 +99,8 @@ else:
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir):
 	raise ValueError("The given run directory --run-dir '{}' does not exist".format(args.run_dir))
-if args.tiling_file is not None:
-	if args.tiling_file.find('/') <0: args.tiling_file = args.run_dir+args.tiling_file
+if args.flow_file is not None:
+	if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
 if args.bank_file is not None:
 	if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
 if args.inj_out_file.find('/') <0: args.inj_out_file = args.run_dir+args.inj_out_file
@@ -106,14 +108,15 @@ if args.inj_out_file.find('/') <0: args.inj_out_file = args.run_dir+args.inj_out
 min_dist, max_dist = args.distance_range
 rng = np.random.default_rng()
 
-if args.tiling_file is not None:
-	print("Generating random tile injections from the given tiling file: {}".format(args.tiling_file))
-	t_obj = tiling_handler(args.tiling_file)
-	#t_obj = t_obj[100:120]; print("DEBUG: Limiting number of tiles to use") #DEBUG
+if args.flow_file is not None:
+	print("Generating random tile injections from the given tiling file: {}".format(args.flow_file))
+	flow = STD_GW_Flow.load_flow(args.flow_file)
 
 	N_injs = int((args.gps_end- args.gps_start)/args.time_step)
-	injs = t_obj.sample_from_tiling(N_injs) #(N_injs, D)
-	np.random.shuffle(injs)
+
+	import torch
+	with torch.no_grad():
+		injs = flow.sample(N_injs).numpy() #(N_injs, D)
 
 elif args.bank_file is not None:
 	print("Loading injections from the given bank: {}".format(args.bank_file))

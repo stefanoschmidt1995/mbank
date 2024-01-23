@@ -3,57 +3,21 @@ How to perform injections
 
 The injection code throws injections in the bank and computes the match of each of them with the templates. The injections can be either loaded by file either randomly generated within each tile.
 
-Many options are in common with `mbank_run` and `mbank_place_templates`. The options unique to the `mbank_injections` are:
+Many options are in common with `mbank_place_templates`. The options unique to the `mbank_injections` are:
 
-- `tiling-file`: name of the tiling file
 - `bank-file`: name of the bank file
-- `inj-file`: an xml file to load a generic set of injection from. If it's not set, the injections will be drawn inside the tiling.
+- `inj-file`: an xml file to load a generic set of injection from. It can be generated with `mbank_injfile`, which can draw injections from a given normalizing flow model.
 - `n-injs`: how many injections to perform? They will randomly placed in the space so that each tile will keep a number of injections proportional to the volume.
-- `seed`: random seed for the injections
 - `full-match`: whether to compute the full match, rather than just the metric approximation
 - `mchirp-window`: relative chirp mass window. For each injection, we compute the match only with the templates with a relative difference in chirp mass less than `mchirp-window`.
 
 ## Injections from command line
-Assuming you generated the bank normally, here's how an injection file [`my_first_precessing_injections.ini`](https://github.com/stefanoschmidt1995/mbank/tree/master/examples/my_first_precessing_injections.ini) could look like (but you're suggested to keep all the options in a single file):
-
-```ini
-[my_first_precessing_bank]
-
-	#General options
-variable-format: Mq_s1xz
-mm: 0.97
-run-dir: precessing_bank
-
-	#PSD options
-psd: ./aligo_O3actual_H1.txt
-ifo: H1
-asd: true
-
-	#Metric options
-approximant: IMRPhenomXP
-f-min: 15
-f-max: 1024
-
-	#Input files
-tiling-file: tiling_my_first_precessing_bank.npy
-flow-file: flow_my_first_precessing_bank.zip
-bank-file: bank_my_first_precessing_bank.xml.gz
-
-	#Injections options
-n-injs: 1000
-seed: 0
-mchirp-window: 0.1
-full-match: true
-
-	#Other options
-plot: true
-show: true
-use-ray: true
-```
+Assuming you generated the bank normally in the [previous section](bank_generation.md), you can use the same [ini file](https://github.com/stefanoschmidt1995/mbank/blob/master/examples/my_first_eccentric_bank.ini) to generate the injection file and to perform the injection study.
 
 By running
 
 ```Bash
+mbank_injfile my_first_precessing_injections.ini
 mbank_injections my_first_precessing_injections.ini
 ```
 
@@ -66,13 +30,14 @@ The histogram of the fitting factor of each injection (i.e. best match of an inj
 and a scatter plot with the injections with fitting factor smaller that `mm`: 
 ![](../img/injections.png)
 
-Setting the option `full-match` to `True` will perform the true match computation (without metric approximation) and will provide a more realistic estimation of the bank performance. Since it takes time, you are encouraged to use `ray` package for that!
-If you don't plan to use such option, you may also leave out all the entries concering the PSD and the approximant, which are not relevant if you don't compute the full match.
+As you see very very few injections have fitting factor below 0.97, which means that the bank is doing a good job at covering the space.
 
 ## Injections by hands
 
 Again, we can also perform injections using a python script (although this is not advised).
-Here we assume we have at hand a three dimensional bank `bank.dat` and a tiling `tiling.npy`, with the variable format `Mq_chi`: this was generated in the previous [page](../usage/bank_generation.md).
+Here we assume we have at hand a three dimensional bank `bank.dat` and a flow `flow.zip`, with the variable format `Mq_chi`: this was generated in the previous [page](../usage/bank_generation.md).
+
+CHECKME!!!!!
 
 After the imports,
 

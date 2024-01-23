@@ -1,5 +1,34 @@
 #!/usr/bin/env python
-from ezdag import Argument, DAG, Option, Layer, Node
+"""
+mbank_injections_workflow
+-------------------------
+
+Generates a condor DAG to run a fitting factor computation on a high performance computing cluster, using condor. It assumes that the package ezdag (not among mbank's dependencies) is installed.
+
+To generate a condor workflow:
+
+	mbank_injections_workflow --options-you-like
+
+You can also load (some) options from an ini-file:
+
+	mbank_injections_workflow --some-options other_options.ini
+
+Make sure that the mbank is properly installed.
+
+To clean the workflow, you can execute:
+	
+	mbank_injections_workflow --clean
+
+To know which options are available:
+
+	mbank_injections_workflow --help
+"""
+
+try:
+	from ezdag import Argument, DAG, Option, Layer, Node
+except ImportError:
+	raise ImportError("Unable to find the package `ezdag`. While it is not required for the normal behaviour of the package, it is needed for generating an injection workflow. Try installing it with `pip install ezdag`.")
+
 from mbank.utils import read_xml, save_injs
 from mbank.parser import updates_args_from_ini
 from mbank import variable_handler

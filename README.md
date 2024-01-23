@@ -118,6 +118,12 @@ mbank_injections my_first_eccentric_bank.ini
 
 As you see, the same file can be used for different commands: each command will just ignore any option not relevant for it.
 
+## TODO:
+
+- finish to write the making bank by hand section
+- check the README
+- check the docs again
+- submit to PyPI
 
 ## Contacts
 

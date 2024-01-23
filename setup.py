@@ -2,8 +2,7 @@ import setuptools
 import sys
 
 required_packages =['scipy>=1.9.3', 'numpy', 'matplotlib',
-	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow',
-	'seaborn', 'imageio', 'pandas'] #you will want to remove the last 3 dependencies eventually
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow']
 #required_packages =[]
 
 with open("README.md", "r") as fh:

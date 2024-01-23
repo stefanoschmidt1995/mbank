@@ -7,6 +7,7 @@ import subprocess
 def test_imports():
 	import mbank
 	import mbank.utils
+	import mbank.flow
 	print("'test_imports' passed")
 
 def test_psd(verbose = False):

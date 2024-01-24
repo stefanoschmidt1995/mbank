@@ -15,6 +15,7 @@ from .handlers import variable_handler
 from .utils import get_boundaries_from_ranges
 import warnings
 import json
+import sys
 
 ####################################################################################################################
 #Parser stuff
@@ -327,6 +328,70 @@ def add_injections_options(parser):
 	parser.add_argument(
 		"--use-ray", action='store_true', default = False,
 		help="Whether to use ray package to parallelize the match computation")
+
+def make_sub_file(run_dir, run_name, memory_requirement = 4, disk_requirement = 4, cpu_requirement = 1):
+	"""
+	Creates an condor submit file to run any mbank executable. The commmand to run and its arguments are taken from the command line arguments
+	
+	Parameters
+	----------
+		
+	run_dir: str
+		The run directory where the submit file is executed
+	
+	run_name: str
+		A name for the run, to identify the executable
+	
+	memory_requirement: int
+		Memory requirements in GB for the condor job
+
+	disk_requirement: int
+		Disk requirements in GB for the condor job
+	
+	cpu_requirement: int
+		Number of CPUs requested for the condor job
+	"""
+	
+	sub_file_str = """Universe = vanilla
+batch_name = {3}
+Executable = {0}
+arguments = "{1}"
+getenv = true
+Log = {2}_{3}.log
+Error = {2}_{3}.err
+Output = {2}_{3}.out
+request_memory = {4}GB
+request_disk = {5}GB
+request_cpus = {6}
+
+queue
+"""
+
+	if not run_dir.endswith('/'): run_dir = run_dir+'/'
+	
+	if '--make-sub' in sys.argv:
+		sys.argv.remove('--make-sub')
+	else:
+		warnings.warn('The option --make-sub was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
+
+	exec_name = sys.argv[0].split('/')[-1]
+	batch_name = '_'.join([exec_name, run_name])
+	
+	sub_file_str = sub_file_str.format(sys.argv[0], ' '.join(sys.argv[1:]),
+		run_dir, batch_name,
+		memory_requirement, disk_requirement, cpu_requirement)
+	
+	sub_file = '{}{}_{}.sub'.format(run_dir, exec_name, run_name)
+	with open(sub_file, 'w') as f:
+		f.write(sub_file_str)
+	f.close()		
+	print('#####')
+	print("Submit file generated @ {0}\nSubmit a job it with condor_submit {0}\n".format(sub_file))
+	print("Monitor it with: tail -f {}{}_{}.err".format(run_dir, exec_name, run_name))
+	print('#####\n')
+	print(sub_file_str)
+	return
+
 
 def save_args(args, filename):
 	"""

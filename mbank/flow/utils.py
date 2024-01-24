@@ -130,7 +130,7 @@ def plot_loss_functions(history, savefolder = None):
 	metric = history['valmetric_value']
 	validation_epoch = range(0, len(train_loss), history['validation_step'])
 	
-	print(len(train_loss), len(validation_loss), len(validation_epoch), len(metric), history['validation_step']) 
+	#print(len(train_loss), len(validation_loss), len(validation_epoch), len(metric), history['validation_step']) 
 	
 	plt.figure()
 	plt.plot(range(len(train_loss)), train_loss, label = 'train')

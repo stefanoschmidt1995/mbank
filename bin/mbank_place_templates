@@ -30,6 +30,7 @@ from mbank.utils import plot_tiles_templates, avg_dist, load_PSD
 from mbank.placement import place_random_flow, place_stochastically_flow, place_geometric_flow
 from mbank.flow.utils import compare_probability_distribution
 from mbank.flow import STD_GW_Flow
+from mbank.parser import make_sub_file
 import mbank.parser
 
 import argparse
@@ -59,6 +60,10 @@ parser.add_argument(
 parser.add_argument(
 	"--dry-run", action = 'store_true', default = False,
 	help="If set, it will only compute the number of templates, without actually placing the templates. Useful for volume studies. (only applicable for volume estimation purposes)")
+parser.add_argument(
+	"--make-sub",  default = False, action='store_true',
+	help="If set, it will make a condor submit file that the user can use to launch the job through condor.")
+	
 
 args, filenames = parser.parse_known_args()
 
@@ -104,6 +109,10 @@ if args.bank_file:
 	if args.bank_file.find('/') <0: args.bank_file = args.run_dir+args.bank_file
 else:
 	args.bank_file = args.run_dir+'bank_{}.xml.gz'.format(args.run_name)
+
+if args.make_sub:
+	make_sub_file(args.run_dir, args.run_name)
+	quit()
 
 plot_folder = None
 if args.plot: plot_folder = args.run_dir

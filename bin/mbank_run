@@ -30,7 +30,7 @@ import warnings
 from ligo.lw.utils import load_filename
 
 from mbank import variable_handler, cbc_metric, cbc_bank
-from mbank.parser import get_boundary_box_from_args
+from mbank.parser import get_boundary_box_from_args, make_sub_file
 from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
 from mbank.flow.utils import compare_probability_distribution
 import mbank.parser
@@ -63,20 +63,6 @@ parser.add_argument(
 
 args, filenames = parser.parse_known_args()
 
-sub_file_str = """Universe   = vanilla
-Executable = {}
-arguments = "{}"
-getenv = true
-Log = {}_mbank_run_{}.log
-Error = {}_mbank_run_{}.err
-Output = {}_mbank_run_{}.out
-request_memory = 4GB
-request_cpus = {}
-request_disk = 4GB
-
-queue
-"""
-
 	#updating from the ini file(s), if it's the case
 for f in filenames:
 	args = mbank.parser.updates_args_from_ini(f, args, parser)
@@ -105,26 +91,7 @@ else:
 	args.bank_file = args.run_dir+'bank_{}.xml.gz'.format(args.run_name)
 
 if args.make_sub:
-	if '--make-sub' in sys.argv:
-		sys.argv.remove('--make-sub')
-	else:
-		warnings.warn('The option --make-sub was given in the inifile. Make sure you remove it from your ini before launching the condor job!')
-	n_cpu = None if args.grid_size is None else int(np.prod(args.grid_size))
-	sub_file_str = sub_file_str.format(sys.argv[0], ' '.join(sys.argv[1:]),
-		args.run_dir, args.run_name,
-		args.run_dir, args.run_name,
-		args.run_dir, args.run_name,
-		n_cpu)
-	
-	sub_file = args.run_dir+'mbank_run_{}.sub'.format(args.run_name)
-	with open(sub_file, 'w') as f:
-		f.write(sub_file_str)
-	print('#####')
-	sub_file = args.run_dir+'mbank_run_{}.sub'.format(args.run_name)
-	print("Submit file generated @ {}\nSubmit a job it with condor_submit {}\n".format(sub_file, sub_file))
-	print("Monitor it with: tail -f {}mbank_run_{}.err".format(args.run_dir, args.run_name))
-	print('#####')
-	print(sub_file_str)
+	make_sub_file(args.run_dir, args.run_name)
 	quit()
 
 plot_folder = None

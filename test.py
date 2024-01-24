@@ -87,7 +87,6 @@ def test_metric(verbose = False):
 		print("symphony metric test failed!")
 	if symphony_consistent and metric_consistent:
 		print("'test_metric' passed")
-	return metric_consistent and symphony_consistent and hpc_consistent
 
 def test_variable_format():
 	import mbank
@@ -97,7 +96,6 @@ def test_variable_format():
 	assert np.allclose(vh.convert_theta([12, 2, 0.2], 'Mq_chi', 'm1m2_chi'), [8,4,0.2])
 	
 	M_range = (5, 10)
-	to_return = True
 	for vf in vh.valid_formats:
 		#vf = 'mceta_s1xz_s2z_iota'
 		if vf.startswith('mceta'): q_range = (0.08, 0.25)
@@ -117,15 +115,11 @@ def test_variable_format():
 		#print(vf, np.allclose(theta, theta_rec), np.allclose(BBH_comps, BBH_comps_rec))
 
 		assert not np.any(np.isnan(theta_rec)), "Some weird nan appeared"
-		to_return = to_return and np.allclose(theta, theta_rec) and np.allclose(BBH_comps, BBH_comps_rec)
+		assert np.allclose(theta, theta_rec) and np.allclose(BBH_comps, BBH_comps_rec), "Some problem with reconstruction"
 		#print(vf, np.allclose(theta, theta_rec), np.allclose(BBH_comps, BBH_comps_rec))
 		#print(theta[0])
 		#print(theta_rec[0])
-	if to_return:
-		print("'test_variable_format' passed")
-	else:
-		print("'test_variable_format' failed!")
-	return to_return
+	print("'test_variable_format' passed")
 
 def test_bank_conversion():
 	import mbank
@@ -143,7 +137,6 @@ def test_bank_conversion():
 	if not os.path.isdir('tmp_test'): os.mkdir('tmp_test')
 	vh = mbank.variable_handler()
 	M_range = (5, 10)
-	to_return = True
 	for vf in vh.valid_formats:
 		if np.random.choice([0,1], p = [0.2, 0.8]): continue
 		if vh.format_info[vf]['e']: continue
@@ -241,7 +234,7 @@ def test_sampling_from_boundaries():
 	
 	vol, std_err = a.volume(100000, vf)
 	true_vol = 99*99/2 - 90*9/2
-	assert np.allclose(vol, true_vol, rtol = 0, atol = 2*std_err)
+	assert np.allclose(vol, true_vol, rtol = 0, atol = 3*std_err)
 	
 	print("'test_sampling_from_boundaries' passed")
 

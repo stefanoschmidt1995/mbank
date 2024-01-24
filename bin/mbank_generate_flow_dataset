@@ -37,7 +37,7 @@ from torch import optim
 
 from mbank import variable_handler, cbc_metric
 from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges
-from mbank.parser import get_boundary_box_from_args, boundary_keeper
+from mbank.parser import get_boundary_box_from_args, boundary_keeper, make_sub_file
 import mbank.parser
 
 from mbank.flow import STD_GW_Flow, GW_Flow
@@ -112,6 +112,9 @@ parser.add_argument(
 parser.add_argument(
 	"--only-ll", default = False, action = 'store_true',
 	help="Whether to store only the metric LL in the dataset file (to save memory). If not set, the metric will be stored, together with the LL.")
+parser.add_argument(
+	"--make-sub",  default = False, action='store_true',
+	help="If set, it will make a condor submit file that the user can use to launch the job through condor.")
 
 args, filenames = parser.parse_known_args()
 
@@ -138,6 +141,10 @@ if args.psd.find('/') <0: args.psd = args.run_dir+args.psd
 if args.dataset.find('/') <0: args.dataset = args.run_dir+args.dataset
 if args.datapoints_file:
 	if args.datapoints_file.find('/') <0: args.datapoints_file = args.run_dir+args.datapoints_file
+
+if args.make_sub:
+	make_sub_file(args.run_dir, args.run_name)
+	quit()
 
 plot_folder = args.run_dir if args.plot else None
 if args.verbose: print("## Running dataset generation: ", args.run_name)

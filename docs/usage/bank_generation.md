@@ -103,7 +103,7 @@ These are a lot of parameters. Without being exhaustive, we describe below the m
 - `psd`: a psd file. If the option `asd` is set, the is understood to keep an ASD. The `ifo` option controls the interferometer to read the PSD of
 - `mm`: minimum match requirement for the bank. It sets the average distance between templates
 - `metric-type`: the metric computation algorithm to use. It is advised to use `symphony` for precessing and/or HM systems, while `hessian` for the others. Other options are possible, without being tested extensively.
-- `placing-method`: the placing method to be used. While many are available, only the `random` method has been extensively tested, as discussed in the publication.
+- `placing-method`: the placing method to be used. While many are available (i.e. `stochastic` and `geometric`), only the `random` method has been extensively tested, as discussed in the publication.
 - `livepoints`: the number of livepoints to be used for the random placing methods. This is the number of points that cover the space initially. They will be removed as soon as the bank grows in size.
 - `covering-fraction`: the fraction of the space to be covered before stopping the template bank generation. The covering fraction is computed with a monte carlo estimation using the livepoints.
 - `learning-rate`: learning rate for the training loop
@@ -139,13 +139,186 @@ Finally, you can also see the resulting template bank.
 
 You can find the [ini file](https://github.com/stefanoschmidt1995/mbank/blob/master/examples/my_first_eccentric_bank.ini) and all the plots produced by the code in the [example folder](https://github.com/stefanoschmidt1995/mbank/tree/master/examples) of the repository.
 
+### Launching commands with condor
+
+Sometimes it is convenient to run your bank generation job with condor. To generate a minimal condor submit file, you can add to any the executables abve the option `--make-sub`. This will create a `.sub` file which you can use to launch your `mbank` job.
+
+For instance, to train the normalizing flow model with condor:
+
+```Bash
+mbank_train_flow --make-sub my_first_eccentric_bank.ini
+condor_submit eccentric_bank/mbank_train_flow_my_first_eccentric_bank.sub
+```
+
+And similarly for the other commands.
+
+Here's how the submit file looks like:
+
+```
+Universe = vanilla
+batch_name = mbank_train_flow_my_first_eccentric_bank
+Executable = /usr/bin/mbank_train_flow
+arguments = "my_first_eccentric_bank.ini"
+getenv = true
+Log = eccentric_bank/_mbank_train_flow_my_first_eccentric_bank.log
+Error = eccentric_bank/_mbank_train_flow_my_first_eccentric_bank.err
+Output = eccentric_bank/_mbank_train_flow_my_first_eccentric_bank.out
+request_memory = 4GB
+request_disk = 4GB
+request_cpus = 1
+
+queue
+```
+
 ## Bank by hands
 
-Of course you can also code the bank generation by yourself in a python script. Althought this requires more work, it gives more control on the low level details and in some situation can be useful. However, for ease of use, it is always advised to use the provided executables `mbank_run` and `mbank_place_templates`.
+Of course you can also code the bank generation by yourself in a python script.
+Althought this requires more work, it gives more control on the low level details and in some situation can be useful. However, for ease of use, it is always advised to use the provided executables,  `mbank_generate_flow_dataset`,  `mbank_train_flow` and `mbank_place_templates`.
 
-WRITEME!!!
+The code executed below is also available in the example folder of the repository: check out [bank_by_hand.py](https://github.com/stefanoschmidt1995/mbank/blob/master/examples/bank_by_hand.py).
+
+### Initialization
+
+First things first, the imports:
+
+```Python
+from mbank import variable_handler, cbc_metric, cbc_bank
+from mbank.utils import load_PSD, plot_tiles_templates, get_boundaries_from_ranges
+from mbank.placement import place_random_flow
+from mbank.flow import STD_GW_Flow
+from mbank.flow.utils import early_stopper, plot_loss_functions
+from tqdm import tqdm
+from torch import optim
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+In this simple tutorial, we will generate a three dimensional bank (`D=3`) sampling the variables {math}`M, q, \chi_{eff}`.
+You will need to set the appropriate `variable_format`: it is a string that encodes the variables being used. The variable format is internally managed by a class {class}`mbank.handlers.variable_handler`.
+We also specify the boundaries of the template bank, encoded as `(2,D)` array where the rows keeps the upper/lower limits.
 
 
+```Python
+variable_format = 'Mq_chi'
+boundaries = np.array([[30,1,-0.99],[50,5,0.99]])
+	#Another option using get_boundaries_from_ranges
+boundaries = get_boundaries_from_ranges(variable_format,
+		(30, 50), (1, 5), chi_range = (-0.99, 0.99))
+```
 
+The next step is to create a metric object, implemented in the class {class}`mbank.metric.cbc_metric`. This will take care of generating the metric given a point in space and a PSD.
+Your favourite PSD is provided by the LIGO-Virgo collaboration and can be downloaded [here](https://dcc.ligo.org/LIGO-T2000012/public).
+For initialization, you need to specify also the approximant and the frequency range (in Hz) for the metric.
 
+```Python
+metric = cbc_metric(variable_format,
+			PSD = load_PSD('aligo_O3actual_H1.txt', True, 'H1'),
+			approx = 'IMRPhenomD',
+			f_min = 10, f_max = 1024)
+```
+
+### Dataset generation
+
+We are now ready for the bank generation. As said above (many many times), this is done in three steps.
+First, lets generate a flow dataset (split of course between train and validation):
+
+```Python
+train_data = np.random.uniform(*boundaries, (10000, 3))
+validation_data = np.random.uniform(*boundaries, (300, 3))
+train_ll = np.array([metric.log_pdf(s) for s in tqdm(train_data)])
+validation_ll = np.array([metric.log_pdf(s) for s in tqdm(validation_data)])
+```
+
+This may take a few minutes...
+
+### Flow training
+
+We can now instantiate and train (and test) a normalizing flow model:
+
+```Python
+flow = STD_GW_Flow(3, n_layers = 2, hidden_features = 30)
+
+early_stopper_callback = early_stopper(patience=20, min_delta=1e-3)
+optimizer = optim.Adam(flow.parameters(), lr=5e-3)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', threshold = .02, factor = 0.5, patience = 4)
+	
+history = flow.train_flow('ll_mse', N_epochs = 10000,
+	train_data = train_data, train_weights = train_ll,
+	validation_data = validation_data, validation_weights = validation_ll,
+	optimizer = optimizer, batch_size = 500, validation_step = 100,
+	callback = early_stopper_callback, lr_scheduler = scheduler,
+	boundaries = boundaries, verbose = True)
+
+residuals = np.squeeze(validation_ll) - flow.log_volume_element(validation_data)
+```
+
+The last line computes the discrepancy between the true (log) volume element and the flow estimate. We also implemented early stopping and learning rate decay, to make sure we obtain an optimally trained network.
+
+As described in the paper, we don't have access from samples of the parameter space. For this reason, we use a modified loss function `ll_mse`, which treats the training as a regression problem rather than a density estimation problem.
+Of course, if you had samples, you could also train the flow in the standard way, employing the `forward_KL` loss function
+
+### Bank generation
+
+Now, we come to the third step, where we place the templates using the random method. The templates are gathered in a {class}`mbank.bank.cbc_bank` object, which represents a template bank. A bank can be saved, loaded and the bank object offers some functionalities to easily access the templates.
+
+```Python
+new_templates = place_random_flow(0.97, flow, metric,
+	n_livepoints = 500, covering_fraction = 0.9,
+	boundaries_checker = boundaries,
+	metric_type = 'symphony', verbose = True)
+bank = cbc_bank(variable_format)
+bank.add_templates(new_templates)
+```
+
+You can save the flow and the template bank with:
+
+```Python
+flow.save_weigths('flow.zip')
+bank.save_bank('bank.dat')
+```
+
+### Plotting
+
+Finally, you can generate some nice plots to check that everything makes sense. You can plot the training data:
+
+```Python
+plt.figure()
+plt.scatter(train_data[:,0], train_data[:,1], c = train_ll, s = 5)
+plt.colorbar()
+```
+
+![](../img/dataset_bank_by_hand.png)
+
+You can display the loss function and the histogram of the accuracy of the normalizing flow model
+
+```Python
+plot_loss_functions(history)
+
+plt.figure()
+plt.hist(residuals/np.log(10),
+	histtype = 'step', bins = 30, density = True)
+plt.xlabel(r"$\log_{10}(M_{flow}/M_{true})$")
+```
+
+![](../img/train_loss_bank_by_hand.png)
+
+![](../img/accuracy_bank_by_hand.png)
+
+Finally, you can plot the templates in two 2D scatter plots:
+
+```Python
+plt.figure()
+plt.scatter(bank.M, bank.q, s = 5)
+plt.xlabel('M')
+plt.ylabel('q')
+
+plt.figure()
+plt.scatter(bank.q, bank.chi, s = 5)
+plt.xlabel('q')
+plt.ylabel('chi')
+```
+
+![](../img/Mq_bank_by_hand.png)
+
+![](../img/qchi_bank_by_hand.png)
 

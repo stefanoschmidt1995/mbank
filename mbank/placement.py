@@ -285,6 +285,13 @@ def place_random_flow(minimum_match, flow, metric_obj, n_livepoints, boundaries_
 	
 	if boundaries_checker is None:
 		boundaries_checker = lambda x: np.full(True, len(x))
+	elif isinstance(boundaries_checker, np.ndarray):
+		assert boundaries_checker.shape[0] == 2, "Wrong shape for the given boundary array!"
+		boundaries = np.array(boundaries_checker)
+		
+		def boundaries_checker(theta):
+			theta = np.atleast_2d(theta)
+			return np.logical_and(np.all(theta > boundaries[0,:], axis =1), np.all(theta < boundaries[1,:], axis = 1))
 	
 		#Sampling livepoints
 	livepoints, log_pdf = flow.sample_within_boundaries(n_livepoints, boundaries_checker)

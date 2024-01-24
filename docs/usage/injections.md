@@ -37,59 +37,54 @@ As you see very very few injections have fitting factor below 0.97, which means 
 Again, we can also perform injections using a python script (although this is not advised).
 Here we assume we have at hand a three dimensional bank `bank.dat` and a flow `flow.zip`, with the variable format `Mq_chi`: this was generated in the previous [page](../usage/bank_generation.md).
 
-CHECKME!!!!!
-
 After the imports,
 
 ```Python
-from mbank import variable_handler, cbc_metric, cbc_bank, tiling_handler
-from mbank.utils import compute_injections_match, compute_injections_metric_match
+from mbank import variable_handler, cbc_metric, cbc_bank
+from mbank.utils import compute_injections_match, get_random_sky_loc, initialize_inj_stat_dict
 from mbank.utils import load_PSD, plot_tiles_templates
+from mbank.flow import STD_GW_Flow
 import numpy as np
 ```
 
-you need to load the bank, the tiling and the (optional) flow:
+you need to load the bank and the flow and to instantiate a {class}`mbank.metric.cbc_metric` object:
 
 ```Python
 bank = cbc_bank('Mq_chi', 'bank.dat')
-t_obj = tiling_handler('tiling.npy')
-t_obj.load_flow('flow.zip') #optional step
-```
-We then generate the injection sampling them from the tiling and compute the match with the bank:
+flow = STD_GW_Flow.load_flow('flow.zip')
 
-```Python
-n_injs = 1000
-injs_3D = t_obj.sample_from_tiling(n_injs)
-stat_dict = compute_injections_metric_match(injs_3D, bank, t_obj)
-```
-The function will return a dictionary with the injections statistics computed: note that since we are using the metric approximation to the match, it runs very fast. To know more about the entries of the dictionary, you can take a look at the documentation of `mbank.utils.compute_metric_injections_match`.
-The output dictionary also keeps the value of the injections in the full 12 dimensional BBH space, so that you don't need to worry to save them separately.
-
-If you want to compute the full match, you can do so, after the computation of the _metric_ match, with the function `compute_injections_match`. Make sure to define a metric object first and transform your templates in the full 12 dimensional BBH space!
-
-```Python
 metric = cbc_metric(bank.variable_format,
-			PSD = load_PSD('aligo_O3actual_H1.txt', True, 'H1'),
-			approx = 'IMRPhenomD',
-			f_min = 10, f_max = 1024)
-templates_full = np.array(variable_handler().get_BBH_components(bank.templates, bank.variable_format)).T
-stat_dict = compute_injections_match(stat_dict, templates_full, metric,
-			mchirp_window = 0.1, symphony_match = False, cache = False)
+	PSD = load_PSD('aligo_O3actual_H1.txt', True, 'H1', df = 1),
+	approx = 'IMRPhenomD',
+	f_min = 10, f_max = 1024)
 ```
-This will update some of the entries of the `stat_dict` with the unapproximated fitting factors: as the generation of many WFs is required, this will take a while.
 
-We can then plot the injections performed on the tiling and we colour them by their fitting factor:
+We then generate the injections by sampling them from the normalizing flow model:
 
 ```Python
-best_matches = stat_dict['match'] if stat_dict['match'] is not None else stat_dict['metric_match']
-plot_tiles_templates(bank.templates, bank.variable_format, t_obj,
-			injections = injs_3D, show = True,
-			inj_cmap =  best_matches)
+n_injs = 100
+injs_3D = flow.sample(n_injs)
+injs_12D = bank.var_handler.get_BBH_components(bank.templates, bank.variable_format)
+sky_locs = np.column_stack(get_random_sky_loc(n_injs))
+stat_dict = initialize_inj_stat_dict(injs_12D, sky_locs = sky_locs)
 ```
 
+In this case injections are sampled in the 3D space of {math}`M, q, \chi_{eff}` but since injections can be generic, we need to cast them in the full 12 dimensional BBH space. We also draw at random the sky locations for the injections: setting it to None, will set {math}`F_\times = 0`.
 
+In the last line, we initialized an "injection statistics dictionary", which will store information about the fitting factor computations.
 
+It's now time to go ahead, be patient and perform the fitting factor computation:
 
+```Python
+inj_stat_dict = compute_injections_match(stat_dict, bank,
+	metric_obj = metric, mchirp_window = 0.1, symphony_match = True)
+save_inj_stat_dict('injections.json', inj_stat_dict)
+```
 
+This will take several minutes... You can then save the injection stat dictionary in json format and plot the result of the injection study.
 
+```Python
+plot_tiles_templates(bank.templates, bank.variable_format,
+	injections = injs_3D, inj_cmap = stat_dict['match'], show = True)
+```
 

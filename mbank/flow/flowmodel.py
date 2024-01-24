@@ -375,8 +375,8 @@ class GW_Flow(Flow):
 			#Are you sure you want float32?
 		train_data = torch.tensor(train_data, dtype=torch.float32)
 		validation_data = torch.tensor(validation_data, dtype=torch.float32)
-		if train_weights is not None: train_weights = torch.tensor(train_weights, dtype=torch.float32)
-		if validation_weights is not None: validation_weights = torch.tensor(validation_weights, dtype=torch.float32)
+		if train_weights is not None: train_weights = torch.squeeze(torch.tensor(train_weights, dtype=torch.float32)) #squeeze is suuuuper important!
+		if validation_weights is not None: validation_weights = torch.squeeze(torch.tensor(validation_weights, dtype=torch.float32))
 		
 		N_train = train_data.shape[0]
 		if not isinstance(batch_size, int):
@@ -718,6 +718,26 @@ class STD_GW_Flow(GW_Flow):
 		self.hidden_features = hidden_features
 		self.D = D
 		return
+
+	def log_volume_element(self, theta):
+		"""
+		Returns an estimation to the (log) volume element :math:`\log\sqrt{M(\theta)}` givev by the normalizing flow. This is equivalent to the flow log_pdf, scaled by a constant.
+		
+		Parameters
+		----------
+			theta: :class:`~numpy:numpy.ndarray`
+				Input points to evaluate the at
+		
+		Returns
+		-------
+			log_sqrt_metric: :class:`~numpy:numpy.ndarray`
+				The natural logarithm of the volume element :math:`\log\sqrt{M(\theta)}`.
+		"""
+		theta = torch.tensor(theta, dtype=torch.float32)
+		with torch.no_grad():
+			log_volume_element = self.log_prob(theta) + self.constant
+		
+		return log_volume_element.numpy()
 	
 	@property
 	def boundary_box(self):
@@ -748,8 +768,6 @@ class STD_GW_Flow(GW_Flow):
 		-------
 			new_flow: STD_GW_Flow
 				Initialized flow
-			
-		
 		"""
 	
 		w = torch.load(weigth_file)

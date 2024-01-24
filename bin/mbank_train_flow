@@ -37,7 +37,7 @@ from torch import optim
 
 from mbank import variable_handler, cbc_metric
 from mbank.utils import load_PSD, avg_dist, plot_tiles_templates, get_boundaries_from_ranges, plot_colormap
-from mbank.parser import get_boundary_box_from_args, boundary_keeper
+from mbank.parser import get_boundary_box_from_args, boundary_keeper, make_sub_file
 import mbank.parser
 
 from mbank.flow import STD_GW_Flow, GW_Flow
@@ -70,6 +70,9 @@ parser.add_argument(
 parser.add_argument(
 	"--ignore-boundaries", default = False, action = 'store_true',
 	help="Whether to ignore the ranges given by command line. If set, the boudaries will be extracted from the dataset")
+parser.add_argument(
+	"--make-sub",  default = False, action='store_true',
+	help="If set, it will make a condor submit file that the user can use to launch the job through condor.")
 
 args, filenames = parser.parse_known_args()
 
@@ -93,6 +96,10 @@ if args.run_dir is None: args.run_dir = './out_{}/'.format(args.run_name)
 if not args.run_dir.endswith('/'): args.run_dir = args.run_dir+'/'
 if not os.path.exists(args.run_dir): os.makedirs(args.run_dir)
 if args.flow_file.find('/') <0: args.flow_file = args.run_dir+args.flow_file
+
+if args.make_sub:
+	make_sub_file(args.run_dir, args.run_name)
+	quit()
 
 for i, f in enumerate(args.dataset):
 	if f.find('/') <0: f = args.run_dir+f

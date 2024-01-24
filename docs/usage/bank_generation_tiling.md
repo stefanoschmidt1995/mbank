@@ -153,7 +153,7 @@ import numpy as np
 ```
 
 In this simple tutorial, we will generate a three dimensional bank (`D=3`) sampling the variables `M,q, chi`.
-You will need to set the appropriate `variable\_format`: it is a string that encodes the variables being used. The variable format is taken care of by a class `variable_handler`: see the class reference for more information.
+You will need to set the appropriate `variable_format`: it is a string that encodes the variables being used. The variable format is taken care of by a class `variable_handler`: see the class reference for more information.
 We also instantiate a bank object `bank`, which will handle the templates and the template placing.
 
 ```Python

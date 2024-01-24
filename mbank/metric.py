@@ -321,9 +321,8 @@ class cbc_metric(object):
 		elif callable(boundaries):
 			ids_ok = boundaries(theta)
 		else:
-			ids_ok = range(theta.shape[0])
+			ids_ok = np.full(theta.shape[0], True, dtype = bool)
 			
-		
 		res = np.zeros((theta.shape[0],)) -10000000
 		
 		if np.any(ids_ok):

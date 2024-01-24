@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "mbank"
-copyright = "2023, Stefano Schmidt"
+copyright = "2024, Stefano Schmidt"
 author = "Stefano Schmidt"
 
 # The full version, including alpha/beta/rc tags

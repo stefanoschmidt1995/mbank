@@ -2,8 +2,8 @@ Working with normalizing flows
 ==============================
 
 A [normalizing flow](https://arxiv.org/abs/1912.02762) is a powerful Machine Learning model which allow to sample from a complicated distribution in an analytical way. Since the template placing can be cast into a sampling (+ rejection) problem, it is natural to use such model to improve the performance of the metric placement.
-In this context, the flow acts both as a sampling model and metric interpolator, with great improvement in template placement performance.
-Inside `mbank`, a normalizing flow model is attached to the tiling and it's a black box: the user does not need to go into the details of it.
+In this context, the flow acts both as a sampling model and metric estimator, with great improvement in template placement performance.
+Inside `mbank`, a normalizing flow model is used to sample templates for the bank. The un-interested user can happily skip this section, as the flow training work out-of-the-box, using the normal executables.
 
 Here we want to do more and train a normalizing flow model to reproduce a generic target distribution: this will give us the chance to learn about the low levels details of the module `mbank.flow`.
 
@@ -14,6 +14,10 @@ In this respect, a normalizing flow encodes also a probability distribution on t
 
 The mapping is usually implemented as a stack of ''simple" transformations, which if trained properly are able to model any complex distrbution.
 The training is performed by minizing the forward KL distance between the probability distribution defined by the data and the one defined by the normalizing flow model.
+
+The normalising flow is usually trained using samples from the target (empirical) distribution. This employs the KL loss function.
+However, as we do not have access to sample from the target distribution, we treat the problem as a regression and we "teach" the flow to reproduce the target value of the probability density. The sampling comes from free!
+In what follows, we will show how to work with samples. An example on how to train the flow with within the regression framework is given in the previous section about [bank generation](bank_generation.md).
 
 ## Let's get our hands dirty
 

@@ -490,6 +490,8 @@ class cbc_bank:
 			max_depth = 6, n_layers = 2, hidden_features = 4, N_epochs = 1000, verbose = True):
 		#FIXME: here you should use kwargs, directing the user to the docs of other functions?
 		"""
+		**DEPRECATED**
+		
 		Generates a bank using a hierarchical hypercube tesselation. 
 		The bank generation consists in two steps:
 		

@@ -12,6 +12,8 @@ two large bank introduced in the [paper](https://arxiv.org/abs/2302.00436) (Sec.
 
 - [`validation.ini`](validation.ini): provides some options to make some validation plots of the metric (see [here](https://mbank.readthedocs.io/en/latest/usage/metric.html#validating-the-metric) for more details).
 
+- [`bank_by_hand.py`](bank_by_hand.py) and [`injections_by_hand.py`](injections_by_hand.py): they allow you to generate a template bank and to perform injections. They don't rely on the various executable and they can be useful to undestand the low level mechanism of `mbank`. See also the docs [here](https://mbank.readthedocs.io/en/latest/usage/bank_generation.html#bank-by-hands) and [here](https://mbank.readthedocs.io/en/latest/usage/injections.html#injections-by-hands).
+
 ## Get things done
 
 First things first, download your PSD:
@@ -57,4 +59,13 @@ mbank_validate_metric validation.ini
 ```
 
 See the [docs](https://mbank.readthedocs.io/en/latest/usage/metric.html#validating-the-metric) for more details on metric validation.
+
+You can generate the bank and validate it with injections by simply executing:
+
+```Bash
+python bank_by_hand.py
+python injections_by_hand.py
+```
+
+This may take more than ten minutes to run, especially the injection study!
 

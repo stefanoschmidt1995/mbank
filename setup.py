@@ -2,7 +2,7 @@ import setuptools
 import sys
 
 required_packages =['scipy>=1.9.3', 'numpy', 'matplotlib',
-	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow']
+	'python-ligo-lw', 'lalsuite>=6.70', 'tqdm', 'ray', 'torch', 'glasflow', 'emcee']
 #required_packages =[]
 
 with open("README.md", "r") as fh:

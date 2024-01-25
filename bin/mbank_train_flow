@@ -43,7 +43,6 @@ import mbank.parser
 from mbank.flow import STD_GW_Flow, GW_Flow
 from mbank.flow.utils import early_stopper, plot_loss_functions
 
-import emcee
 from tqdm import tqdm
 import argparse
 import os

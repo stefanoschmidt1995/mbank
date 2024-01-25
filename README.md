@@ -5,14 +5,17 @@ If you want more details, you can take a look at the [documentation](https://mba
 Otherwise, you can keep reading and learn the essentials below.
 
 ## How it works
+
 In order to search for a Binary Black Hole (BBH) signal, one needs to come up with a set of templates (a.k.a. bank), signals that will be searched in the noisy data from the interferometers.
 Generating a [bank](https://journals.aps.org/prd/abstract/10.1103/PhysRevD.80.104014) is a tedious work, requiring to place huge number of templates so that their mutual distance is as constant as possible. Unfortunately the computation of such distance is highly expensive and, if we want to expand the parameter space covered by the searches, we are **very** interested to get a reliable bank covering an high dimensional space at a decent cost.
 
-A first step consists in introducing a cheap approximation to the distance between templates. The approximation relies on replacing the complicated distance with a _metric_ distance (i.e. a bilinear form). This however can still give problems, as computing the metric can still be quite expensive, especially in high dimensions.
+A first step consists in introducing a cheap approximation to the distance between templates. The approximation relies on replacing the complicated distance with a _metric_ distance (i.e. a bilinear form). This however is still unsatisfactory, as computing the metric can still be quite expensive, especially in high dimensions.
 
 An appealing alternative to computing distances is to sample templates from a suitable distribution, which ensures that the templates are as equally spaced as possible. This is the "uniform" distribution across the parameter space (which of course is not uniform in the space coordinates) and it is characterized by a volume element (equal to the square root of the metric determinant, as standard in differential geometry).
+Samples from such distribution are guaranteed to be equally spaced, especially for a large number of dimension.
+Thus, by sampling templates from the "uniform" distribution and checking iteratively for the space coverage, one is able to obtain a pretty nice _random_ template bank - see more [here](https://arxiv.org/abs/0809.5223) and [here](https://arxiv.org/abs/2202.09380).
 
-`mbank` does all of this. It is able to compute the metric and it employs a normalizing flow (machine learning model) to estimate the volume element and to sample from the parameter space.
+`mbank` does all of this. It is able to compute the metric and it employs a normalizing flow (machine learning model) to estimate the volume element and to sample from the parameter space. It also implements the random placement algorithm. Moreover, it gathers all the machinery to validate the any newly generated template bank.
 
 The bank generation algorithm works in 4+1 steps:
 
@@ -79,6 +82,10 @@ mbank_generate_flow_dataset myBank.ini
 mbank_train_flow myBank.ini
 mbank_place_templates myBank.ini
 ```
+
+Here's how your generated bank looks like:
+
+![](https://github.com/stefanoschmidt1995/mbank/blob/master/examples/eccentric_bank/bank.png)
 
 You can also generate an injection file (sampling injections from the normalizing flow) and [validate](https://mbank.readthedocs.io/en/latest/usage/injections.html) your template bank. This is done by computing the fitting factor for each injection:
 

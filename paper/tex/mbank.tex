@@ -95,7 +95,7 @@ Utrecht University, Princetonplein 1, 3584 CC Utrecht, The Netherlands}
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BODY 
 \section{Introduction}
 
-As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{GWTC-1,GWTC-2,GWTC-2.1, GWTC-3}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024, Nitz:2021mzz}, primordial BHs \cite{PBH}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj, LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz, Fairhurst:2019vut, McIsaac:2023ijd} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M, Wadekar:2023kym}.
+As gravitational-wave (GW) astronomy enters a mature state, the accessible parameter space of binary black hole (BBH) mergers in LIGO \cite{LIGOScientific:2014pky} and Virgo \cite{VIRGO:2014yos} data continues to grow. Besides standard aligned-spin GW searches for stellar-mass BBH mergers \cite{LIGOScientific:2018mvr, LIGOScientific:2020ibl, LIGOScientific:2021usb, KAGRA:2021vkt}, there are GW searches targeting the parameter space of sub-solar mass black holes (BH) \cite{SSM_O2, SSM_O3a, PhysRevD.106.023024}, primordial BHs \cite{Nitz:2021mzz}, eccentric binaries \cite{PhysRevD.102.043005, PhysRevD.104.104016, Nitz:2019spj, LIGOScientific:2019dag, Ramos-Buades:2020eju, Wang:2021qsu, Nitz:2021mzz} and intermediate-mass BHs (IMBH) \cite{IMBH_O2, IMBH_O3, Chandra:2022ixv}. Moreover, there is a growing interest in GW searches for more complex binaries, such as those with precession \cite{PhysRevD.89.024010, Harry:2017weg, PhysRevD.102.041302, Indik:2016qky, Harry:2016ijz, Fairhurst:2019vut, McIsaac:2023ijd} or higher-order mode (HMs) content~\cite{CalderonBustillo:2015lrt, Harry:2017weg, Chandra_hom, 2021PhRvD.103b4042M, Wadekar:2023kym}.
 
 GW searches for signals from compact binary mergers traditionally utilize the method of matched-filtering with a template bank of model waveforms~\cite{Sathyaprakash:1991mt, Dhurandhar:1992mw, Owen:1998dk, Allen:2005fk, Babak:2006ty, Cokelaer:2007mv}.
 An optimal template bank is composed of the smallest number of templates that guarantees that only a small fraction of signal-to-noise ratio from GW signals is missed due to the discreteness of the template bank \cite{Prix:2007ks}.
@@ -109,7 +109,7 @@ Furthermore, the sheer number of dimensions can have an even more catastrophic i
 As the BBH searches grow in complexity due to the inclusion of more physical effects and hence more dimensions, the stochastic approach struggles to produce template banks in a feasible amount of time.
 This poses the challenge of finding a viable alternative for template bank generation, which is able to deliver large banks in a high-dimensional parameter space, such as those associated with precession, eccentricity and HMs.
 
-Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Keppel:2013uma}, there has recently been increasing attention on {\it metric template placement} \cite{Roy:2017oul, Roulet:2019hzy, Coogan:2022qxs, Hanna:2022zpk}.
+Revitalizing a pioneering line of research in bank generation \cite{owen_metric, Messenger:2008ta, Prix:2007ks, Brown:2012qf, Keppel:2012ye}, there has recently been increasing attention on {\it metric template placement} \cite{Roy:2017oul, Roulet:2019hzy, Coogan:2022qxs, Hanna:2022zpk}.
 Such methods rely on approximating the distance (or mismatch) between two waveforms with a bilinear form, called metric.
 Although the metric is only approximate, it allows for a faster template placing, which may overcome some of the major limitations of the standard stochastic placement algorithm.
 
@@ -131,7 +131,7 @@ While the first innovation delivers an accurate distribution for the templates t
 
 The combination of a new metric expression and the normalizing flow model, applied to the random template placement algorithm, makes our method particularly well-suited for dealing with high-dimensional ($>$~4D) parameter spaces, such as those associated with precessing or eccentric searches.
 Our method is implemented in an open-source, production-ready, Python package \texttt{mbank}\cite{mbank}, available on GitHub\footnote{
-\href{https://github.com/stefanoschmidt1995/mbank}{stefanoschmidt1995/mbank}.}
+\href{https://github.com/stefanoschmidt1995/mbank}{https://github.com/stefanoschmidt1995/mbank}.}
 and on the PyPI repository\footnote{
 The package is distributed under the name \texttt{\href{https://pypi.org/project/gw-mbank/}{gw-mbank}}.
 }.
@@ -177,7 +177,7 @@ Depending on symmetry assumptions on the polarizations, one is able to maximize 
 For the other quantities, a brute force approach is required, where the maximized $\Lambda$ is evaluated at each time on a large set of signal models, called a {\it template bank} \cite{PhysRevD.77.104017, Mukherjee:2018yra}.
 Regardless of the nature of the signal, one is {\it always} able to maximise $\Lambda$ over sky-location (angles $\alpha$ and $\delta$), polarization angle $\Psi$ and luminosity distance $D_L$, which enters as an overall amplitude scaling.
 
-The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage of several pipelines to search for GW signals \cite{Allen:2005fk, Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, gstlal_paper2, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurrence in a noise only model.
+The computation of the SNR as a function of time for a single template is known as {\it matched filtering} and has been implemented successfully as the first stage of several pipelines to search for GW signals \cite{Allen:2005fk, Privitera:2013xza, Usman:2015kfa, Capano:2016dsf, PhysRevD.95.042001, Nitz:2017svb, Sachdev:2019vvd, Aubin:2020goo, Chu:2020pjv}. Modern pipelines can easily perform matched filtering on millions of templates and use the aggregated information to produce lists of GW candidates, ranked by their false alarm probability of occurrence in a noise only model.
 
 For a circular non-precessing signal with no HM, it holds $\tilde{h}_+ \propto i\tilde{h}_\times$ and the maximization of Eq.~\eqref{eq:LL_gauss} over the nuisance parameters yields \cite{Maggiore:2007ulw}:
 \begin{equation}\label{eq:std_snr}
@@ -287,7 +287,7 @@ A simple way to do so is by means of a Markov Chain Monte Carlo (MCMC). However,
 To speed up the sampling, we introduce a {\it normalizing flow} model. As we will show below, in order to train the model $\mathcal{O}(10^5)$ metric evaluations are sufficient: this is a small fraction of the metric evaluations needed to run a MCMC.
 Once trained, the normalizing flow model produces high quality samples from Eq.~\eqref{eq:pdf_uniform} in a small amount of time, effectively providing templates to populate a random template bank.
 
-A normalizing flow model \cite{norm_flow, nflows_paper, Kobyzev_2021, Papamakarios_thesis} is a machine learning model widely used to reproduce and/or parameterize complicated probability distributions.
+A normalizing flow model \cite{norm_flow, neural_spline_flows, Kobyzev_2021, Papamakarios_thesis} is a machine learning model widely used to reproduce and/or parameterize complicated probability distributions.
 Mathematically, a flow is an {\it invertible} parametric function $\phi_W$ which is trained to map samples $\theta$ from an arbitrary probability distribution $p(\theta)$ to samples $\mathbf{x}$ from a multivariate standard normal distribution $\mathcal{N}(\mathbf{x}|0,\mathbf{1})$. The space of the $\mathbf{x}$ is sometimes referred to as {\it latent space}.
 The parameters $W$ of the flow are set in such a way that:
 \begin{equation}
@@ -537,7 +537,7 @@ Our results are consistent with the findings of \cite{Coogan:2022qxs}, which we 
 
 We compare the output of \texttt{mbank} with two banks available in the literature, generated with two different methods.
 The first bank is a non-spinning HM bank \cite{Harry:2017weg}, covering the high mass region of the BBH parameter space. The bank was generated using the stochastic placement algorithm, as implemented in the code \texttt{sbank} \cite{Ajith:2012mn}.
-The second bank is the aligned-spin bank \cite{Sakon:2022ibh} currently in use by the \texttt{GstLAL} pipeline \cite{PhysRevD.95.042001, gstlal_paper2} for the fourth observing run (O4) of the LIGO-Virgo-Kagra collaboration. It was generated using the \texttt{manifold} \cite{Hanna:2022zpk} metric template placement algorithm called and covers a very wide mass range in the BNS and BBH parameter space.
+The second bank is the aligned-spin bank \cite{Sakon:2022ibh} currently in use by the \texttt{GstLAL} pipeline \cite{PhysRevD.95.042001, Sachdev:2019vvd} for the fourth observing run (O4) of the LIGO-Virgo-Kagra collaboration. It was generated using the \texttt{manifold} \cite{Hanna:2022zpk} metric template placement algorithm called and covers a very wide mass range in the BNS and BBH parameter space.
 Both banks have a minimal match $MM$ requirement of $0.97$.
 
 In much of what follows we will measure the coverage of a bank. To do so, we randomly extract a number of simulated signals and, for each of them, we compute the maximum match with the templates of the bank. The latter quantity is called {\it fitting factor} $FF$ which, for a simulated signal characterized by orbital parameters $\theta$, it is defined as:

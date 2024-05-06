@@ -782,7 +782,7 @@ def plot_colormap(datapoints, values, variable_format, statistics = 'mean', bins
 
 def plot_tiles_templates(templates, variable_format, tiling = None, injections = None, inj_cmap = None, dist_ellipse = None, save_folder = None, fs = 15, show = False, savetag = '', title = None):
 	"""
-	Make some plots of the templates and the tiling.
+	Make some plots of a bunch of templates, possibly with a tiling and/or injections
 		
 	Parameters
 	----------

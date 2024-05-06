@@ -26,7 +26,7 @@ metric = cbc_metric(bank.variable_format,
 	##
 n_injs = 100
 injs_3D = flow.sample(n_injs)
-injs_12D = bank.var_handler.get_BBH_components(bank.templates, bank.variable_format)
+injs_12D = bank.var_handler.get_BBH_components(injs_3D, bank.variable_format)
 sky_locs = np.column_stack(get_random_sky_loc(n_injs))
 stat_dict = initialize_inj_stat_dict(injs_12D, sky_locs = sky_locs)
 

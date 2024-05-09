@@ -14,7 +14,9 @@ Ideally the templates should cover the paramter space as evenly as possible, so 
 
 The (squared) distance between templates is called match and it is very standard in GW data analysis.
 Standard tecniques to compute such distance requires the generation of the full signal and they are costly. Here a different approach is used, replacing the distance between templates by a second order approximation, called metric approximation.
-The metric approximation is then used to place the templates in a fast and efficient way.	
+The metric approximation is then used to place the templates in a fast and efficient way.
+
+To know everything you want to know about this method, you can take a look at our `paper <https://journals.aps.org/prd/abstract/10.1103/PhysRevD.109.042005>`_.
 """
 
 from . import bank, metric, handlers

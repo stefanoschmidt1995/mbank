@@ -1422,6 +1422,27 @@ class cbc_metric(object):
 
 		return match
 	
+	def sigmasq(self, template):
+		"""
+		Computes the template normalization sigmasq :math:`\\sigma^2 = <h|h>`.
+		
+		Parameters
+		----------
+		
+		template: :class:`~numpy:numpy.ndarray`
+			shape: (N,K) -
+			First set of WFs
+
+		Returns
+		-------
+		
+		sigmasq : :class:`~numpy:numpy.ndarray` (N,)
+			Array containing the match of the given WFs
+		"""
+		template_W = (template/np.sqrt(self.PSD)) #whithened WF
+		df = metric.f_grid[1] - metric.f_grid[0]
+		return 4*df*np.sum(np.multiply(np.conj(template_W), template_W), axis = -1).real
+	
 	def WF_match(self, signal, template, overlap = False):
 		"""
 		Computes the match element by element between a set of signal WFs and template WFs. The WFs shall be evaluated on the custom grid.
@@ -1430,13 +1451,13 @@ class cbc_metric(object):
 		Parameters
 		----------
 		
-		h1: :class:`~numpy:numpy.ndarray`
-			shape: (N,K) -
-			First set of WFs
+		signal: tuple
+			:class:`~numpy:numpy.ndarray` (N,K) -
+			Frequency domain WF for the signal to filter
 
-		h2: :class:`~numpy:numpy.ndarray`
-			shape: (N,K)/(K,) -
-			Second set of WFs
+		template: tuple
+			:class:`~numpy:numpy.ndarray` (N,K) -
+			Complex frequency domain template to filter the signal with
 		
 		overlap: bool
 			Whether to compute the overlap between WFs (rather than the match)

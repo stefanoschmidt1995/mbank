@@ -1440,7 +1440,7 @@ class cbc_metric(object):
 			Array containing the match of the given WFs
 		"""
 		template_W = (template/np.sqrt(self.PSD)) #whithened WF
-		df = metric.f_grid[1] - metric.f_grid[0]
+		df = self.f_grid[1] - self.f_grid[0]
 		return 4*df*np.sum(np.multiply(np.conj(template_W), template_W), axis = -1).real
 	
 	def WF_match(self, signal, template, overlap = False):

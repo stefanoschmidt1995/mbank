@@ -33,6 +33,7 @@ from mbank.utils import read_xml, save_injs
 from mbank.parser import updates_args_from_ini
 from mbank import variable_handler
 from ligo.lw import lsctables
+from pathlib import Path
 
 import argparse
 import configparser
@@ -84,13 +85,12 @@ assert args.inj_file, "Argument --inj-file must be specified!"
 
 	####
 	# Making some folders
-working_dir = os.getcwd()
-#jobs_dir = '{}/match_jobs/'.format(working_dir)
-jobs_dir = 'match_jobs/'.format(working_dir)
+pwd = os.getcwd()
+jobs_dir = '{}/match_jobs/'.format(pwd)
 if not os.path.isdir(jobs_dir): os.mkdir(jobs_dir)
-file_dir = 'files/'
+file_dir = '{}/files/'.format(pwd)
 if not os.path.isdir(file_dir): os.mkdir(file_dir)
-results_dir = 'results/'
+results_dir = '{}/results/'.format(pwd)
 if not os.path.isdir(results_dir): os.mkdir(results_dir)
 if not os.path.isdir('logs'): os.mkdir('logs')
 
@@ -130,7 +130,7 @@ injs, sky_locs = read_xml(args.inj_file, lsctables.SimInspiralTable, args.n_injs
 
 chirp_masses = vh.get_mchirp(injs[:,:2], 'Mq_nonspinning')
 ids_sort = np.argsort(chirp_masses)
-injs_per_job = int(injs.shape[0]/args.n_jobs)
+injs_per_job = int(injs.shape[0]/args.n_jobs)+1
 job_dirs, inj_files, stat_files = [], [], []
 
 	#Pay attention to the files! Maybe you shouldn't transfer files
@@ -173,7 +173,7 @@ for i in range(args.n_jobs):
 	#args = [Option('run-dir', '.'), Option('inj-file', inj_files[i])]
 	
 		#Input files must be among the inputs, since they need to be transfered
-	inputs = [Argument("input", filenames[0])]
+	inputs = [Argument("input", '/'.join([pwd,filenames[0]]))]
 	for k, f in input_files.items():
 		if f is None: continue
 		inputs.append(Option(k, f))

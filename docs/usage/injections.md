@@ -17,8 +17,8 @@ Assuming you generated the bank normally in the [previous section](bank_generati
 By running
 
 ```Bash
-mbank_injfile my_first_precessing_injections.ini
-mbank_injections my_first_precessing_injections.ini
+mbank_injfile my_first_eccentric_bank.ini
+mbank_injections my_first_eccentric_bank.ini
 ```
 
 This will produce two nice plots.
@@ -87,4 +87,32 @@ This will take several minutes... You can then save the injection stat dictionar
 plot_tiles_templates(bank.templates, bank.variable_format,
 	injections = injs_3D, inj_cmap = stat_dict['match'], show = True)
 ```
+
+## Injections with condor
+
+If you are on a cluster with HTCondor, it is very likely that you want to put the injection computation inside a condor DAG, to run in parallel. Luckily, `mbank` does also that for you. To set up the dag you just need to type:
+
+```Bash
+mbank_injections_workflow --n-jobs 100 --inj-file eccentric_bank/eccentric_injections.xml my_first_eccentric_bank.ini
+```
+
+This will load the injections from the file `eccentric_bank/eccentric_injections.xml` and will split the computation between 100 jobs.
+The command will produce many files, including a `mbank_injections_dag.dag` file, which keeps the instructions to run all the jobs in the DAG, and two submit files (`match_computation.sub` and `merge_products.sub`), which keeps the instructions to run the actual jobs.
+Note that, depending on your local condor configuration, you may need to edit the submit files to make the DAG run smoothly.
+
+Once you are ready, you can launch the DAG and monitor its advancment with 
+
+```Bash
+condor_submit_dag mbank_injections_dag.dag
+tail -f mbank_injections_dag.dag.dagman.out
+```
+
+Once the DAG is over, you can find the json output file together with some plots in the directory `results`.
+
+To clean all the temporary files you produced, you can run
+
+```Bash
+mbank_injections_workflow --clean
+```
+Pay attention that this will erase also the result directory, so make sure to move it somewhere safe before clening everything.
 

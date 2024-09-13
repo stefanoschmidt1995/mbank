@@ -1,8 +1,8 @@
 """
-mbank.utils
-===========
+mbank.placement
+===============
 
-A lot of placement methods, both for the tiling and the normalizing flow. Most of them are deprecated and are not guaranteed to work properly.
+A lot of placement methods, both for the tiling and the normalizing flow. Most of the methods are deprecated and are not guaranteed to work properly. The functions :func:`place_random_flow` are :func:`place_stochastically_flow` are guaranteed to work.
 """
 
 import numpy as np
